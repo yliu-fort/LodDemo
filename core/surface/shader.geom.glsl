@@ -40,11 +40,11 @@ float sampleVolume(ivec3 p, ivec3 gridSize)
     ws.y -= 0.5f;
     float density = -ws.y;
 
-    density += 0.05f*texture(volumeTex, ws*31.92).x*0.125/4;
+    //density += 0.05f*texture(volumeTex, ws*31.92).x*0.125/4;
     density += 0.05f*texture(volumeTex, ws*16.07).x*0.125/2;
-    density += 0.05f*texture(volumeTex, ws*7.97).x*0.125;
+    //density += 0.05f*texture(volumeTex, ws*7.97).x*0.125;
     density += 0.05f*texture(volumeTex, ws*4.03).x*0.25;
-    density += 0.05f*texture(volumeTex, ws*1.96).x*0.50;
+    //density += 0.05f*texture(volumeTex, ws*1.96).x*0.50;
     density += 0.05f*texture(volumeTex, ws*1.01).x*1.00;
 
     return density;

@@ -173,14 +173,17 @@ public:
             float norm = sqrtf(x1*x1 + x2*x2 + x3*x3);
             norm = norm > 0?norm : 1;
 
+            // Vertice
             m_Vertices.push_back (x1/norm);
             m_Vertices.push_back (x2/norm);
             m_Vertices.push_back (x3/norm);
 
+            // Normal
             m_Vertices.push_back (x1/norm);
             m_Vertices.push_back (x2/norm);
             m_Vertices.push_back (x3/norm);
 
+            // Texture coord on spherical coordinate
             float s = 0.5f - atan2f(x3,x1) / (2.0f * 3.141592654f);
             float t = 0.5f - (asinf(x2/norm) / 3.141592654f);
             m_Vertices.push_back (s);

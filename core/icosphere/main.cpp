@@ -65,26 +65,28 @@ int main()
     glEnable(GL_DEPTH_TEST);
 
     // Read shader
-    Shader shader(FP("renderer/icosphere.vert"),FP("renderer/icosphere.frag"));
-    Shader lineShader(FP("renderer/icosphere.vert"),FP("renderer/icosphere_line.frag"));
+    //Shader shader(FP("renderer/icosphere.vert"),FP("renderer/icosphere.frag"));
+    Shader lightShader(FP("renderer/icosphere.vert"),FP("renderer/icosphere_with_light.frag"));
+    //Shader lineShader(FP("renderer/icosphere.vert"),FP("renderer/icosphere_line.frag"));
 
     // For automatic file reloading
     FileSystemMonitor::Init(SRC_PATH);
 
     // Prepare buffers
-    Icosphere sphere(4);
+    Icosphere sphere(6);
 
     // load textures
         // -------------
-    uint texture = loadTexture(FP("../../resources/textures/2k_earth_daymap.jpg"));
+    uint texture1 = loadTexture("2k_earth_daymap.jpg", FP("../../resources/textures/earth"));
+    uint texture2 = loadTiffTexture("2k_earth_normal_map.tif", FP("../../resources/textures/earth"));
+    uint texture3 = loadTiffTexture("2k_earth_specular_map.tif", FP("../../resources/textures/earth"));
+
 
     while( !glfwWindowShouldClose( window ) )
     {
         // per-frame time logic
         // --------------------
         countAndDisplayFps(window);
-
-
 
 #ifdef VISUAL
         // input
@@ -96,21 +98,35 @@ int main()
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        shader.use();
-        shader.setMat4("projectionMatrix", camera.GetFrustumMatrix());
-        shader.setInt("tex",0);
+        lightShader.use();
+
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE, texture);
+        glBindTexture(GL_TEXTURE_2D, texture1);
+        lightShader.setInt("diffuseMap",0);
+        lightShader.setInt("heightMap",0);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texture2);
+        lightShader.setInt("normalMap",1);
+
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, texture3);
+        lightShader.setInt("specularMap",2);
+
+        lightShader.setMat4("projection_view", camera.GetFrustumMatrix());
+        lightShader.setMat4("model", glm::mat4(1));
+        lightShader.setVec3("viewPos",camera.Position);
+        lightShader.setVec3("lightPos", glm::vec3(-0.25f,-0.23f,100.2f));
 
         sphere.draw();
 
-        lineShader.use();
-        lineShader.setVec3("color",glm::vec3(0.0));
-        lineShader.setMat4("projectionMatrix", camera.GetFrustumMatrix());
-
-        glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-        sphere.draw();
-        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+        //lineShader.use();
+        //lineShader.setVec3("color",glm::vec3(1));
+        //lineShader.setMat4("projectionMatrix", camera.GetFrustumMatrix());
+        //
+        //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+        //sphere.draw();
+        //glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 
         //renderBox();
 
@@ -372,7 +388,7 @@ GLFWwindow* initGL(int w, int h)
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
-    glfwSwapInterval(0); // 60 fps constraint
+    glfwSwapInterval(1); // 60 fps constraint
 #else
     glfwSwapInterval(0); // No fps constraint
 #endif

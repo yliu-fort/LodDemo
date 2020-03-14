@@ -155,7 +155,7 @@ public:
         try
         {
             Texture tex;
-            tex.id = loadTexture("2k_earth_daymap.jpg", path,false);
+            tex.id = loadTexture("8k_earth_daymap.jpg", path,false);
             tex.type = "texture_diffuse";
             tex.path =path;
             textures.push_back(tex);
@@ -168,7 +168,7 @@ public:
         try
         {
             Texture tex;
-            tex.id = loadTiffTexture("2k_earth_specular_map.tif", path,false);
+            tex.id = loadTiffTexture("8k_earth_specular_map.tif", path,false);
             tex.type = "texture_specular";
             tex.path =path;
             textures.push_back(tex);
@@ -182,7 +182,7 @@ public:
         try
         {
             Texture tex;
-            tex.id = loadTiffTexture("2k_earth_normal_map.tif", path,false);
+            tex.id = loadTiffTexture("8k_earth_normal_map.tif", path,false);
             tex.type = "texture_normal";
             tex.path =path;
             textures.push_back(tex);
@@ -351,7 +351,7 @@ public:
     }
     // Note: this location implied a reference coordinate located in (0,0,0)
     // Care must be taken when switching to another reference system
-    void setLocation(glm::vec3 dir = glm::vec3(-0.25f,-0.4f,1.2f))
+    void setLocation(glm::vec3 dir = glm::vec3(-0.25f,-0.23f,-1.2f))
     {
         // initialize log-space location
         location = glm::normalize(-dir) ;// glm::vec3(log(distance));
@@ -366,7 +366,7 @@ public:
     void setLighting()
     {
         lightingSource.ambient = glm::vec3( 0.05f, 0.05f, 0.05f);
-        lightingSource.diffuse = glm::vec3( 2.0f, 2.0f, 1.8f);
+        lightingSource.diffuse = glm::vec3( 10.5f, 10.5f, 10.5f);
         lightingSource.specular= glm::vec3( 0.10f, 0.15f, 0.10f);
     }
 

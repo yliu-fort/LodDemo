@@ -175,7 +175,7 @@ int main()
     FileSystemMonitor::Init(SRC_PATH);
 
     // Initialize 2d noise texture
-    uint nx = 256, ny = 256;
+    uint nx = 64, ny = 64;
     //Datafield//
     unsigned int dataFieldTex;
     //Store the volume data to polygonise
@@ -195,6 +195,9 @@ int main()
             dataField.push_back(glm::vec4(rand() / double(RAND_MAX),
                                           rand() / double(RAND_MAX),
                                           rand() / double(RAND_MAX),1.0f));
+            //dataField.push_back(glm::vec4(i/(float)nx,
+            //                              j/(float)ny,
+            //                              0.0f,1.0f));
         }
 
     glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA32F, nx, ny, 0, GL_RGBA, GL_FLOAT, &dataField[0]);
@@ -240,21 +243,27 @@ int main()
         Camera refCam(camera);
         lodShader.use();
 
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, dataFieldTex);
+        lodShader.setInt("tex0", 0);
         for(int i = 0; i < 7; i++)
         {
             refCam.Position = glm::vec3(0,0,0) - camera.Position;
 
-            glActiveTexture(GL_TEXTURE0);
+            float localScaling = powf(2.0f, 6-i);
+
             // First box in origin
             glm::mat4 model = glm::mat4(1);
             model = glm::translate( model, refCam.Position/glm::vec3(camera.Position.y) );
-            model = glm::scale(model,glm::vec3( pow(2.0, 6-i) ));
+            model = glm::scale(model,glm::vec3( localScaling ));
 
             refCam.Position = glm::vec3(0,0,0);
             lodShader.setMat4("projectionMatrix", refCam.GetFrustumMatrix());
             lodShader.setMat4("model", model);
             lodShader.setVec3("albedo",lodColor[i]);
-            lodShader.setFloat("globalScaling", globalScaling);
+            lodShader.setFloat("globalScaling", globalScaling );
+            lodShader.setFloat("localScaling", localScaling );
+
             renderPlane();
         }
 

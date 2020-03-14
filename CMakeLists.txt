@@ -71,5 +71,6 @@ add_subdirectory("core/surface")
 add_subdirectory("core/icosphere")
 add_subdirectory("core/planet")
 add_subdirectory("core/quaternion")
+add_subdirectory("core/quadtree")
 ### TESTS&DEMOS
 #add_subdirectory("test")
