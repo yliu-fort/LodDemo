@@ -14,20 +14,20 @@
 #include "cmake_source_dir.h"
 #include "shader.h"
 #include "camera.h"
-//#include "colormap.h"
+#include "colormap.h"
 #include "filesystemmonitor.h"
 //#include "gui_interface.h"
 //#include "slice.h"
 //#include "boundingbox.h"
 #include "image_io.h"
-//#include "cartesian_field.h"
+#include "texture_utility.h"
 
 // settings
 static int SCR_WIDTH  = 800;
 static int SCR_HEIGHT = 600;
 
 // camera
-static Camera camera = Camera(glm::vec3(0.0f, 1.0f, 1.0f), float(SCR_WIDTH)/SCR_HEIGHT);
+static Camera camera = Camera(glm::vec3(0.5f, 0.5f, 0.5f), float(SCR_WIDTH)/SCR_HEIGHT);
 
 static float lastX = SCR_WIDTH / 2.0f;
 static float lastY = SCR_HEIGHT / 2.0f;
@@ -154,71 +154,6 @@ void renderPlane()
     glBindVertexArray(0);
 }
 
-// renderCube() renders a 16x16 2d grid in NDC.
-// -------------------------------------------------
-static unsigned int gridVAO = 0;
-static unsigned int gridVBO = 0;
-void renderGrid()
-{
-    int nx=16,ny=16;
-
-    // initialize (if necessary)
-    if (gridVAO == 0)
-    {
-        struct float8
-        {
-            float val[8];
-            float8(float  v1, float v2, float v3, float v4,float  v5, float v6, float v7, float v8)
-            {val[0] = v1;val[1] = v2;val[2] = v3;val[3] = v4;val[4] = v5;val[5] = v6;val[6] = v7;val[7] = v8;}
-        };
-        std::vector<float8> vertices;
-
-        for(int j = 0; j < ny; j++)
-            for(int i = 0; i < nx; i++)
-            {
-                glm::vec2 lo(    i/float(nx),    j/float(ny));
-                glm::vec2 hi((i+1)/float(nx),(j+1)/float(ny));
-
-                vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, lo.x, lo.y)); // bottom-left
-                vertices.push_back(float8( lo.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, lo.x, hi.y)); // top-left
-                vertices.push_back(float8( hi.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, hi.x, hi.y)); // top-right
-
-                vertices.push_back(float8( hi.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, hi.x, hi.y)); // top-right
-                vertices.push_back(float8( hi.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, hi.x, lo.y)); // bottom-right
-                vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, lo.x, lo.y)); // bottom-left
-
-            }
-
-        //float vertices[] = {
-        //    // z dir
-        //     1.0f, 0.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
-        //     1.0f, 0.0f, -1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f, // top-left
-        //    -1.0f, 0.0f,  1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f, // bottom-right
-        //    -1.0f, 0.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
-        //
-        //};
-
-        glGenVertexArrays(1, &gridVAO);
-        glGenBuffers(1, &gridVBO);
-        // fill buffer
-        glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
-        glBufferData(GL_ARRAY_BUFFER, 8*sizeof(float)*vertices.size(), &vertices[0], GL_STATIC_DRAW);
-        // link vertex attributes
-        glBindVertexArray(gridVAO);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
-    }
-    // render Cube
-    glBindVertexArray(gridVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6*nx*ny);
-    glBindVertexArray(0);
-}
 
 class refCamera : public Camera
 {
@@ -339,7 +274,7 @@ public:
         model = glm::translate(model, Position) * glm::mat4(rotation);
 
         // Set a readable cliping range
-        Near = 0.1f; Far = 10.0f;
+        //Near = 0.1f; Far = 10.0f;
 
         // Draw frustrum
         shader.use();
@@ -350,16 +285,86 @@ public:
 
 };
 
+// renderGrid() renders a 16x16 2d grid in NDC.
+// -------------------------------------------------
+static unsigned int gridVAO = 0;
+static unsigned int gridVBO = 0;
+#define GRIDX (16)
+#define GRIDY (16)
+void renderGrid()
+{
+
+    // initialize (if necessary)
+    if (gridVAO == 0)
+    {
+        struct float8
+        {
+            float val[8];
+            float8(float  v1, float v2, float v3, float v4,float  v5, float v6, float v7, float v8)
+            {val[0] = v1;val[1] = v2;val[2] = v3;val[3] = v4;val[4] = v5;val[5] = v6;val[6] = v7;val[7] = v8;}
+        };
+        std::vector<float8> vertices;
+
+        for(int j = 0; j < GRIDY; j++)
+            for(int i = 0; i < GRIDX; i++)
+            {
+                glm::vec2 lo(    i/float(GRIDX),    j/float(GRIDY));
+                glm::vec2 hi((i+1)/float(GRIDX),(j+1)/float(GRIDY));
+
+                vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, lo.x, lo.y)); // bottom-left
+                vertices.push_back(float8( lo.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, lo.x, hi.y)); // top-left
+                vertices.push_back(float8( hi.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, hi.x, hi.y)); // top-right
+
+                vertices.push_back(float8( hi.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, hi.x, hi.y)); // top-right
+                vertices.push_back(float8( hi.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, hi.x, lo.y)); // bottom-right
+                vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, lo.x, lo.y)); // bottom-left
+
+            }
+
+        std::cout <<  std::endl;
+
+        glGenVertexArrays(1, &gridVAO);
+        glGenBuffers(1, &gridVBO);
+        // fill buffer
+        glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
+        glBufferData(GL_ARRAY_BUFFER, 8*sizeof(float)*vertices.size(), &vertices[0], GL_STATIC_DRAW);
+        // link vertex attributes
+        glBindVertexArray(gridVAO);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
+    // render Grid
+    glBindVertexArray(gridVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6*GRIDX*GRIDY);
+    glBindVertexArray(0);
+}
+
+#define HEIGHT_MAP_X (16)
+#define HEIGHT_MAP_Y (16)
+static Shader upsampling, crackfixing;
+static unsigned int noiseTex;
 struct Node
 {
     Node* child[4];
     Node* parent;
     uint appearance, heightmap;
     glm::vec2 lo, hi;
-    bool subdivided = false;
-    uint level = 0;
+    bool subdivided;
+    bool crackfixed;
+    uint level, offset_type;
+    //float heightdata[HEIGHT_MAP_X*HEIGHT_MAP_Y];
 
-    Node() : lo(0), hi(1) { }
+    Node() : lo(0), hi(1), subdivided(false), crackfixed(false), level(0), offset_type(0)
+    {
+        glGenTextures(1, &heightmap);
+        glGenTextures(1, &appearance);
+    }
     ~Node()
     {
         if(subdivided)
@@ -369,12 +374,16 @@ struct Node
             delete child[2];
             delete child[3];
         }
+
+        glDeleteTextures(1, &heightmap);
+        glDeleteTextures(1, &appearance);
     }
 
     template<uint TYPE>
     void setconnectivity(Node* leaf)
     {
         static_assert (TYPE < 4, "Only 4 child index" );
+        offset_type = TYPE;
         glm::vec2 center = glm::vec2(0.5f)*(leaf->lo + leaf->hi);
         if(TYPE == 0) // bottom-left
         {
@@ -414,17 +423,200 @@ struct Node
     {
         return glm::vec3(lo.x,0.0f,lo.y);
     }
-    glm::vec3 getcenter() const
+    glm::vec2 getcenter() const
+    {
+        return 0.5f*glm::vec2(hi.x + lo.x,hi.y + lo.y);
+    }
+    glm::vec3 getcenter3() const
     {
         return 0.5f*glm::vec3(hi.x + lo.x,0.0f,hi.y + lo.y);
     }
+    void bake_height_map()
+    {
+        // Initialize 2d heightmap texture
+
+        //Datafield//
+        //Store the volume data to polygonise
+        glActiveTexture(GL_TEXTURE0);
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, heightmap);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        //Generate a distance field to the center of the cube
+        glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, GL_RED, GL_FLOAT, NULL);
+
+        upsampling.use();
+        upsampling.setVec2("lo", lo);
+        upsampling.setVec2("hi", hi);
+
+        // bind noisemap
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, noiseTex);
+
+        // write to heightmap
+        glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+
+        // Deploy kernel
+        glDispatchCompute(1,1,1);
+
+        // make sure writing to image has finished before read
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    }
+    void fix_heightmap(Node* neighbour, int edgedir)
+    {
+        // edge direction
+        // 0: left, 1: top, 2:right, 3:bottom
+        glm::vec2 begin,end;
+        glm::vec2 my_begin,my_end;
+        glm::vec2 texrange;
+
+        printf(" block range (%f,%f), (%f,%f)\n",lo.x,lo.y, hi.x, hi.y);
+
+        if(edgedir == 0)
+        {
+            texrange.x = (lo.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y);
+            texrange.y = (hi.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y);
+            // scale tex.y
+            begin = glm::vec2(1, (lo.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y));
+            end   = glm::vec2(1, (hi.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y));
+
+            my_begin = glm::vec2(0,0);
+            my_end   = glm::vec2(0,1);
+
+            printf(" trim to left neighbour, shared tex range(%f->%f)\n",texrange.x,texrange.y);
+        }
+        if(edgedir == 2)
+        {
+            texrange.x = (lo.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y);
+            texrange.y = (hi.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y);
+            // scale tex.y
+            begin = glm::vec2(0, (lo.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y));
+            end   = glm::vec2(0, (hi.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y));
+
+            my_begin = glm::vec2(1,0);
+            my_end   = glm::vec2(1,1);
+
+            printf(" trim to right neighbour, shared tex range(%f->%f)\n",texrange.x,texrange.y);
+        }
+        if(edgedir == 1)
+        {
+            texrange.x = (lo.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x);
+            texrange.y = (hi.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x);
+            // scale tex.x
+            begin = glm::vec2((lo.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x), 0);
+            end   = glm::vec2((hi.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x), 0);
+
+            my_begin = glm::vec2(0,1);
+            my_end   = glm::vec2(1,1);
+
+            printf(" trim to top neighbour, shared tex range(%f->%f)\n",texrange.x,texrange.y);
+        }
+        if(edgedir == 3)
+        {
+            texrange.x = (lo.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x);
+            texrange.y = (hi.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x);
+            // scale tex.x
+            begin = glm::vec2((lo.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x), 1);
+            end   = glm::vec2((hi.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x), 1);
+
+            my_begin = glm::vec2(0,0);
+            my_end   = glm::vec2(1,0);
+
+            printf(" trim to bottom neighbour, shared tex range(%f->%f)\n",texrange.x,texrange.y);
+        }
+
+        // notice: assumed square height map (hx = hy = 16)
+        crackfixing.use();
+        crackfixing.setVec2("mylo", my_begin);
+        crackfixing.setVec2("myhi", my_end);
+        crackfixing.setVec2("shlo", begin);
+        crackfixing.setVec2("shhi", end);
+
+        // bind neighbour heightmap
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, neighbour->heightmap);
+
+        // write to heightmap
+        glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+
+        // Deploy kernel
+        glDispatchCompute(1,1,1);
+
+        // make sure writing to image has finished before read
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    }
+    void gen_heightmap()
+    {
+        bool isTraversible = subdivided;
+        if(isTraversible)
+        {
+            child[0]->gen_heightmap();
+            child[1]->gen_heightmap();
+            child[2]->gen_heightmap();
+            child[3]->gen_heightmap();
+        }
+        else
+        {
+            bake_height_map();
+        }
+
+    }
+    void split()
+    {
+        if(!this->subdivided)
+        {
+            child[0] = new Node;
+            child[0]->setconnectivity<0>(this);
+            child[0]->bake_height_map();
+
+            child[1] = new Node;
+            child[1]->setconnectivity<1>(this);
+            child[1]->bake_height_map();
+
+            child[2] = new Node;
+            child[2]->setconnectivity<2>(this);
+            child[2]->bake_height_map();
+
+            child[3] = new Node;
+            child[3]->setconnectivity<3>(this);
+            child[3]->bake_height_map();
+
+            this->subdivided = true;
+        }
+    }
+    int search(glm::vec2 p)
+    {
+        glm::vec2 center = getcenter();
+
+        // not in box
+        if(p.x < lo.x || p.y < lo.y || p.x > hi.x || p.y > hi.y) { return -1; }
+
+        // find in which subregion
+        if(p.x < center.x)
+        {
+            if(p.y < center.y)
+                return 0; // bottom-left
+            else
+                return 1; //top-left
+        }else
+        {
+            if(p.y < center.y)
+                return 3; // bottom-right
+            else
+                return 2; //top-right
+        }
+
+    }
 };
 
+#define MAX_DEPTH (11)
 class Geomesh
 {
 public:
     glm::mat4 model;
-    unsigned int VAO, VBO, EBO;
 
     // start from the deepest level (leaf node), compute the distance to reference point/camera
     // child sharing the same father are expected to be clustered
@@ -434,41 +626,169 @@ public:
 
     Node* root;
 
-    Geomesh(){ root = new Node; }
-    ~Geomesh(){ delete root; }
+    Geomesh() : root(new Node){
 
+        root->gen_heightmap();
+    }
+    ~Geomesh(){
+        delete root;
+    }
+
+    void fixcrack(Shader& shader)
+    {
+        fixcrack(root, shader);
+    }
+    void fixcrack(Node* node, Shader& shader)
+    {
+        bool isTraversible = node->subdivided;
+        if(isTraversible)
+        {
+            fixcrack(node->child[0], shader);
+            fixcrack(node->child[1], shader);
+            fixcrack(node->child[2], shader);
+            fixcrack(node->child[3], shader);
+        }
+        else
+        {
+            // fix crack
+            // for each block, we only need to check 2 directions
+            // because the other 2 directions are filled by same or higher level lod
+            // once found a match, the height map of current block will be modified
+            // only perform this to current draw level
+            // we also assume 4 corners are seamless
+
+            //if(node -> crackfixed == true) { return; }
+
+            // marks: 0: left, 1: top, 2:right, 3:bottom
+
+            glm::vec2 f1, f2;
+            int e1, e2;
+            if(node->offset_type == 0) // going to search 2 faces
+            {
+                f1 = node->getcenter() - glm::vec2(0.0,(node->hi.y-node->lo.y)); // bottom
+                f2 = node->getcenter() - glm::vec2((node->hi.x-node->lo.x), 0.0); // left
+                e1 = 3;e2 = 0;
+            }
+            if(node->offset_type == 1) // going to search 2 faces
+            {
+                f1 = node->getcenter() + glm::vec2(0.0,(node->hi.y-node->lo.y)); // top
+                f2 = node->getcenter() - glm::vec2((node->hi.x-node->lo.x), 0.0); // left
+                e1 = 1;e2 = 0;
+            }
+            if(node->offset_type == 2) // going to search 2 faces
+            {
+                f1 = node->getcenter() + glm::vec2(0.0,(node->hi.y-node->lo.y)); // top
+                f2 = node->getcenter() + glm::vec2((node->hi.x-node->lo.x), 0.0); // right
+                e1 = 1;e2 = 2;
+            }
+            if(node->offset_type == 3) // going to search 2 faces
+            {
+                f1 = node->getcenter() - glm::vec2(0.0,(node->hi.y-node->lo.y)); // bottom
+                f2 = node->getcenter() + glm::vec2((node->hi.x-node->lo.x), 0.0); // right
+                e1 = 3;e2 = 2;
+            }
+            //else {return;}
+
+            // find the node
+            Node* sh_node = root;
+            int result = -1;
+            while(true)
+            {
+                // start from root
+                result = sh_node->search(f1);
+                if(result != -1 && sh_node->subdivided)
+                {
+                    sh_node = sh_node->child[result];
+                    continue;
+                }
+                break;
+            }
+
+            // Compare with neighbour, if my_level > neighbour_level
+            // a height map sync will be called here
+            if(result != -1 && node->level == (sh_node->level + 1))
+            {
+                node-> fix_heightmap(sh_node,e1);
+            }
+
+            // here is the second face
+            Node* sh_node2 = root;
+            result = -1;
+            while(true)
+            {
+                // start from root
+                result = sh_node2->search(f2);
+                if(result != -1 && sh_node2->subdivided)
+                {
+                    sh_node2 = sh_node2->child[result];
+                    continue;
+                }
+                break;
+            }
+
+            if(result != -1 && node->level == (sh_node2->level + 1))
+            {
+                node-> fix_heightmap(sh_node2,e2);
+            }
+
+            //debug
+            if(node->level == (sh_node->level + 1) || node->level == (sh_node2->level + 1))
+                {
+                    shader.use();
+                    // Transfer local grid model
+                    glm::mat4 model(1);
+
+                    model = glm::translate(model, node->getshift());
+                    model = glm::scale(model, node->getscale());
+                    shader.setMat4("model", model);
+
+                    // Transfer lo and hi
+                    shader.setVec2("lo", node->lo);
+                    shader.setVec2("hi", node->hi);
+
+                    // Active textures
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, node->heightmap);
+
+                    // Render grid
+                    renderGrid();
+                }
+            //    {
+            //printf(" node [(%f,%f),(%f,%f),%d] find two adjcent faces"
+            //       " [(%f,%f),(%f,%f),%d] and node [(%f,%f),(%f,%f),%d]\n",
+            //       node->lo.x,node->lo.y,node->hi.x,node->hi.y,node->level,
+            //       sh_node->lo.x,sh_node->lo.y,sh_node->hi.x,sh_node->hi.y,sh_node->level,
+            //       sh_node2->lo.x,sh_node2->lo.y,sh_node2->hi.x,sh_node2->hi.y,sh_node2->level
+            //       );
+            //    }
+            //std::cout <<std::endl;
+
+
+            //node -> crackfixed = true;
+        }
+    }
     void subdivision(glm::vec3 viewPos)
     {
         subdivision(viewPos, root);
+        //root->gen_heightmap();
     }
+
+    void draw(Shader& shader)
+    {
+        drawRecr(root, shader);
+    }
+
     void subdivision(glm::vec3 viewPos, Node* node)
     {
 
-        float d = glm::distance(viewPos, node->getcenter());
+        float d = glm::distance(viewPos, node->getcenter3());
         float K = 2.8f;
-
-#define MAX_DEPTH (9)
 
         // Subdivision
         if(d < (K * node->size()) && node->level < MAX_DEPTH)
         {
 
-            if(!node->subdivided)
-            {
-                node->child[0] = new Node;
-                node->child[0]->setconnectivity<0>(node);
-
-                node->child[1] = new Node;
-                node->child[1]->setconnectivity<1>(node);
-
-                node->child[2] = new Node;
-                node->child[2]->setconnectivity<2>(node);
-
-                node->child[3] = new Node;
-                node->child[3]->setconnectivity<3>(node);
-
-                node->subdivided = true;
-            }
+            node->split();
 
             subdivision(viewPos, node->child[0]);
             subdivision(viewPos, node->child[1]);
@@ -478,7 +798,7 @@ public:
         }
         else
         {
-            if(d > (1.15f* K * node->size()) && node->subdivided)
+            if(d > (1.15f * K * node->size()) && node->subdivided)
             {
                 delete node->child[0];
                 delete node->child[1];
@@ -490,10 +810,6 @@ public:
         }
     }
 
-    void draw(Shader& shader)
-    {
-        drawRecr(root, shader);
-    }
     void drawRecr(Node* node, Shader& shader)
     {
         bool isTraversible = node->subdivided;
@@ -506,13 +822,22 @@ public:
         }
         else
         {
+            // Transfer local grid model
             glm::mat4 model(1);
 
             model = glm::translate(model, node->getshift());
             model = glm::scale(model, node->getscale());
             shader.setMat4("model", model);
-            shader.setVec4("lod_level", glm::vec4(node->lo.x,0,node->lo.y,node->level));
 
+            // Transfer lo and hi
+            shader.setVec2("lo", node->lo);
+            shader.setVec2("hi", node->hi);
+
+            // Active textures
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, node->heightmap);
+
+            // Render grid
             renderGrid();
         }
         return;
@@ -540,39 +865,48 @@ int main()
     // For automatic file reloading
     FileSystemMonitor::Init(SRC_PATH);
 
+    // reference camera
+    refCamera refcam(camera);
+
     // Initialize 2d noise texture
-    uint nx = 256, ny = 256;
     //Datafield//
-    unsigned int dataFieldTex;
+
     //Store the volume data to polygonise
-    glGenTextures(1, &dataFieldTex);
+    glGenTextures(1, &noiseTex);
     glActiveTexture(GL_TEXTURE0);
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, dataFieldTex);
+    glBindTexture(GL_TEXTURE_2D, noiseTex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     //Generate a distance field to the center of the cube
-    std::vector<glm::vec4> dataField;
-    for(uint j=0; j<ny; j++)
-        for(uint i=0; i<nx; i++){
-            dataField.push_back(glm::vec4(rand() / double(RAND_MAX),
-                                          rand() / double(RAND_MAX),
-                                          rand() / double(RAND_MAX),1.0f));
-            //dataField.push_back(glm::vec4(i/(float)nx,
-            //                              j/(float)ny,
-            //                              0.0f,1.0f));
+    std::vector<float> dataField;
+    uint res = 256;
+    for(uint j=0; j<res; j++){
+        for(uint i=0; i<res; i++){
+            dataField.push_back(rand() / double(RAND_MAX));
+            //dataField.push_back(sqrt(i*i + j*j)/double(res));
         }
+    }
 
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA32F, nx, ny, 0, GL_RGBA, GL_FLOAT, &dataField[0]);
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, res, res, 0, GL_RED, GL_FLOAT, &dataField[0]);
 
+    // colormap
+    //Colormap::Rainbow();
+    Colormap::Viridis();
 
-    // reference camera
-    refCamera refcam(camera);
+    // real material texture
+    unsigned int material = loadTexture("Y42lf.png",FP("../../resources/textures"), false);
 
-    // Geo mesh
+    // Geo mesh, careful: need a noise texture and shader before intialized
+    upsampling.reload_shader_program_from_files(FP("renderer/upsampling.glsl"));
+    crackfixing.reload_shader_program_from_files(FP("renderer/crackfixing.glsl"));
     Geomesh mesh;
+
+    // Adjust camera frustum
+    camera.Near = 10.0/6e6;
+    //camera.Far = 2.0;
 
     while( !glfwWindowShouldClose( window ) )
     {
@@ -587,12 +921,22 @@ int main()
 
         if(bindCam)
         {
+            camera.Position.x = fmod(1.0f + fmod(camera.Position.x, 1), 1);
+            camera.Position.z = fmod(1.0f + fmod(camera.Position.z, 1), 1);
+            camera.Position.y = fmax(camera.Position.y, 2.0f*camera.Near);
             refcam.sync_frustrum();
             refcam.sync_position();
             refcam.sync_rotation();
+
+        }
+
+        if(ticking)
+        {
+        std::cout << "REAL HEIGHT = " << camera.Position.y*6e3 << "km" << std::endl;
         }
 
         mesh.subdivision(refcam.Position);
+
 
         // Draw points
         glViewport(0,0,SCR_WIDTH, SCR_HEIGHT);
@@ -604,29 +948,35 @@ int main()
         // Render relative to eye
         shader.use();
         shader.setMat4("projection_view", camera.GetFrustumMatrix());
-        shader.setMat4("model", glm::mat4(1));
         shader.setVec3("viewPos", refcam.Position);
 
-        shader.setInt("tex0", 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, dataFieldTex);
+        // Noise texture
+        shader.setInt("heightmap", 0);
 
+        // Colormap
+        Colormap::Bind();
+        shader.setInt("colormap", 10);
+
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, material);
+        shader.setInt("material", 2);
+
+        //mesh.fixcrack(shader);
         //renderPlane();
         //renderGrid();
         mesh.draw(shader);
+        //glClear(GL_COLOR_BUFFER_BIT);
 
-        //lodShader.use();
-        //lodShader.setMat4("projection_view", camera.GetFrustumMatrix());
-        //lodShader.setMat4("model", glm::mat4(1));
-        //lodShader.setVec3("viewPos", refcam.Position);
-        //
-        //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-        //mesh.draw(lodShader);
-        //glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+        lodShader.use();
+        lodShader.setMat4("projection_view", camera.GetFrustumMatrix());
+        lodShader.setVec3("viewPos", refcam.Position);
+        shader.setInt("heightmap", 0);
+        glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+        mesh.draw(lodShader);
+        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 
         // debug
         refcam.draw_frustrum(pColorShader);
-
 
 #endif
 

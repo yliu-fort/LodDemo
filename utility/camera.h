@@ -31,7 +31,7 @@ public:
     glm::vec3 Right;
     glm::vec3 WorldUp;
 
-    float Aspect, Near=0.001f, Far=1000.0f;
+    float Aspect, Near=0.001f, Far=100.0f;
     // Euler Angles
     float Yaw = 0.0f;
     float Pitch = 0.0f;

@@ -8,10 +8,15 @@ out vec2 TexCoords;
 
 uniform mat4 projection_view;
 uniform mat4 model;
+uniform sampler2D heightmap;
+
 void main()
 {
     TexCoords = aTexCoords;
     FragPos = vec3(model * vec4(aPos, 1.0f));
 
-    gl_Position = projection_view * model *vec4(aPos, 1.0);
+    //float height = texelFetch(heightmap, ivec2(aTexCoords*15),0).r;
+    float height = texture(heightmap, aTexCoords).r;
+
+    gl_Position = projection_view * model *vec4(aPos+vec3(0,height,0), 1.0);
 }

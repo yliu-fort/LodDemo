@@ -98,7 +98,7 @@ void Camera::ProcessMouseMovement(float xoffset, float yoffset, GLboolean constr
     updateCameraVectors();
 }
 
-#define CAM_MIN_SPEED (1e-3)
+#define CAM_MIN_SPEED (1e-6)
 #define CAM_MAX_SPEED (1e30)
 // Processes input received from a mouse scroll-wheel event. Only requires input on the vertical wheel-axis
 void Camera::ProcessMouseScroll(float yoffset)

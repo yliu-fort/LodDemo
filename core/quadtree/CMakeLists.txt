@@ -5,8 +5,6 @@ file(GLOB SOURCE
     #${UTILITY}
     "*.h"
     "*.cpp"
-    "unary_operator/*.glsl"
-    "algo/*.glsl"
     "renderer/*"
     )
 

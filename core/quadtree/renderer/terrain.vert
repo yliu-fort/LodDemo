@@ -1,39 +1,37 @@
 #version 330 core
-#extension GL_ARB_shading_language_420pack: enable
+
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoords;
 
+out float height_display;
 out vec2 TexCoords;
 
 uniform mat4 projection_view;
 uniform mat4 model;
-uniform sampler2D tex0;
+uniform sampler2D heightmap;
 
-uniform vec4 lod_level;
+uniform vec2 lo;
+uniform vec2 hi;
 
 void main()
 {
-    TexCoords = (lod_level.xz + aTexCoords/pow(2.0f, lod_level.a)) / 4.5;
+    //TexCoords = lo + (aTexCoords)*(hi-lo);
+    TexCoords = aTexCoords;
 
     vec3 fragPos = aPos;
 
-    //float height = texture(tex0, TexCoords).r;
-    //fragPos.y += 0.01f*height;
+    float height = texture(heightmap, aTexCoords).r;
+    //float height = texelFetch(heightmap, ivec2(aTexCoords*15.0f), 0).r; // pixel accurate but bumpy
 
-    // Noise sampler1D
-    vec3 density = vec3(0);
-    float freq[7] = {4.03,1.96,1.01,1.0f/2.03f,1.0f/3.98f,1.0f/8.01f,1.0f/15.97f};
+    // Write to fragpos and height field
+    fragPos.y += height;
+    height_display = height/0.005;
 
-    for(int i = 0; i < 6; i++)
-    {
+    // debug
+    //height = sqrt(dot(TexCoords,TexCoords));
+    //fragPos.y = 0.07*sqrt(dot(TexCoords,TexCoords));
 
-        density += texture(tex0,  TexCoords * freq[i]).xxx;
-        density /= 2.0f;
-
-    }
-
-    fragPos.y += 0.25f*density.x - 0.1f;
 
     gl_Position = projection_view*model*vec4(fragPos, 1.0);
 }
