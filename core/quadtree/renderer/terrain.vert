@@ -11,8 +11,11 @@ uniform mat4 projection_view;
 uniform mat4 model;
 uniform sampler2D heightmap;
 
-uniform vec2 lo;
-uniform vec2 hi;
+//uniform vec2 lo;
+//uniform vec2 hi;
+
+#define HEIGHT_MAP_X (17)
+#define HEIGHT_MAP_Y (17)
 
 void main()
 {
@@ -21,12 +24,12 @@ void main()
 
     vec3 fragPos = aPos;
 
-    float height = texture(heightmap, aTexCoords).r;
-    //float height = texelFetch(heightmap, ivec2(aTexCoords*15.0f), 0).r; // pixel accurate but bumpy
+    //float height = texture(heightmap, aTexCoords).r;
+    float height = texelFetch(heightmap, ivec2(aTexCoords*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)), 0).r; // pixel accurate but bumpy
 
     // Write to fragpos and height field
     fragPos.y += height;
-    height_display = height/0.005;
+    height_display = height;
 
     // debug
     //height = sqrt(dot(TexCoords,TexCoords));

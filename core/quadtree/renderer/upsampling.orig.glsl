@@ -10,7 +10,7 @@ layout(r32f, binding = 0) uniform image2D heightmap;
 
 // noisemap
 layout(binding = 1) uniform sampler2D noise;
-layout(binding = 2) uniform sampler2D elevationmap;
+
 #define HEIGHT_MAP_X (17)
 #define HEIGHT_MAP_Y (17)
 
@@ -22,7 +22,7 @@ const float freq[13] = {4.03*32,1.96*32,1.01*32, 32.0f/2.03f,
                  32.0f/31.98f,32.0f/64.01f,32.0f/128.97f,
                  32.0f/256.07f,32.0f/511.89f,32.0f/1024.22f};
 
-#define EFFECTIVE_HEIGHT (0.05)
+#define EFFECTIVE_HEIGHT (0.005)
 
 float calc_height(vec2 pixel)
 {
@@ -54,15 +54,12 @@ void main()
     pixel = lo + ( pixel )*(hi-lo);
 
     // offset to align to the pixel
-    pixel = (pixel+8.0f)/17.0f + 0.5/vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1);
     //vec2 offset = 0.5/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
-    //pixel = offset + pixel*(1.0f - 2.0f*offset);
+    //pixel = offset + pixel;//*(1.0f - 2.0f*offset);
 
     // [0, 1]? issue: align texture with pixel
 
-    // Procedure
     float height = calc_height(pixel);
-    height += max(texture(elevationmap,  pixel ).r, 0.0f);
 
     //debug
     //float height = EFFECTIVE_HEIGHT*texture(noise,  pixel ).r;
