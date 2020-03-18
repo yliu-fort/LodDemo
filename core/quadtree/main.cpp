@@ -430,9 +430,9 @@ struct Node
     {
         return 0.5f*glm::vec2(hi.x + lo.x,hi.y + lo.y);
     }
-    glm::vec3 getcenter3(float elevation = 0.0f) const
+    glm::vec3 getcenter3(const glm::vec2& pos) const
     {
-        return glm::vec3(0.5f*(hi.x + lo.x),elevation,0.5f*(hi.y + lo.y));
+        return glm::vec3(0.5f*(hi.x + lo.x),get_elevation(pos),0.5f*(hi.y + lo.y));
     }
     void bake_height_map()
     {
@@ -616,7 +616,7 @@ struct Node
         auto min = std::min(heightData.begin(),heightData.end());
         return *min;
     }
-    float get_elevation(glm::vec2 pos) const
+    float get_elevation(const glm::vec2& pos) const
     {
         // pos must located inside this grid
         // use queryGrid() before call this function
@@ -646,19 +646,19 @@ public:
 
     std::shared_ptr<Node> root;
     glm::mat4 model;
-    float elevation = 0.0f;
+    //float elevation = 0.0f;
     uint id=0;
 
     Geomesh() : root(new Node), model(glm::mat4(1)){
         root->bake_height_map();
-        root->min_elevation();
+        //root->min_elevation();
     }
     Geomesh(glm::vec2 lo, glm::vec2 hi) : root(new Node){
         root->lo = lo;
         root->hi = hi;
         model = glm::translate(glm::mat4(1),glm::vec3(lo.x,0,lo.y));
         root->bake_height_map();
-        root->min_elevation();
+        //root->min_elevation();
     }
 
     ~Geomesh(){}
@@ -668,7 +668,7 @@ public:
         Node* node = queryNode(glm::vec2(pos.x, pos.z));
         if(node)
             return node->get_elevation(glm::vec2(pos.x, pos.z));
-        return elevation;
+        return root->get_elevation(glm::vec2(pos.x, pos.z));
     }
 
     void refresh_heightmap()
@@ -693,6 +693,8 @@ public:
         drawRecr(root.get(), shader);
     }
 
+    // Caution: only return subdivided grids.
+    // write additional condition if you need root
     Node* queryNode( glm::vec2 pos) const
     {
         //bool isTraversible = node->subdivided;
@@ -839,10 +841,10 @@ public:
         }
     }
 
-    void subdivision(glm::vec3 viewPos, Node* node)
+    void subdivision(const glm::vec3& viewPos, Node* node)
     {
 
-        float d = glm::distance(viewPos, node->getcenter3(elevation));
+        float d = glm::distance(viewPos, node->getcenter3(glm::vec2(viewPos.x,viewPos.z)));
         float K = 2.8f;
 
         // Special case: if cell is at the edge of block
@@ -910,7 +912,7 @@ public:
 };
 
 // which mesh I am standing
-float currentElevation(std::vector<Geomesh>& mesh, glm::vec3 pos)
+float currentElevation(std::vector<Geomesh>& mesh, const glm::vec3& pos)
 {
     for(auto& land: mesh)
     {
@@ -1041,8 +1043,8 @@ int main()
         {
             //camera.Position.x = fmod(1.0f + fmod(camera.Position.x, 1), 1);
             //camera.Position.z = fmod(1.0f + fmod(camera.Position.z, 1), 1);
-            camera.Position.y = fmax(camera.Position.y,
-            currentElevation(mesh, camera.Position) + 20.0f*camera.Near);
+            float min_height = currentElevation(mesh, camera.Position) + 10.0f*camera.Near;
+            camera.Position.y = fmaxf(camera.Position.y, min_height);
             refcam.sync_frustrum();
             refcam.sync_position();
             refcam.sync_rotation();
