@@ -10,15 +10,17 @@ uniform mat4 projection_view;
 uniform mat4 model;
 uniform sampler2D heightmap;
 
-#define HEIGHTMAP_SIZE (17)
+#define HEIGHT_MAP_X (17)
+#define HEIGHT_MAP_Y (17)
 
 void main()
 {
     TexCoords = aTexCoords;
-    FragPos = vec3(model * vec4(aPos, 1.0f));
 
     //float height = texture(heightmap, aTexCoords).r;
-    float height = texelFetch(heightmap, ivec2(aTexCoords*(HEIGHTMAP_SIZE-1)),0).r;
+    float height = texelFetch(heightmap, ivec2(aTexCoords*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)), 0).r;
 
-    gl_Position = projection_view * model *vec4(aPos+vec3(0,height,0), 1.0);
+    FragPos = vec3(model*vec4(aPos.x,aPos.y+height,aPos.z,1.0));
+
+    gl_Position = projection_view * vec4(FragPos, 1.0);
 }
