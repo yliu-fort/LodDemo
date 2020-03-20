@@ -72,6 +72,7 @@ add_subdirectory("core/icosphere")
 add_subdirectory("core/planet")
 add_subdirectory("core/quaternion")
 add_subdirectory("core/quadtree")
+add_subdirectory("core/quadtreeManaged")
 add_subdirectory("core/textureFetch")
 add_subdirectory("core/mipmap")
 ### TESTS&DEMOS

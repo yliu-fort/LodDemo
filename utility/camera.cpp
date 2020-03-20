@@ -34,12 +34,12 @@ const glm::mat4 Camera::GetViewMatrix() const
 // Returns the perspective matrix calculated using Euler Angles and the LookAt Matrix
 const glm::mat4 Camera::GetPerspectiveMatrix() const
 {
-    return glm::perspective(glm::radians(Zoom), Aspect, Near, Far);
+    return glm::perspective(Zoom, Aspect, Near, Far);
 }
 
 const glm::mat4 Camera::GetPerspectiveMatrix(float n, float f) const
 {
-    return glm::perspective(glm::radians(Zoom), Aspect, n, f);
+    return glm::perspective(Zoom, Aspect, n, f);
 }
 
 // Returns the assembled frustum matrix calculated using Euler Angles and the LookAt Matrix
@@ -159,7 +159,6 @@ void Camera::updateCameraVectors()
     Right =   rotation * glm::vec3(1,0,0);
     Up =   rotation * glm::vec3(0,1,0);
 
-
 }
 
 void Camera::updateAspect(float a)
@@ -171,4 +170,44 @@ void Camera::updateNearFar(float n, float f)
 {
     this->Near = n;
     this->Far = f;
+}
+
+#include "imgui.h"
+void Camera::gui_interface(void(*forwarder)(void*), void* object)
+{
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    if (ImGui::TreeNode("Camera::Control Panel"))
+    {
+        ImGui::Text("Controllable parameters for Camera class.");
+
+        // Position
+        ImGui::DragFloat3("Position",&Position[0],0.01f);
+
+        ImGui::Text("Aspect %f"   ,Aspect);
+        ImGui::SliderFloat("Near",&Near,1e-6f,1.0f,"%.6f",10.0f);
+        ImGui::SliderFloat("Far" ,&Far ,1.0f,1e6f,"%.2f",10.0f);
+
+        // Camera options
+        ImGui::InputFloat("MovementSpeed" , &MovementSpeed,1.0f,10.0f);
+        MovementSpeed = MovementSpeed > 0.0f ? MovementSpeed : 0.0f;
+
+        //ImGui::DragFloat("MouseSensitivity") ;
+        ImGui::SliderAngle(" Zoom" , &Zoom,5.0f,90.0f);
+
+        // Global transformation
+        ImGui::DragFloat4("rotation", (float*)&rotation,0.01f);
+        ImGui::DragFloat4("refQuaternion", (float*)&refQuaternion,0.01f);
+
+        // Info
+        ImGui::Text("Front  \t%02.6f, %02.6f, %02.6f"  , Front.x,Front.y,Front.z);
+        ImGui::Text("Up     \t%02.6f, %02.6f, %02.6f"     , Up.x,Up.y,Up.z);
+        ImGui::Text("Right  \t%02.6f, %02.6f, %02.6f"  , Right.x,Right.y,Right.z);
+        ImGui::Text("WorldUp\t%02.6f, %02.6f, %02.6f", WorldUp.x,WorldUp.y,WorldUp.z);
+
+        // for derived class
+        if(forwarder)
+            (*forwarder)(object);
+
+        ImGui::TreePop();
+    }
 }

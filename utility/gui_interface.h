@@ -5,15 +5,17 @@
 // which are built from the interpolated edge vertices
 // Isosurface require: GLwindow, Camera initialized
 // can produce texture with 1-4 channels
+struct GLFWwindow;
 namespace GuiInterface {
-template <typename T> void Init(T* window);
+void Init(GLFWwindow* window);
 void Demo();
 void ReloadShader();
 void Finalize();
 
 // Passing 3d texture
-void Draw();
-
+void Begin();
+void Draw(void (*func_ptr)(void));
+void End();
 }
 
 #endif

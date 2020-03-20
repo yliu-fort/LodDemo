@@ -1,4 +1,6 @@
 #include "shader.h"
+#include <iostream>
+#include <vector>
 #include <fstream>
 #include <sstream>
 

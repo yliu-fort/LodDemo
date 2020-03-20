@@ -39,7 +39,7 @@ public:
     // Camera options
     float MovementSpeed = 2.5f;
     float MouseSensitivity = 0.1f;
-    float Zoom = 45.0f;
+    float Zoom = glm::radians(45.0f);
 
     // Global transformation
     glm::quat rotation, refQuaternion;
@@ -113,10 +113,13 @@ public:
     void updateAspect(float aspect);
     void updateNearFar(float near, float far);
 
-private:
     // Calculates the front vector from the Camera's (updated) Euler Angles
     void updateCameraVectors();
 
+    // gui interface
+    void gui_interface(void(*forwarder)(void*) = NULL, void* object = 0);
+
+private:
     glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest){
         start = normalize(start);
         dest = normalize(dest);
