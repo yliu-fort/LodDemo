@@ -38,7 +38,9 @@ void Geomesh::refresh_heightmap(Node* node)
     {
         // Refresh old height map for interface cells
         if(node->crackfixed)
+        {
             node->bake_height_map();
+        }
     }
 }
 
@@ -91,7 +93,7 @@ void Geomesh::fixcrack(Node* node)
             f2 = node->get_center() + glm::vec2((node->hi.x-node->lo.x), 0.0); // right
             e1 = 3;e2 = 2;
         }
-        else {return;}
+        else {return;} // may located at other blocks or out of the bound
 
         // find the node
         Node* sh_node = queryNode(f1);
@@ -190,6 +192,7 @@ uint Geomesh::MAX_DEPTH = 9;
 float Geomesh::CUTIN_FACTOR = 2.8f; // 2.8 -> see function definition
 float Geomesh::CUTOUT_FACTOR = 1.15f; // >= 1
 bool Geomesh::FRUSTRUM_CULLING = true;
+bool Geomesh::CRACK_FILLING = true;
 RenderMode Geomesh::RENDER_MODE = REAL;
 
 #include "imgui.h"
@@ -211,6 +214,8 @@ void Geomesh::gui_interface()
         const char* current_element_name = (RENDER_MODE >= 0 && RENDER_MODE < ELEMENT_COUNT) ? RENDER_TYPE_NAMES[RENDER_MODE] : "Unknown";
         ImGui::SliderInt("render type", (int*)&RENDER_MODE, 0, ELEMENT_COUNT - 1, current_element_name);
 
+        ImGui::Checkbox("frustrum culling", &FRUSTRUM_CULLING);
+        ImGui::Checkbox("crack filling", &CRACK_FILLING);
         ImGui::TreePop();
     }
 

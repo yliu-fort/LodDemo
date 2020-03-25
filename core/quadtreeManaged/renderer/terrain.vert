@@ -23,16 +23,16 @@ void main()
 {
     vec2 s = 1.0f/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
     // To avoid artifacts in normal calculation
-    TexCoords = 0.5*s + aTexCoords * (1.0 - s);
+    TexCoords = aTexCoords;
 
     //float height = texture(heightmap, aTexCoords).r;
     float height = texelFetch(heightmap, ivec2(aTexCoords*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)), 0).r;
 
     // on-the-fly normal
-    vec2 t1 = clamp(TexCoords + vec2(0.01f,0.0f)*s,vec2(0.5)*s,vec2(1.0f-0.5*s) );
-    vec2 t2 = clamp(TexCoords - vec2(0.01f,0.0f)*s,vec2(0.5)*s,vec2(1.0f-0.5*s) );
-    vec2 t3 = clamp(TexCoords + vec2(0.0f,0.01f)*s,vec2(0.5)*s,vec2(1.0f-0.5*s) );
-    vec2 t4 = clamp(TexCoords - vec2(0.0f,0.01f)*s,vec2(0.5)*s,vec2(1.0f-0.5*s) );
+    vec2 t1 = clamp(0.5*s + aTexCoords * (1.0 - s) + vec2(0.01f,0.0f)*s,vec2(0.5)*s,vec2(1.0f-0.5*s) );
+    vec2 t2 = clamp(0.5*s + aTexCoords * (1.0 - s) - vec2(0.01f,0.0f)*s,vec2(0.5)*s,vec2(1.0f-0.5*s) );
+    vec2 t3 = clamp(0.5*s + aTexCoords * (1.0 - s) + vec2(0.0f,0.01f)*s,vec2(0.5)*s,vec2(1.0f-0.5*s) );
+    vec2 t4 = clamp(0.5*s + aTexCoords * (1.0 - s) - vec2(0.0f,0.01f)*s,vec2(0.5)*s,vec2(1.0f-0.5*s) );
 
     vec3 e1 = vec3(model*vec4((t1.x-t2.x),0.0,0.0,0.0));
     vec3 e2 = vec3(model*vec4(0.0,0.0,(t3.y-t4.y),0.0));

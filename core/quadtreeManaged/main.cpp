@@ -50,6 +50,7 @@ static int frameCount = 0;
 // Shortcut
 static bool bindCam = true;
 static bool drawWireframe = false;
+static bool drawNormalArrows = false;
 
 // Pre-declaration
 GLFWwindow* initGL(int w, int h);
@@ -67,7 +68,7 @@ float currentElevation(std::vector<Geomesh>& mesh, const glm::vec3& pos)
     {
         // Caution: query in 2d grid on (x,z) plane
         if(land.root->lo.x < pos.x && land.root->lo.y < pos.z
-        && land.root->hi.x >= pos.x && land.root->hi.y >= pos.z)
+                && land.root->hi.x >= pos.x && land.root->hi.y >= pos.z)
         {
             return land.queryElevation(pos);
         }
@@ -83,6 +84,7 @@ void gui_interface(float h)
         ImGui::Text("Current elevation: %f", h);
         ImGui::Checkbox("Bind camera", &bindCam);
         ImGui::Checkbox("Draw wireframe", &drawWireframe);
+        ImGui::Checkbox("Draw normal arrows", &drawNormalArrows);
         ImGui::TreePop();
     }
 }
@@ -102,8 +104,8 @@ int main()
 
     // Read shader
     Shader shader(FP("renderer/terrain.vert"),FP("renderer/terrain.frag"));
-    //Shader pColorShader(FP("renderer/box.vert"),FP("renderer/box.frag"));
     Shader lodShader(FP("renderer/lod.vert"),FP("renderer/lod.frag"));
+    Shader normalShader(FP("renderer/lod.vert"),FP("renderer/lod.pcolor.frag"),FP("renderer/lod.glsl"));
     Shader lightingShader(FP("renderer/terrain.vert"),FP("renderer/terrain.lighting.frag"));
 
     // Initlize geogrid system
@@ -124,6 +126,7 @@ int main()
 
     // real material texture
     unsigned int material = loadTexture("Y42lf.png",FP("../../resources/textures"), false);
+    unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
 
     std::vector<Geomesh> mesh;
     for(int i = -8; i < 8; i++)
@@ -180,6 +183,10 @@ int main()
         Colormap::Bind();
         lightingShader.setInt("colormap", 10);
 
+        glActiveTexture(GL_TEXTURE11);
+        glBindTexture(GL_TEXTURE_2D, debug_tex);
+        lightingShader.setInt("debugmap", 11);
+
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, material);
         lightingShader.setInt("material", 2);
@@ -193,28 +200,33 @@ int main()
         // render type
         lightingShader.setInt("render_type", Geomesh::RENDER_MODE);
 
-        if(drawWireframe)
-            glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-        else
-            glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-
         for(const auto& land: mesh)
         {
-            land.draw(lightingShader);  
+            land.draw(lightingShader);
         }
 
-        //glClear(GL_COLOR_BUFFER_BIT);
-        //
-        //lodShader.use();
-        //lodShader.setMat4("projection_view", camera.GetFrustumMatrix());
-        //lodShader.setVec3("viewPos", refcam.Position);
-        //lodShader.setInt("heightmap", 0);
-        //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-        //for(auto& land: mesh) { land.draw(lodShader); }
-        //glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+        if(drawWireframe)
+        {
+            glClear(GL_COLOR_BUFFER_BIT);
 
-        // debug
-        //refcam.draw_frustrum(pColorShader);
+            lodShader.use();
+            lodShader.setMat4("projection_view", camera.GetFrustumMatrix());
+            lodShader.setVec3("viewPos", refcam.Position);
+            lodShader.setInt("heightmap", 0);
+            glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+            for(auto& land: mesh) { land.draw(lodShader); }
+            glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+        }
+
+        if(drawNormalArrows)
+        {
+            normalShader.use();
+            normalShader.setMat4("projection_view", camera.GetFrustumMatrix());
+            normalShader.setVec3("viewPos", refcam.Position);
+            normalShader.setInt("heightmap", 0);
+            normalShader.setVec3("color", glm::vec3(1,1,0));
+            for(auto& land: mesh) { land.draw(normalShader); }
+        }
 
         // gui
         GuiInterface::Begin();

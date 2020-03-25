@@ -68,7 +68,7 @@ public:
     {
         subdivision(viewPos, viewFront, root.get());
         refresh_heightmap();
-        fixcrack();
+        if(CRACK_FILLING){fixcrack();}
     }
 
     void draw(Shader& shader) const
@@ -93,6 +93,7 @@ public:
     static float CUTIN_FACTOR;
     static float CUTOUT_FACTOR;
     static bool FRUSTRUM_CULLING;
+    static bool CRACK_FILLING;
     static RenderMode RENDER_MODE;
 };
 

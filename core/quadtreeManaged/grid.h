@@ -90,6 +90,7 @@ public:
 
     // static member
     static uint NODE_COUNT;
+    static uint INTERFACE_NODE_COUNT;
 };
 
 #endif

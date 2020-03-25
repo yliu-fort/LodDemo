@@ -22,18 +22,18 @@ const float freq[13] = {4.03*32,1.96*32,1.01*32, 32.0f/2.03f,
                  32.0f/31.98f,32.0f/64.01f,32.0f/128.97f,
                  32.0f/256.07f,32.0f/511.89f,32.0f/1024.22f};
 
-#define EFFECTIVE_HEIGHT (0.02)
+#define EFFECTIVE_HEIGHT (0.005)
 
 float calc_height(vec2 pixel)
 {
 
     // Noise sampler1D
-    float density = texture(noise,  pixel * freq[0] ).r;
+    float density = texture(noise,  pixel * freq[0] * 4.0f ).r;
 
     for(int i = 1; i < 12; i++)
     {
         density /= 2.0f;
-        density += texture(noise, pixel * freq[i] ).r;
+        density += texture(noise, pixel * freq[i] * 4.0f ).r;
     }
 
     density = EFFECTIVE_HEIGHT*clamp((density-0.35),0.0,1.0);

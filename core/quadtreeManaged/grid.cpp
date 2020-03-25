@@ -10,6 +10,7 @@ static Shader upsampling, crackfixing;
 static unsigned int noiseTex, elevationTex;
 
 uint Node::NODE_COUNT = 0;
+uint Node::INTERFACE_NODE_COUNT = 0;
 
 void renderGrid();
 
@@ -394,6 +395,7 @@ void Node::gui_interface()
         ImGui::Text("Controllable parameters for Node class.");               // Display some text (you can use a format strings too)
 
         ImGui::Text("Number of nodes generated %d", NODE_COUNT);
+        ImGui::Text("Number of interface nodes generated %d", INTERFACE_NODE_COUNT);
 
         if (ImGui::TreeNode("Noise map"))
         {

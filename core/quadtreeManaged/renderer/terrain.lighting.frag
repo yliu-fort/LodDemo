@@ -29,6 +29,7 @@ in vec3 FragPos;
 
 uniform sampler1D colormap;
 uniform sampler2D material;
+uniform sampler2D debugmap;
 uniform int render_type;
 
 uniform vec3 viewPos;
@@ -67,8 +68,10 @@ void main()
     }else
     if(render_type == 3) // PCOLOR
     {
-        color = vec3(0.7,0.7,0.7);
-        color = CalcDirLight(dirLight, Normal, viewDir, color);
+        //color = vec3(0.7,0.7,0.7);
+        //color = CalcDirLight(dirLight, Normal, viewDir, color);
+        color = texture( debugmap, TexCoords ).rgb;
+
     }
 
     // Output color
