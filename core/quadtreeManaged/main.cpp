@@ -2,9 +2,7 @@
 #include <cmath>
 #include <memory>
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+#include <glad/glad.h>
 
 //GLFW
 #include <GLFW/glfw3.h>
@@ -19,9 +17,7 @@
 #include "filesystemmonitor.h"
 #include "gui_interface.h"
 #include "imgui.h"
-//#include "slice.h"
-//#include "boundingbox.h"
-#include "image_io.h"
+//#include "image_io.h"
 #include "texture_utility.h"
 
 #include "grid.h"
@@ -58,8 +54,6 @@ bool countAndDisplayFps(GLFWwindow* window);
 void processInput(GLFWwindow *window);
 void renderBox();
 void renderPlane();
-
-#define VISUAL
 
 // which mesh I am standing
 float currentElevation(std::vector<Geomesh>& mesh, const glm::vec3& pos)
@@ -98,6 +92,7 @@ int main()
     // Initialize a window
     GLFWwindow* window = initGL(SCR_WIDTH, SCR_HEIGHT);
     printf("Initial glwindow...\n");
+
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
@@ -112,7 +107,7 @@ int main()
     Node::init();
 
     // For automatic file reloading
-    FileSystemMonitor::Init(SRC_PATH);
+    //FileSystemMonitor::Init(SRC_PATH);
 
     // Gui interface
     GuiInterface::Init(window);
@@ -140,13 +135,15 @@ int main()
     camera.Near = 100.0/6e6;
     //camera.Far = 2.0;
 
+    std::cout << "here?5" << std::endl;
+
     while( !glfwWindowShouldClose( window ) )
     {
         // per-frame time logic
         // --------------------
         bool ticking = countAndDisplayFps(window);
 
-#ifdef VISUAL
+
         // input
         glfwGetFramebufferSize(window, &SCR_WIDTH, &SCR_HEIGHT);
         processInput(window);
@@ -160,19 +157,16 @@ int main()
         {
             float min_height = currentElevation(mesh, camera.Position) + 10.0f*camera.Near;
             camera.Position.y = fmaxf(camera.Position.y, min_height);
-            camera.setReference(glm::vec3(0,1,0));
+            //camera.setReference(glm::vec3(0,1,0));
             refcam.sync_frustrum();
             refcam.sync_position();
             refcam.sync_rotation();
-
         }
 
         // Draw points
         glViewport(0,0,SCR_WIDTH, SCR_HEIGHT);
         glClearColor(0.4f, 0.4f, 0.7f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        glEnable(GL_DEPTH_TEST);
 
         // Render relative to eye
         lightingShader.use();
@@ -237,7 +231,7 @@ int main()
         ImGui::ShowDemoWindow();
         GuiInterface::End();
 
-#endif
+
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -278,7 +272,7 @@ bool countAndDisplayFps(GLFWwindow* window)
     }
     return false;
 }
-#ifdef VISUAL
+
 static int key_space_old_state = GLFW_RELEASE;
 void processInput(GLFWwindow *window)
 {
@@ -356,7 +350,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     mouse_button_right = false;
     mods = 0;
 }
-#endif
+
 
 GLFWwindow* initGL(int w, int h)
 {
@@ -367,15 +361,12 @@ GLFWwindow* initGL(int w, int h)
         getchar();
         EXIT_FAILURE;
     }
-    
+
     //glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifndef VISUAL
-    glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
-#endif
 
     // Open a window and create its OpenGL context
     GLFWwindow* window = glfwCreateWindow( w, h, "", nullptr, nullptr);
@@ -387,15 +378,14 @@ GLFWwindow* initGL(int w, int h)
     }
     glfwMakeContextCurrent(window);
     
-    // Initialize GLEW
-    glewExperimental = GL_TRUE;
-    if (glewInit() != GLEW_OK) {
-        fprintf(stderr, "Failed to initialize GLEW\n");
-        getchar();
-        glfwTerminate();
+    // glad: load all OpenGL function pointers
+    // ---------------------------------------
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
         EXIT_FAILURE;
     }
-    
+
     // Initial viewport
     glViewport(0, 0, w, h);
     
@@ -428,7 +418,6 @@ GLFWwindow* initGL(int w, int h)
     glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
     printf("max local work group invocations %i\n", work_grp_inv);
 
-#ifdef VISUAL
     // framebuffer mode
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     // Mouse input mode
@@ -437,10 +426,7 @@ GLFWwindow* initGL(int w, int h)
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSwapInterval(1); // 60 fps constraint
-#else
-    glfwSwapInterval(0); // No fps constraint
-#endif
-    
+
     return window;
 }
 

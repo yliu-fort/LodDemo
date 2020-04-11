@@ -1,7 +1,7 @@
 // Auto detect file modification
 // for shader auto-reloading
 #include "inotify.h"
-#include <stdio.h>
+/*#include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -10,10 +10,10 @@
 #include <unistd.h>
 
 enum{
-    MAX_EVENTS = 64, /*Max. number of events to process at one go*/
-    LEN_NAME   = 16, /*Assuming that the length of the filename won't exceed 16 bytes*/
-    EVENT_SIZE = ( sizeof (struct inotify_event) ), /*size of one event*/
-    BUF_LEN    = ( MAX_EVENTS * ( EVENT_SIZE + LEN_NAME )) /*buffer to store the data of events*/
+    MAX_EVENTS = 64, //Max. number of events to process at one go
+    LEN_NAME   = 16, //Assuming that the length of the filename won't exceed 16 bytes
+    EVENT_SIZE = ( sizeof (struct inotify_event) ), //size of one event
+    BUF_LEN    = ( MAX_EVENTS * ( EVENT_SIZE + LEN_NAME )) //buffer to store the data of events
 };
 
 Inotify* Inotify::m_singleton = 0;
@@ -81,23 +81,23 @@ bool Inotify::_update(){
         if ( event->len ) {
             if ( event->mask & IN_CREATE) {
                 if (event->mask & IN_ISDIR)
-                {/*printf( "The directory %s was Created.\n", event->name );*/return true;}
+                {return true;}
                 else
-                {/*printf( "The file %s was Created with WD %d\n", event->name, event->wd );*/return true;}
+                {return true;}
             }
 
             if ( event->mask & IN_MODIFY) {
                 if (event->mask & IN_ISDIR)
-                {/*printf( "The directory %s was modified.\n", event->name );*/return true;}
+                {return true;}
                 else
-                {/*printf( "The file %s was modified with WD %d\n", event->name, event->wd );*/return true;}
+                {return true;}
             }
 
             if ( event->mask & IN_DELETE) {
                 if (event->mask & IN_ISDIR)
-                {/*printf( "The directory %s was deleted.\n", event->name );*/return true;}
+                {return true;}
                 else
-                {/*printf( "The file %s was deleted with WD %d\n", event->name, event->wd );*/return true;}
+                {return true;}
             }
 
             i += EVENT_SIZE + event->len;
@@ -106,3 +106,4 @@ bool Inotify::_update(){
 
     return false;
 }
+*/

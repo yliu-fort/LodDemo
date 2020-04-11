@@ -1,4 +1,5 @@
 #include "filesystemmonitor.h"
+/*
 #include "inotify.h"
 #include <future>
 #include <chrono>
@@ -43,3 +44,4 @@ bool FileSystemMonitor::Update()
     }
     return result;
 }
+*/

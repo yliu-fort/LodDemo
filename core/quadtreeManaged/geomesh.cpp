@@ -1,5 +1,6 @@
 #include "geomesh.h"
 
+
 // Caution: only return subdivided grids.
 // write additional condition if you need root
 Node* Geomesh::queryNode( const glm::vec2& pos) const

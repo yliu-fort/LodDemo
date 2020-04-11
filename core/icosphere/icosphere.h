@@ -5,9 +5,7 @@
 #include <map>
 #include <vector>
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+#include <glad/glad.h>
 
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -17,6 +15,8 @@
 // sets of polygons
 // VAO, VBO, EBO
 // Draw function
+
+typedef unsigned int uint;
 
 class Icosphere
 {

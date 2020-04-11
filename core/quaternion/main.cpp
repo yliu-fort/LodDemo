@@ -1,9 +1,7 @@
 #include <iostream>
 #include <cmath>
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+#include <glad/glad.h>
 
 //GLFW
 #include <GLFW/glfw3.h>
@@ -170,7 +168,7 @@ int main()
     Shader shader(FP("renderer/box.vert"),FP("renderer/box.frag"));
 
     // For automatic file reloading
-    FileSystemMonitor::Init(SRC_PATH);
+    //FileSystemMonitor::Init(SRC_PATH);
 
     while( !glfwWindowShouldClose( window ) )
     {
@@ -339,12 +337,11 @@ GLFWwindow* initGL(int w, int h)
     }
     glfwMakeContextCurrent(window);
     
-    // Initialize GLEW
-    glewExperimental = GL_TRUE;
-    if (glewInit() != GLEW_OK) {
-        fprintf(stderr, "Failed to initialize GLEW\n");
-        getchar();
-        glfwTerminate();
+    // glad: load all OpenGL function pointers
+    // ---------------------------------------
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
         EXIT_FAILURE;
     }
     

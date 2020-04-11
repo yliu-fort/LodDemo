@@ -3,15 +3,14 @@
 #include <iostream>
 #include <vector>
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+#include <glad/glad.h>
 
 #include "stb_image.h"
 
+/*
 #include "tiffio.h"
 
-/*Using Sam Leffler's libtiff library */
+//Using Sam Leffler's libtiff library
 unsigned int loadTiffTexture(const char *path, const std::string &directory, bool gamma){
     TIFFRGBAImage img;
     uint32 *raster;
@@ -79,8 +78,8 @@ unsigned int loadTiffTexture(const char *path, const std::string &directory, boo
     // code based upon
     // http://www.opengl.org/developers/code/mjktips/libtiff/showtiff.c
 
-    /* If cannot directly display ABGR format, we need to reverse the component
-     ordering in each pixel.  :-(  */
+    // If cannot directly display ABGR format, we need to reverse the component
+    //ordering in each pixel.  :-(
     //if (!hasABGR) {
     //    int i;
     //
@@ -106,7 +105,7 @@ unsigned int loadTiffTexture(const char *path, const std::string &directory, boo
     return textureID;
 }
 
-
+*/
 unsigned int loadTexture(const char *path, const std::string &directory, bool gamma)
 {
     std::string filename = std::string(path);

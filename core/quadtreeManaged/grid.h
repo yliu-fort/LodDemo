@@ -1,10 +1,11 @@
 #ifndef GRID2D_H
 #define GRID2D_H
+#include <iostream>
+#include <glad/glad.h>
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
 #include "glm/glm.hpp"
+
+typedef unsigned int uint;
 
 // sizes
 #define GRIDX (24)

@@ -3,8 +3,11 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <algorithm>
 #include "shader.h"
 #include "cmake_source_dir.h"
+
+#include <stdint.h>
 
 static Shader upsampling, crackfixing;
 static unsigned int noiseTex, elevationTex;
@@ -19,12 +22,13 @@ void Node::init()
     //Store the volume data to polygonise
     glGenTextures(1, &noiseTex);
     glActiveTexture(GL_TEXTURE0);
-    glEnable(GL_TEXTURE_2D);
+    //glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, noiseTex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+
     //Generate a distance field to the center of the cube
     std::vector<glm::vec3> dataField;
     uint res = 256;
@@ -39,7 +43,7 @@ void Node::init()
     // prescribed elevation map
     glGenTextures(1, &elevationTex);
     glActiveTexture(GL_TEXTURE0);
-    glEnable(GL_TEXTURE_2D);
+    //glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, elevationTex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -110,7 +114,7 @@ void Node::bake_height_map()
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, elevationTex);
 
-    // write to heightmap
+    // write to heightmap ? buggy
     glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
 
     // Deploy kernel
@@ -266,7 +270,7 @@ float Node::min_elevation() const
     // read texture
     glGetTextureImage(heightmap, 0, GL_RED, GL_FLOAT,HEIGHT_MAP_X*HEIGHT_MAP_Y*sizeof(float),&heightData[0]);
 
-    auto min = std::min(heightData.begin(),heightData.end());
+    auto min = std::min_element(heightData.begin(),heightData.end());
     return *min;
 }
 float Node::get_elevation(const glm::vec2& pos) const

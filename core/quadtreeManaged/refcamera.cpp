@@ -1,8 +1,6 @@
 #include "refcamera.h"
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+#include <glad/glad.h>
 
 #include "cmake_source_dir.h"
 

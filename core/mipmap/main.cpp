@@ -1,9 +1,7 @@
 #include <iostream>
 #include <cmath>
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+#include <glad/glad.h>
 
 //GLFW
 #include <GLFW/glfw3.h>
@@ -20,7 +18,9 @@
 //#include "slice.h"
 //#include "boundingbox.h"
 #include "image_io.h"
-#include "texture_utility.h"
+//#include "texture_utility.h"
+
+typedef unsigned int uint;
 
 // settings
 static int SCR_WIDTH  = 800;
@@ -77,7 +77,7 @@ int main()
     Shader lodShader(FP("../quadtree/renderer/lod.vert"),FP("../quadtree/renderer/lod.pcolor.frag"));
 
     // For automatic file reloading
-    FileSystemMonitor::Init(SRC_PATH);
+    //FileSystemMonitor::Init(SRC_PATH);
 
     // Initialize 2d noise texture
     //Datafield//
@@ -378,12 +378,11 @@ GLFWwindow* initGL(int w, int h)
     }
     glfwMakeContextCurrent(window);
     
-    // Initialize GLEW
-    glewExperimental = GL_TRUE;
-    if (glewInit() != GLEW_OK) {
-        fprintf(stderr, "Failed to initialize GLEW\n");
-        getchar();
-        glfwTerminate();
+    // glad: load all OpenGL function pointers
+    // ---------------------------------------
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
         EXIT_FAILURE;
     }
     

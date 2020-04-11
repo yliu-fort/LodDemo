@@ -3,10 +3,12 @@
 
 #include "grid.h"
 #include <memory>
+#include <iostream>
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
 #include "shader.h"
+#include <glad/glad.h>
 
 enum RenderMode
 {

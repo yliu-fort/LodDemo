@@ -1,9 +1,8 @@
 #include <iostream>
 #include <cmath>
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+
+#include <glad/glad.h>
 
 //GLFW
 #include <GLFW/glfw3.h>
@@ -20,7 +19,9 @@
 //#include "slice.h"
 //#include "boundingbox.h"
 #include "image_io.h"
-#include "texture_utility.h"
+//#include "texture_utility.h"
+
+typedef unsigned int uint;
 
 // settings
 static int SCR_WIDTH  = 800;
@@ -224,8 +225,24 @@ int main()
     setenv ("DISPLAY", ":0", 0);
 #endif
 
+    GLFWwindow* window;
+#if 0
+    glfwInit();
+    const uint32_t windowWidth = 640;
+    const uint32_t windowHeight = 480;
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+    window = glfwCreateWindow(windowWidth, windowHeight, "HelloGL", NULL, NULL);
+    glfwMakeContextCurrent(window);
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+    glfwSwapInterval(1);
+#else
     // Initialize a window
-    GLFWwindow* window = initGL(SCR_WIDTH, SCR_HEIGHT);
+    window = initGL(SCR_WIDTH, SCR_HEIGHT);
+#endif
     printf("Initial glwindow...\n");
     // configure global opengl state
     // -----------------------------
@@ -238,7 +255,7 @@ int main()
     Shader tex_interp(FP("renderer/tex_interp.glsl"));
 
     // For automatic file reloading
-    FileSystemMonitor::Init(SRC_PATH);
+    //FileSystemMonitor::Init(SRC_PATH);
 
     // Initialize 2d noise texture
     //Datafield//
@@ -247,7 +264,7 @@ int main()
     unsigned int largeMap;
     glGenTextures(1, &largeMap);
     glActiveTexture(GL_TEXTURE0);
-    glEnable(GL_TEXTURE_2D);
+    //glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, largeMap);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -271,7 +288,7 @@ int main()
     unsigned int smallMap = 0;
     glGenTextures(1,&smallMap);
     glActiveTexture(GL_TEXTURE0);
-    glEnable(GL_TEXTURE_2D);
+    //glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, smallMap);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -286,14 +303,18 @@ int main()
         }
     }
 
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, GL_RED, GL_FLOAT, &dataField[0]);
+    //glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, GL_RED, GL_FLOAT, &dataField[0]);
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, 16, 16, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glBindImageTexture(0, smallMap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
 
+
+    std::cout << "Generate textures done." << std::endl;
     // Geo mesh, careful: need a noise texture and shader before intialized
 
     std::vector<float> small(HEIGHT_MAP_X*HEIGHT_MAP_Y);
     std::vector<float> large(HEIGHT_MAP_X*HEIGHT_MAP_Y);
 
-    // read texture
+    // read texture? buggy
     glGetTextureImage(smallMap, 0, GL_RED, GL_FLOAT,16*16*sizeof(float),&small[0]);
 
     // read texture
@@ -487,10 +508,9 @@ GLFWwindow* initGL(int w, int h)
         getchar();
         EXIT_FAILURE;
     }
-    
     //glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #ifndef VISUAL
@@ -507,12 +527,11 @@ GLFWwindow* initGL(int w, int h)
     }
     glfwMakeContextCurrent(window);
     
-    // Initialize GLEW
-    glewExperimental = GL_TRUE;
-    if (glewInit() != GLEW_OK) {
-        fprintf(stderr, "Failed to initialize GLEW\n");
-        getchar();
-        glfwTerminate();
+    // glad: load all OpenGL function pointers
+    // ---------------------------------------
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
         EXIT_FAILURE;
     }
     

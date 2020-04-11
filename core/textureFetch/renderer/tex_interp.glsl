@@ -3,10 +3,10 @@
 layout(local_size_x = 16, local_size_y = 1, local_size_z = 1) in;
 
 // small map
-layout(r32f, binding = 0) uniform image2D smallMap;
+layout(binding = 0, r32f) writeonly uniform image2D smallMap;
 
 // large map
-layout(binding = 0) uniform sampler2D largeMap;
+layout(location = 0) uniform sampler2D largeMap;
 
 
 #define HEIGHT_MAP_X (16)
