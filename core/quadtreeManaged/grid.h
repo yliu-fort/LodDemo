@@ -8,10 +8,10 @@
 typedef unsigned int uint;
 
 // sizes
-#define GRIDX (24)
-#define GRIDY (24)
-#define HEIGHT_MAP_X (GRIDX + 1)
-#define HEIGHT_MAP_Y (GRIDY + 1)
+#define GRIDX (16)
+#define GRIDY (16)
+#define HEIGHT_MAP_X (GRIDX+1)
+#define HEIGHT_MAP_Y (GRIDY+1)
 
 // Node class
 class Node

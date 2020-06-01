@@ -26,11 +26,13 @@ struct PointLight {
 in vec2 TexCoords;
 in vec3 Normal;
 in vec3 FragPos;
+in float blend_display;
 
 uniform sampler1D colormap;
 uniform sampler2D material;
 uniform sampler2D debugmap;
 uniform int render_type;
+uniform int level;
 
 uniform vec3 viewPos;
 uniform DirLight dirLight;
@@ -53,14 +55,17 @@ void main()
 
     if(render_type == 0) // REAL
     {
-        color = texture(material,
-                         vec2((TexCoords.x + floor(16*FragPos.y))/8.0f ,TexCoords.y)).rgb;
+        color = texture( material,
+                         vec2((TexCoords.x + floor(16*FragPos.y))/8.0f ,TexCoords.y) ).rgb;
         if(FragPos.y < 1.0/6e6) { color = vec3(0.2,0.2,0.7); } // ocean
         color = CalcDirLight(dirLight, Normal, viewDir, color);
     }else
     if(render_type == 1) // COLORMAP
     {
-        color = texture(colormap, pow(FragPos.y,0.2f)).rgb;
+        //color = texture(colormap, pow(FragPos.y,0.2f)).rgb;
+        color = mix(texture( debugmap, TexCoords*level ).rgb, vec3(0.0,0.0,1.0),blend_display);
+        if(blend_display == 1.0)
+            color = vec3(0.0,0.0,0.0);
     }else
     if(render_type == 2) // NORMAL
     {
@@ -68,9 +73,11 @@ void main()
     }else
     if(render_type == 3) // PCOLOR
     {
-        //color = vec3(0.7,0.7,0.7);
-        //color = CalcDirLight(dirLight, Normal, viewDir, color);
-        color = texture( debugmap, TexCoords ).rgb;
+        //color = mix(texture( debugmap, TexCoords*level ).rgb, vec3(0.0,0.0,1.0),blend_display);
+        //if(blend_display == 1.0)
+        //    color = vec3(0.0,0.0,0.0);
+        //color = texture( debugmap, TexCoords*level ).rgb;
+        color = CalcDirLight(dirLight, Normal, viewDir, vec3(0.7,0.7,0.7));
 
     }
 

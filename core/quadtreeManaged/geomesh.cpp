@@ -116,18 +116,22 @@ void Geomesh::fixcrack(Node* node)
     }
 }
 
-void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, Node* node)
+void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, const float& viewY, Node* node)
 {
 
     // distance between nodepos and viewpos
-    float d = glm::distance(viewPos, node->get_center3());
+    //auto d = node->get_center3() - viewPos;
+    float dx = fmin(abs(viewPos.x - node->lo.x),abs(viewPos.x - node->hi.x));
+    float dy = fmin(abs(viewPos.z - node->lo.y),abs(viewPos.z - node->hi.y));
+    //float dz = abs(viewPos.z - viewZ);
+    float d = fmax(fmax(dx, dy), abs(viewPos.y - viewY));
 
     // frustrum culling
     float K = CUTIN_FACTOR*node->size();
-    if(FRUSTRUM_CULLING)
-    {
-        K = glm::dot(viewFront, node->get_center3() - viewPos) > 0.0f || d < node->size() ? K:0.0f;
-    }
+    //if(FRUSTRUM_CULLING)
+    //{
+    //    K *= glm::dot(viewFront, d) > 0.0f ? 1.0f:0.5f;
+    //}
 
     // Subdivision
     if( d < K && node->level < MAX_DEPTH )
@@ -136,15 +140,15 @@ void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, 
         // split and bake heightmap
         node->split();
 
-        subdivision(viewPos, viewFront, node->child[0]);
-        subdivision(viewPos, viewFront, node->child[1]);
-        subdivision(viewPos, viewFront, node->child[2]);
-        subdivision(viewPos, viewFront, node->child[3]);
+        subdivision(viewPos, viewFront, viewY, node->child[0]);
+        subdivision(viewPos, viewFront, viewY, node->child[1]);
+        subdivision(viewPos, viewFront, viewY, node->child[2]);
+        subdivision(viewPos, viewFront, viewY, node->child[3]);
 
     }
     else
     {
-        if( (node->level >= MAX_DEPTH || d > (CUTOUT_FACTOR * K)) && node->subdivided )
+        if( (node->level >= MAX_DEPTH || d > CUTOUT_FACTOR * K ) && node->subdivided )
         {
             delete node->child[0];
             delete node->child[1];
@@ -175,12 +179,22 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
         shader.setMat4("model", _model);
 
         // Transfer lo and hi
-        //shader.setVec2("lo", node->lo);
-        //shader.setVec2("hi", node->hi);
+        shader.setInt("level",pow(2,MAX_DEPTH - node->level));
+        shader.setVec2("lo", node->lo);
+        shader.setVec2("hi", node->hi);
+
+        auto shlo = (node->lo - node->parent->lo)/(node->parent->hi - node->parent->lo);
+        auto shhi = (node->hi - node->parent->lo)/(node->parent->hi - node->parent->lo);
+
+        shader.setVec2("shlo", shlo);
+        shader.setVec2("shhi", shhi);
 
         // Active textures
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, node->heightmap);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, node->parent->heightmap);
 
         // Render grid (inline function call renderGrid())
         Node::draw();
@@ -190,10 +204,10 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
 
 // static variables
 uint Geomesh::MAX_DEPTH = 9;
-float Geomesh::CUTIN_FACTOR = 2.8f; // 2.8 -> see function definition
+float Geomesh::CUTIN_FACTOR = 2.0f; // 2.8 -> see function definition
 float Geomesh::CUTOUT_FACTOR = 1.15f; // >= 1
-bool Geomesh::FRUSTRUM_CULLING = true;
-bool Geomesh::CRACK_FILLING = true;
+bool Geomesh::FRUSTRUM_CULLING = false;
+bool Geomesh::CRACK_FILLING = false;
 RenderMode Geomesh::RENDER_MODE = REAL;
 
 #include "imgui.h"
@@ -206,8 +220,8 @@ void Geomesh::gui_interface()
     if (ImGui::TreeNode("Geomesh::Control Panel"))
     {
         ImGui::Text("Controllable parameters for Geomesh class.");
-        ImGui::SliderInt("max depth", (int*)&MAX_DEPTH, 0, 11);
-        ImGui::SliderFloat("cutout factor", &CUTOUT_FACTOR, 1.01f, 3.0f);
+        ImGui::SliderInt("max depth", (int*)&MAX_DEPTH, 0, 16);
+        ImGui::SliderFloat("cutout factor", &CUTOUT_FACTOR, 1.0f, 3.0f);
 
         // render mode
         const char* RENDER_TYPE_NAMES[ELEMENT_COUNT] = { "REAL", "CONTOUR", "NORMAL", "PCOLOR" };

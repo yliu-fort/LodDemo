@@ -3,9 +3,8 @@
 #include <iostream>
 #include <vector>
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+//GLAD
+#include <glad/glad.h>
 
 #include "stb_image.h"
 

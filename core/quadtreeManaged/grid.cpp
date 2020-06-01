@@ -9,6 +9,9 @@
 
 #include <stdint.h>
 
+#define HEIGHT_MAP_INTERNAL_FORMAT GL_RGBA32F
+#define HEIGHT_MAP_FORMAT GL_RGBA
+
 static Shader upsampling, crackfixing;
 static unsigned int noiseTex, elevationTex;
 
@@ -101,7 +104,7 @@ void Node::bake_height_map()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     //Generate a distance field to the center of the cube
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, GL_RED, GL_FLOAT, NULL);
+    glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
 
     upsampling.use();
     upsampling.setVec2("lo", lo);
@@ -115,7 +118,7 @@ void Node::bake_height_map()
     glBindTexture(GL_TEXTURE_2D, elevationTex);
 
     // write to heightmap ? buggy
-    glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+    glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
 
     // Deploy kernel
     glDispatchCompute(1,1,1);
@@ -202,7 +205,7 @@ void Node::fix_heightmap(Node* neighbour, int edgedir)
     glBindTexture(GL_TEXTURE_2D, neighbour->heightmap);
 
     // write to heightmap
-    glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+    glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
 
     // Deploy kernel
     glDispatchCompute(1,1,1);
@@ -351,16 +354,18 @@ void renderGrid()
         for(int j = 0; j < GRIDY; j++)
             for(int i = 0; i < GRIDX; i++)
             {
-                glm::vec2 lo(    i/float(GRIDX),    j/float(GRIDY));
-                glm::vec2 hi((i+1)/float(GRIDX),(j+1)/float(GRIDY));
+                glm::vec2 lo((i)/float(GRIDX), (j)/float(GRIDY));
+                glm::vec2 hi((i+1)/float(GRIDX), (j+1)/float(GRIDY));
+                glm::vec2 tlo((i + 0.5)/float(HEIGHT_MAP_X), (j + 0.5)/float(HEIGHT_MAP_Y));
+                glm::vec2 thi((i + 1.5)/float(HEIGHT_MAP_X), (j + 1.5)/float(HEIGHT_MAP_Y));
 
-                vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, lo.x, lo.y)); // bottom-left
-                vertices.push_back(float8( lo.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, lo.x, hi.y)); // top-left
-                vertices.push_back(float8( hi.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, hi.x, hi.y)); // top-right
+                vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, tlo.x, tlo.y)); // bottom-left
+                vertices.push_back(float8( lo.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, tlo.x, thi.y)); // top-left
+                vertices.push_back(float8( hi.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, thi.x, thi.y)); // top-right
 
-                vertices.push_back(float8( hi.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, hi.x, hi.y)); // top-right
-                vertices.push_back(float8( hi.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, hi.x, lo.y)); // bottom-right
-                vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, lo.x, lo.y)); // bottom-left
+                vertices.push_back(float8( hi.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, thi.x, thi.y)); // top-right
+                vertices.push_back(float8( hi.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, thi.x, tlo.y)); // bottom-right
+                vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, tlo.x, tlo.y)); // bottom-left
 
             }
 

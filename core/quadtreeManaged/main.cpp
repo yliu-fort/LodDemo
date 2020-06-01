@@ -98,6 +98,7 @@ int main()
     glEnable(GL_DEPTH_TEST);
 
     // Read shader
+    Shader simpleShader(FP("renderer/box.vert"),FP("renderer/box.frag"));
     Shader shader(FP("renderer/terrain.vert"),FP("renderer/terrain.frag"));
     Shader lodShader(FP("renderer/lod.vert"),FP("renderer/lod.frag"));
     Shader normalShader(FP("renderer/lod.vert"),FP("renderer/lod.pcolor.frag"),FP("renderer/lod.glsl"));
@@ -124,18 +125,17 @@ int main()
     unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
 
     std::vector<Geomesh> mesh;
-    for(int i = -8; i < 8; i++)
-        for(int j = -8; j < 8; j++)
-        {
-            Geomesh land(glm::vec2(i,j),glm::vec2(i+1,j+1));
-            mesh.push_back(land);
-        }
+    mesh.push_back(Geomesh(glm::vec2(-3.14159),glm::vec2(3.14159)));
+    //for(int i = -8; i < 8; i++)
+    //    for(int j = -8; j < 8; j++)
+    //    {
+    //        Geomesh land(glm::vec2(i,j),glm::vec2(i+1,j+1));
+    //        mesh.push_back(land);
+    //    }
 
     // Adjust camera frustum
     camera.Near = 100.0/6e6;
     //camera.Far = 2.0;
-
-    std::cout << "here?5" << std::endl;
 
     while( !glfwWindowShouldClose( window ) )
     {
@@ -148,9 +148,10 @@ int main()
         glfwGetFramebufferSize(window, &SCR_WIDTH, &SCR_HEIGHT);
         processInput(window);
 
+        auto refCamElev = currentElevation(mesh, refcam.Position);
         for(auto& land: mesh)
         {
-            land.subdivision(refcam.Position, refcam.Front);
+            land.subdivision(refcam.Position, refcam.Front, refCamElev);
         }
 
         if(bindCam)
@@ -169,6 +170,14 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Render relative to eye
+        glm::vec3 lightPos = glm::vec3(-12.5f*sinf(0.10f*glfwGetTime()),
+                                       4.3f*cosf(0.00f*glfwGetTime()),
+                                       -12.5f*cosf(0.10f*glfwGetTime()));
+        simpleShader.use();
+        simpleShader.setMat4("projection_view", camera.GetFrustumMatrix());
+        simpleShader.setMat4("model", glm::scale(glm::translate(glm::mat4(1),lightPos),glm::vec3(0.1)));
+        renderBox();
+
         lightingShader.use();
         lightingShader.setMat4("projection_view", camera.GetFrustumMatrix());
         lightingShader.setVec3("viewPos", refcam.Position);
@@ -186,13 +195,18 @@ int main()
         lightingShader.setInt("material", 2);
 
         // lighting
-        lightingShader.setVec3("dirLight.direction", glm::vec3(12.5f*sinf(0.1f*glfwGetTime()),-4.3f,12.5f*cosf(0.1f*glfwGetTime())));
-        lightingShader.setVec3("dirLight.ambient", glm::vec3( 0.05f, 0.05f, 0.05f));
-        lightingShader.setVec3("dirLight.diffuse", glm::vec3( 1.5f, 1.5f, 1.5f));
-        lightingShader.setVec3("dirLight.specular", glm::vec3( 0.10f, 0.15f, 0.10f));
+        lightingShader.setVec3("dirLight.direction", -lightPos);
+        lightingShader.setVec3("dirLight.ambient", glm::vec3( 0.1f, 0.1f, 0.1f));
+        lightingShader.setVec3("dirLight.diffuse", glm::vec3( 1.0f, 1.0f, 1.0f));
+        lightingShader.setVec3("dirLight.specular", glm::vec3( 0.05f, 0.05f, 0.05f));
+
 
         // render type
         lightingShader.setInt("render_type", Geomesh::RENDER_MODE);
+
+        // extra parameters
+        lightingShader.setFloat("t", glfwGetTime()/600.0f);
+
 
         for(const auto& land: mesh)
         {
@@ -201,14 +215,14 @@ int main()
 
         if(drawWireframe)
         {
-            glClear(GL_COLOR_BUFFER_BIT);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            lodShader.use();
-            lodShader.setMat4("projection_view", camera.GetFrustumMatrix());
-            lodShader.setVec3("viewPos", refcam.Position);
-            lodShader.setInt("heightmap", 0);
+            //lodShader.use();
+            //lodShader.setMat4("projection_view", camera.GetFrustumMatrix());
+            //lodShader.setVec3("viewPos", refcam.Position);
+            //lodShader.setInt("heightmap", 0);
             glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-            for(auto& land: mesh) { land.draw(lodShader); }
+            for(auto& land: mesh) { land.draw(lightingShader); }
             glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
         }
 
@@ -425,7 +439,7 @@ GLFWwindow* initGL(int w, int h)
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
-    glfwSwapInterval(1); // 60 fps constraint
+    glfwSwapInterval(0); // 60 fps constraint
 
     return window;
 }

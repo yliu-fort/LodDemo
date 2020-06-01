@@ -90,7 +90,7 @@ add_subdirectory("utility") # Provide absolute path for shaders
 #add_subdirectory("core/quaternion")
 #add_subdirectory("core/quadtree")
 add_subdirectory("core/quadtreeManaged")
-#add_subdirectory("core/textureFetch")
+add_subdirectory("core/textureFetch")
 #add_subdirectory("core/mipmap")
 ### TESTS&DEMOS
 #add_subdirectory("test")

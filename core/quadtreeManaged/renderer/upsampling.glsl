@@ -1,11 +1,11 @@
 #version 430
-#define HEIGHT_MAP_X (25)
-#define HEIGHT_MAP_Y (25)
+#define HEIGHT_MAP_X (17)
+#define HEIGHT_MAP_Y (17)
 // Kernel
-layout(local_size_x = 25, local_size_y = 25, local_size_z = 1) in;
+layout(local_size_x = 17, local_size_y = 17, local_size_z = 1) in;
 
 // Child heightmaP
-layout(r32f, binding = 0) uniform image2D heightmap;
+layout(rgba32f, binding = 0) uniform image2D heightmap;
 
 // Parent heightmap
 //layout(binding = 0) uniform sampler2D heightmap_parent;
@@ -36,7 +36,10 @@ float calc_height(vec2 pixel)
         density += texture(noise, pixel * freq[i] * 4.0f ).r;
     }
 
-    density = EFFECTIVE_HEIGHT*clamp((density-0.35),0.0,1.0);
+    density = EFFECTIVE_HEIGHT*clamp((density-1.0),0.0,1.0);
+
+    //density += -tanh(0.02f*abs(dot(pixel,pixel))-0.5);
+    //density = clamp(1.7f*density,0.0,0.4);
 
     return density;
 }
@@ -60,22 +63,35 @@ void main()
     // [0, 1]? issue: align texture with pixel
 
     // Procedure
-    float height = 0.0f;
+    float height = calc_height(pixel);
 
     // Noise syethesis
-    height += calc_height(pixel);
+    //height += calc_height(pixel);
 
     // Read heightmap
     // Caution: low-res elevation map causes bumpy ground-> truncation issue
     //pixel = (pixel+8.0f)/16.0f;
     //height += max(texture( elevationmap,  pixel ).r, 0.0f);
     //height = clamp(1.7f*height,0.0,0.4);
-    height += -tanh(0.02f*abs(dot(pixel,pixel))-0.5);
-    height = clamp(1.7f*height,0.0,0.4);
+    //height += -tanh(0.02f*abs(dot(pixel,pixel))-0.5);
+    //height = clamp(1.7f*height,0.0,0.4);
+
+    //normal
+    // on-the-fly normal
+    vec2 s = 1.0f/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
+    vec2 t1 = pixel + vec2(0.05f,0.0f)*s;
+    vec2 t2 = pixel - vec2(0.05f,0.0f)*s;
+    vec2 t3 = pixel + vec2(0.0f,0.05f)*s;
+    vec2 t4 = pixel - vec2(0.0f,0.05f)*s;
+
+    vec3 e1 = vec3(t1.x-t2.x,calc_height(t1) - calc_height(t2), t1.y-t2.y);
+    vec3 e2 = vec3(t3.x-t4.x,calc_height(t3) - calc_height(t4), t3.y-t4.y);
+
+    vec3 normal = normalize(-cross(e1,e2));
 
     //debug
     //float height = EFFECTIVE_HEIGHT*texture(noise,  pixel ).r;
 
-    imageStore(heightmap, p, vec4(height,0.0,0.0,0.0));
+    imageStore(heightmap, p, vec4(height,normal));
 
 }

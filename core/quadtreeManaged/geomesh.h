@@ -41,6 +41,7 @@ public:
     Geomesh(glm::vec2 lo, glm::vec2 hi) : root(new Node){
         root->lo = lo;
         root->hi = hi;
+        root->parent = root.get(); // should not cause cyclic referencing
         model = glm::translate(glm::mat4(1),glm::vec3(lo.x,0,lo.y));
         root->bake_height_map();
         root->set_elevation();
@@ -66,9 +67,9 @@ public:
         fixcrack(root.get());
     }
 
-    void subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront)
+    void subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, const float& viewY)
     {
-        subdivision(viewPos, viewFront, root.get());
+        subdivision(viewPos, viewFront, viewY, root.get());
         refresh_heightmap();
         if(CRACK_FILLING){fixcrack();}
     }
@@ -83,7 +84,7 @@ public:
     Node* queryNode( const glm::vec2& ) const;
     void refresh_heightmap( Node* );
     void fixcrack( Node* );
-    void subdivision( const glm::vec3&, const glm::vec3&, Node* );
+    void subdivision( const glm::vec3&, const glm::vec3&, const float&, Node* );
     void drawRecr( Node*, Shader& ) const;
 
     // static functions

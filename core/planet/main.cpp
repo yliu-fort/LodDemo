@@ -2,8 +2,8 @@
 #include <cmath>
 #include <memory>
 //GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+
+#include <glad/glad.h>
 
 //GLFW
 #include <GLFW/glfw3.h>
@@ -30,7 +30,7 @@ static float lastX = SCR_WIDTH / 2.0f;
 static float lastY = SCR_HEIGHT / 2.0f;
 static bool firstMouse = true;
 
-static uint activeCamera = 1;
+static unsigned int activeCamera = 1;
 // timing
 static float deltaTime = 0.0f;
 static float lastFrame = 0.0f;
@@ -426,12 +426,11 @@ GLFWwindow* initGL(int w, int h)
     }
     glfwMakeContextCurrent(window);
     
-    // Initialize GLEW
-    glewExperimental = GL_TRUE;
-    if (glewInit() != GLEW_OK) {
-        fprintf(stderr, "Failed to initialize GLEW\n");
-        getchar();
-        glfwTerminate();
+    // glad: load all OpenGL function pointers
+    // ---------------------------------------
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
         EXIT_FAILURE;
     }
     
