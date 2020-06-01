@@ -204,9 +204,6 @@ int main()
         // render type
         lightingShader.setInt("render_type", Geomesh::RENDER_MODE);
 
-        // extra parameters
-        lightingShader.setFloat("t", glfwGetTime()/600.0f);
-
 
         for(const auto& land: mesh)
         {

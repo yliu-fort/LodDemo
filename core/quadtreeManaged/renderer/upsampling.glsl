@@ -38,8 +38,8 @@ float calc_height(vec2 pixel)
 
     density = EFFECTIVE_HEIGHT*clamp((density-1.0),0.0,1.0);
 
-    //density += -tanh(0.02f*abs(dot(pixel,pixel))-0.5);
-    //density = clamp(1.7f*density,0.0,0.4);
+    density += -2.0*tanh(0.03f*abs(dot(pixel,pixel))-0.15);
+    density = clamp(1.7f*density,0.0,0.4);
 
     return density;
 }
@@ -76,13 +76,13 @@ void main()
     //height += -tanh(0.02f*abs(dot(pixel,pixel))-0.5);
     //height = clamp(1.7f*height,0.0,0.4);
 
-    //normal
-    // on-the-fly normal
-    vec2 s = 1.0f/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
-    vec2 t1 = pixel + vec2(0.05f,0.0f)*s;
-    vec2 t2 = pixel - vec2(0.05f,0.0f)*s;
-    vec2 t3 = pixel + vec2(0.0f,0.05f)*s;
-    vec2 t4 = pixel - vec2(0.0f,0.05f)*s;
+    // Compute normal
+    // may convert to non-euclidian space before computing the actual value
+    vec2 s = (hi.x-lo.x)/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
+    vec2 t1 = pixel - vec2(1.0f,0.0f)*s;
+    vec2 t2 = pixel + vec2(1.0f,0.0f)*s;
+    vec2 t3 = pixel - vec2(0.0f,1.0f)*s;
+    vec2 t4 = pixel + vec2(0.0f,1.0f)*s;
 
     vec3 e1 = vec3(t1.x-t2.x,calc_height(t1) - calc_height(t2), t1.y-t2.y);
     vec3 e2 = vec3(t3.x-t4.x,calc_height(t3) - calc_height(t4), t3.y-t4.y);

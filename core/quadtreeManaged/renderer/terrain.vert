@@ -25,8 +25,6 @@ uniform vec2 hi;
 uniform vec2 shlo;
 uniform vec2 shhi;
 
-uniform float t;
-
 void main()
 {
     // To avoid artifacts in normal calculation
