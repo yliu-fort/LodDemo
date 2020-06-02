@@ -34,7 +34,7 @@ void main()
     vec2 gPos = lo + aPos.xz*(hi-lo);
     float d = max(abs(gPos.x - viewPos.x),abs(gPos.y - viewPos.z));
     float l = 0.5f*dot(hi-lo, vec2(1));
-    float blend = clamp((d/l-2-1)/(2-0.7),0,1);
+    float blend = clamp((d/l-2-1)/(2-1),0,1);
     blend_display = blend;
 
     // get values

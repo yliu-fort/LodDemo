@@ -148,7 +148,7 @@ void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, 
     }
     else
     {
-        if( (node->level >= MAX_DEPTH || d > CUTOUT_FACTOR * K ) && node->subdivided )
+        if( (node->level >= MAX_DEPTH || d >= CUTOUT_FACTOR * K ) && node->subdivided )
         {
             delete node->child[0];
             delete node->child[1];
@@ -205,7 +205,7 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
 // static variables
 uint Geomesh::MAX_DEPTH = 9;
 float Geomesh::CUTIN_FACTOR = 2.0f; // 2.8 -> see function definition
-float Geomesh::CUTOUT_FACTOR = 1.15f; // >= 1
+float Geomesh::CUTOUT_FACTOR = 1.0f; // >= 1
 bool Geomesh::FRUSTRUM_CULLING = false;
 bool Geomesh::CRACK_FILLING = false;
 RenderMode Geomesh::RENDER_MODE = REAL;

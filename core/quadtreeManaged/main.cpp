@@ -23,6 +23,7 @@
 #include "grid.h"
 #include "geomesh.h"
 #include "refcamera.h"
+#include "lighting.h"
 
 // settings
 static int SCR_WIDTH  = 800;
@@ -83,6 +84,7 @@ void gui_interface(float h)
     }
 }
 
+
 int main()
 {
 #if defined(__linux__)
@@ -98,7 +100,6 @@ int main()
     glEnable(GL_DEPTH_TEST);
 
     // Read shader
-    Shader simpleShader(FP("renderer/box.vert"),FP("renderer/box.frag"));
     Shader shader(FP("renderer/terrain.vert"),FP("renderer/terrain.frag"));
     Shader lodShader(FP("renderer/lod.vert"),FP("renderer/lod.frag"));
     Shader normalShader(FP("renderer/lod.vert"),FP("renderer/lod.pcolor.frag"),FP("renderer/lod.glsl"));
@@ -106,6 +107,9 @@ int main()
 
     // Initlize geogrid system
     Node::init();
+
+    // Initialize lighting system
+    Lighting::init();
 
     // For automatic file reloading
     //FileSystemMonitor::Init(SRC_PATH);
@@ -117,6 +121,9 @@ int main()
     refCamera::shader.reload_shader_program_from_files(FP("renderer/box.vert"),FP("renderer/box.frag"));
     refCamera refcam(camera);
 
+    // lighting
+    Lighting dirlight;
+
     // colormap
     Colormap::Rainbow();
 
@@ -126,12 +133,6 @@ int main()
 
     std::vector<Geomesh> mesh;
     mesh.push_back(Geomesh(glm::vec2(-3.14159),glm::vec2(3.14159)));
-    //for(int i = -8; i < 8; i++)
-    //    for(int j = -8; j < 8; j++)
-    //    {
-    //        Geomesh land(glm::vec2(i,j),glm::vec2(i+1,j+1));
-    //        mesh.push_back(land);
-    //    }
 
     // Adjust camera frustum
     camera.Near = 100.0/6e6;
@@ -141,18 +142,11 @@ int main()
     {
         // per-frame time logic
         // --------------------
-        bool ticking = countAndDisplayFps(window);
-
+        countAndDisplayFps(window);
 
         // input
         glfwGetFramebufferSize(window, &SCR_WIDTH, &SCR_HEIGHT);
         processInput(window);
-
-        auto refCamElev = currentElevation(mesh, refcam.Position);
-        for(auto& land: mesh)
-        {
-            land.subdivision(refcam.Position, refcam.Front, refCamElev);
-        }
 
         if(bindCam)
         {
@@ -164,19 +158,16 @@ int main()
             refcam.sync_rotation();
         }
 
+        auto refCamElev = currentElevation(mesh, refcam.Position);
+        for(auto& land: mesh)
+        {
+            land.subdivision(refcam.Position, refcam.Front, refCamElev);
+        }
+
         // Draw points
         glViewport(0,0,SCR_WIDTH, SCR_HEIGHT);
-        glClearColor(0.4f, 0.4f, 0.7f, 1.0f);
+        glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // Render relative to eye
-        glm::vec3 lightPos = glm::vec3(-12.5f*sinf(0.10f*glfwGetTime()),
-                                       4.3f*cosf(0.00f*glfwGetTime()),
-                                       -12.5f*cosf(0.10f*glfwGetTime()));
-        simpleShader.use();
-        simpleShader.setMat4("projection_view", camera.GetFrustumMatrix());
-        simpleShader.setMat4("model", glm::scale(glm::translate(glm::mat4(1),lightPos),glm::vec3(0.1)));
-        renderBox();
 
         lightingShader.use();
         lightingShader.setMat4("projection_view", camera.GetFrustumMatrix());
@@ -195,11 +186,7 @@ int main()
         lightingShader.setInt("material", 2);
 
         // lighting
-        lightingShader.setVec3("dirLight.direction", -lightPos);
-        lightingShader.setVec3("dirLight.ambient", glm::vec3( 0.1f, 0.1f, 0.1f));
-        lightingShader.setVec3("dirLight.diffuse", glm::vec3( 1.0f, 1.0f, 1.0f));
-        lightingShader.setVec3("dirLight.specular", glm::vec3( 0.05f, 0.05f, 0.05f));
-
+        dirlight.setParam(lightingShader);
 
         // render type
         lightingShader.setInt("render_type", Geomesh::RENDER_MODE);
@@ -238,6 +225,7 @@ int main()
         Node::gui_interface();
         Geomesh::gui_interface();
         refcam.gui_interface();
+        dirlight.gui_interface(camera);
         gui_interface(currentElevation(mesh, refcam.Position));
         ImGui::ShowDemoWindow();
         GuiInterface::End();
