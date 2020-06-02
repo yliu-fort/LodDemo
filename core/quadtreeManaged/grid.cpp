@@ -14,9 +14,11 @@
 
 static Shader upsampling, crackfixing;
 static unsigned int noiseTex, elevationTex;
+std::vector<uint> _cache;
 
 uint Node::NODE_COUNT = 0;
 uint Node::INTERFACE_NODE_COUNT = 0;
+bool Node::USE_CACHE = true;
 
 void renderGrid();
 
@@ -83,6 +85,56 @@ void Node::finalize()
     glDeleteTextures(1,&elevationTex);
 }
 
+Node::Node() : lo(0), hi(1), subdivided(false), crackfixed(false), level(0), offset_type(0),elevation(0)
+{
+    if(_cache.empty() || !USE_CACHE)
+    {
+        glGenTextures(1, &heightmap);
+
+        glActiveTexture(GL_TEXTURE0);
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, heightmap);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        //Generate a distance field to the center of the cube
+        glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
+    }
+    else
+    {
+        heightmap = _cache.back();
+        _cache.pop_back();
+    }
+
+    //glGenTextures(1, &appearance);
+    NODE_COUNT++;
+}
+
+Node::~Node()
+{
+    if(subdivided)
+    {
+        delete child[0];
+        delete child[1];
+        delete child[2];
+        delete child[3];
+    }
+
+    if(_cache.size() > 512 || !USE_CACHE)
+    {
+        glDeleteTextures(1, &heightmap);
+    }
+    else
+    {
+        _cache.push_back(heightmap);
+    }
+
+    //glDeleteTextures(1, &appearance);
+    NODE_COUNT--;
+}
+
 void Node::draw()
 {
     // Render grid
@@ -95,20 +147,15 @@ void Node::bake_height_map()
 
     //Datafield//
     //Store the volume data to polygonise
-    glActiveTexture(GL_TEXTURE0);
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, heightmap);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    //Generate a distance field to the center of the cube
-    glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
 
     upsampling.use();
     upsampling.setVec2("lo", lo);
     upsampling.setVec2("hi", hi);
+
+    // bind height map
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, heightmap);
 
     // bind noisemap
     glActiveTexture(GL_TEXTURE1);
@@ -124,7 +171,7 @@ void Node::bake_height_map()
     glDispatchCompute(1,1,1);
 
     // make sure writing to image has finished before read
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     // Write flag
     crackfixed = false;
@@ -224,21 +271,25 @@ void Node::split()
         child[0]->setconnectivity<0>(this);
         child[0]->bake_height_map();
         child[0]->set_elevation();
+        child[0]->set_model_matrix();
 
         child[1] = new Node;
         child[1]->setconnectivity<1>(this);
         child[1]->bake_height_map();
         child[1]->set_elevation();
+        child[1]->set_model_matrix();
 
         child[2] = new Node;
         child[2]->setconnectivity<2>(this);
         child[2]->bake_height_map();
         child[2]->set_elevation();
+        child[2]->set_model_matrix();
 
         child[3] = new Node;
         child[3]->setconnectivity<3>(this);
         child[3]->bake_height_map();
         child[3]->set_elevation();
+        child[3]->set_model_matrix();
 
         this->subdivided = true;
     }
@@ -330,6 +381,8 @@ void Node::setconnectivity(Node* leaf)
 
     level = parent->level+1;
 
+    rlo = (lo - parent->lo)/(parent->hi - parent->lo);
+    rhi = (hi - parent->lo)/(parent->hi - parent->lo);
 }
 
 // renderGrid() renders a 16x16 2d grid in NDC.
@@ -403,6 +456,11 @@ void Node::gui_interface()
     {
         ImGui::Text("Controllable parameters for Node class.");               // Display some text (you can use a format strings too)
 
+        ImGui::Checkbox("Use cache", &USE_CACHE);
+        if(USE_CACHE)
+        {
+            ImGui::Text("cache load %d", _cache.size());
+        }
         ImGui::Text("Number of nodes generated %d", NODE_COUNT);
         ImGui::Text("Number of interface nodes generated %d", INTERFACE_NODE_COUNT);
 

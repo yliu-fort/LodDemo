@@ -172,22 +172,15 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
     else
     {
         // Transfer local grid model
-        //glm::mat4 model(1);
-
-        glm::mat4 _model = glm::translate(glm::mat4(1), node->get_shift());
-        _model = glm::scale(_model, node->get_scale());
-        shader.setMat4("model", _model);
+        shader.setMat4("model", node->model);
 
         // Transfer lo and hi
         shader.setInt("level",pow(2,MAX_DEPTH - node->level));
         shader.setVec2("lo", node->lo);
         shader.setVec2("hi", node->hi);
 
-        auto shlo = (node->lo - node->parent->lo)/(node->parent->hi - node->parent->lo);
-        auto shhi = (node->hi - node->parent->lo)/(node->parent->hi - node->parent->lo);
-
-        shader.setVec2("shlo", shlo);
-        shader.setVec2("shhi", shhi);
+        shader.setVec2("shlo", node->rlo);
+        shader.setVec2("shhi", node->rhi);
 
         // Active textures
         glActiveTexture(GL_TEXTURE0);
