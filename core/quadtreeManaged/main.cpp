@@ -30,7 +30,7 @@ static int SCR_WIDTH  = 800;
 static int SCR_HEIGHT = 600;
 
 // camera
-static Camera camera = Camera(glm::vec3(0.0f, 0.5f, 0.0f), float(SCR_WIDTH)/SCR_HEIGHT);
+static Camera camera = Camera(glm::vec3(-1.0f, 0.0f, 0.0f), float(SCR_WIDTH)/SCR_HEIGHT);
 
 static float lastX = SCR_WIDTH / 2.0f;
 static float lastY = SCR_HEIGHT / 2.0f;
@@ -102,20 +102,19 @@ public:
     }
     float currentElevation(const glm::vec3& pos) const
     {
-        float radius = 1.0;
         if(top.isGroundReference(pos))
-            return radius+top.queryElevation(pos);
+            return top.queryElevation(pos);
         if(bottom.isGroundReference(pos))
-            return radius+bottom.queryElevation(pos);
+            return bottom.queryElevation(pos);
         if(left.isGroundReference(pos))
-            return radius+left.queryElevation(pos);
+            return left.queryElevation(pos);
         if(right.isGroundReference(pos))
-            return radius+right.queryElevation(pos);
+            return right.queryElevation(pos);
         if(front.isGroundReference(pos))
-            return radius+front.queryElevation(pos);
+            return front.queryElevation(pos);
         if(back.isGroundReference(pos))
-            return radius+back.queryElevation(pos);
-        return 1.0f;
+            return back.queryElevation(pos);
+        return 0.0f;
     }
 
 };
@@ -173,8 +172,8 @@ int main()
     Geocube mesh;
 
     // Adjust camera frustum
-    camera.Near = 100.0/6e6;
-    //camera.Far = 2.0;
+    camera.Near = 1000.0/6e6;
+    camera.Far = camera.Near*1e4;
 
     while( !glfwWindowShouldClose( window ) )
     {
@@ -188,7 +187,7 @@ int main()
 
         if(bindCam)
         {
-            float min_height = mesh.currentElevation(refcam.Position) + 10.0f*camera.Near;
+            float min_height = 1.0f + mesh.currentElevation(refcam.Position) + camera.Near;
             if(glm::length(camera.Position) < min_height)
                 camera.Position = glm::mix(camera.Position, glm::normalize(camera.Position)*min_height, 0.5f);
             //camera.setReference(glm::vec3(0,1,0));
