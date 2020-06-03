@@ -30,7 +30,7 @@ static int SCR_WIDTH  = 800;
 static int SCR_HEIGHT = 600;
 
 // camera
-static Camera camera = Camera(glm::vec3(0.5f, 0.5f, 0.5f), float(SCR_WIDTH)/SCR_HEIGHT);
+static Camera camera = Camera(glm::vec3(0.0f, 0.5f, 0.0f), float(SCR_WIDTH)/SCR_HEIGHT);
 
 static float lastX = SCR_WIDTH / 2.0f;
 static float lastY = SCR_HEIGHT / 2.0f;
@@ -57,9 +57,8 @@ void renderBox();
 void renderPlane();
 
 // which mesh I am standing
-float currentElevation(std::vector<Geomesh>& mesh, const glm::vec3& pos)
+float currentElevation(const Geomesh& land, const glm::vec3& pos)
 {
-    for(auto& land: mesh)
     {
         // Caution: query in 2d grid on (x,z) plane
         if(land.root->lo.x < pos.x && land.root->lo.y < pos.z
@@ -84,7 +83,55 @@ void gui_interface(float h)
     }
 }
 
+class Geocube
+{
+    Geomesh top, bottom, left, right, front, back;
+public:
+    Geocube()
+        :top(Geomesh(glm::translate(glm::mat4(1),glm::vec3(0,1,0))))
+        ,bottom(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(180.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
+        ,left(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(90.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
+        ,right(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(-90.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
+        ,front(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(90.0f),glm::vec3(1,0,0)),glm::vec3(0,1,0))))
+        ,back(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(-90.0f),glm::vec3(1,0,0)),glm::vec3(0,1,0))))
+    {}
+    void update(Camera& camera)
+    {
+        top.subdivision(camera.Position, camera.Front);
+        bottom.subdivision(camera.Position, camera.Front);
+        left.subdivision(camera.Position, camera.Front);
+        right.subdivision(camera.Position, camera.Front);
+        front.subdivision(camera.Position, camera.Front);
+        back.subdivision(camera.Position, camera.Front);
+    }
+    void draw(Shader& shader, Camera& camera)
+    {
+        top.draw(shader, camera.Position);
+        bottom.draw(shader, camera.Position);
+        left.draw(shader, camera.Position);
+        right.draw(shader, camera.Position);
+        front.draw(shader, camera.Position);
+        back.draw(shader, camera.Position);
+    }
+    float currentElevation(const glm::vec3& pos) const
+    {
+        float radius = 1.0;
+        if(top.isGroundReference(pos))
+            return radius+top.queryElevation(pos);
+        if(bottom.isGroundReference(pos))
+            return radius+bottom.queryElevation(pos);
+        if(left.isGroundReference(pos))
+            return radius+left.queryElevation(pos);
+        if(right.isGroundReference(pos))
+            return radius+right.queryElevation(pos);
+        if(front.isGroundReference(pos))
+            return radius+front.queryElevation(pos);
+        if(back.isGroundReference(pos))
+            return radius+back.queryElevation(pos);
+        return 1.0f;
+    }
 
+};
 int main()
 {
 #if defined(__linux__)
@@ -131,8 +178,10 @@ int main()
     unsigned int material = loadTexture("Y42lf.png",FP("../../resources/textures"), false);
     unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
 
-    std::vector<Geomesh> mesh;
-    mesh.push_back(Geomesh(glm::vec2(-3.14159),glm::vec2(3.14159)));
+    //Geomesh north(glm::translate(glm::mat4(1),glm::vec3(0,1,0)));
+    //Geomesh west(glm::translate(glm::rotate(glm::mat4(1),glm::radians(90.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0)));
+
+    Geocube mesh;
 
     // Adjust camera frustum
     camera.Near = 100.0/6e6;
@@ -150,19 +199,22 @@ int main()
 
         if(bindCam)
         {
-            float min_height = currentElevation(mesh, camera.Position) + 10.0f*camera.Near;
-            camera.Position.y = fmaxf(camera.Position.y, min_height);
+            float min_height = mesh.currentElevation(refcam.Position) + 10.0f*camera.Near;
+            if(glm::length(camera.Position) < min_height)
+                camera.Position = glm::mix(camera.Position, glm::normalize(camera.Position)*min_height, 0.5f);
             //camera.setReference(glm::vec3(0,1,0));
             refcam.sync_frustrum();
             refcam.sync_position();
             refcam.sync_rotation();
         }
 
-        auto refCamElev = currentElevation(mesh, refcam.Position);
-        for(auto& land: mesh)
-        {
-            land.subdivision(refcam.Position, refcam.Front, refCamElev);
-        }
+
+        //for(auto& land: mesh)
+        //{
+        //    auto refCamElev = land.queryElevation(refcam.Position);
+        //    land.subdivision(refcam.Position, refcam.Front, refCamElev);
+        //}
+        mesh.update(refcam);
 
         // Draw points
         glViewport(0,0,SCR_WIDTH, SCR_HEIGHT);
@@ -192,10 +244,13 @@ int main()
         lightingShader.setInt("render_type", Geomesh::RENDER_MODE);
 
 
-        for(const auto& land: mesh)
-        {
-            land.draw(lightingShader);
-        }
+        //for(const auto& land: mesh)
+        //{
+        //    land.draw(lightingShader);
+        //}
+        glEnable(GL_CULL_FACE);
+        mesh.draw(lightingShader, refcam);
+        glDisable(GL_CULL_FACE);
 
         if(drawWireframe)
         {
@@ -206,7 +261,7 @@ int main()
             //lodShader.setVec3("viewPos", refcam.Position);
             //lodShader.setInt("heightmap", 0);
             glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-            for(auto& land: mesh) { land.draw(lightingShader); }
+            mesh.draw(lightingShader, refcam);
             glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
         }
 
@@ -217,7 +272,7 @@ int main()
             normalShader.setVec3("viewPos", refcam.Position);
             normalShader.setInt("heightmap", 0);
             normalShader.setVec3("color", glm::vec3(1,1,0));
-            for(auto& land: mesh) { land.draw(normalShader); }
+            mesh.draw(normalShader, refcam);
         }
 
         // gui
@@ -226,7 +281,7 @@ int main()
         Geomesh::gui_interface();
         refcam.gui_interface();
         dirlight.gui_interface(camera);
-        gui_interface(currentElevation(mesh, refcam.Position));
+        gui_interface(mesh.currentElevation(refcam.Position));
         ImGui::ShowDemoWindow();
         GuiInterface::End();
 

@@ -15,6 +15,7 @@ out vec3 FragPos;
 uniform mat4 projection_view;
 uniform mat4 model;
 uniform vec3 viewPos;
+uniform vec3 projPos;
 
 layout(binding = 0) uniform sampler2D heightmap;
 layout(binding = 1) uniform sampler2D heightmapParent;
@@ -25,14 +26,16 @@ uniform vec2 hi;
 uniform vec2 shlo;
 uniform vec2 shhi;
 
+
 void main()
 {
     // To avoid artifacts in normal calculation
     TexCoords = aTexCoords;
 
-    // blend
+    // blend (need repair)
+    vec3 ePos = projPos;
     vec2 gPos = lo + aPos.xz*(hi-lo);
-    float d = max(abs(gPos.x - viewPos.x),abs(gPos.y - viewPos.z));
+    float d = max(abs(gPos.x - ePos.x),abs(gPos.y - ePos.z));
     float l = 0.5f*dot(hi-lo, vec2(1));
     float blend = clamp((d/l-2-1)/(2-1),0,1);
     blend_display = blend;
@@ -44,21 +47,17 @@ void main()
             /vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y); // map to shlo->shhi
     float height = mix(texture(heightmap, aTexCoords).r,texture(heightmapParent, sh_pixel ).r,blend);
     Normal = mix(texture(heightmap, aTexCoords).gba,texture(heightmapParent, sh_pixel ).gba,blend);
-    //float height = texelFetch(heightmap, ivec2(aTexCoords*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)), 0).r;
+
 
     // Write to fragpos and height field
-    FragPos = vec3(model*vec4(aPos.x,aPos.y+height,aPos.z,1.0));
+    FragPos = vec3(model*vec4(aPos,1.0));
+
+    // (debug)
     height_display = height;
 
-    // Project to non-euclidian space (cylindrical)
-    //vec3 ePos = vec3((1.0f-FragPos.y)*sin(FragPos.x), -(1.0f-FragPos.y)*cos(FragPos.x)+1, FragPos.z);
-    //FragPos = ePos;
 
     // Project to non-euclidian space (quat-sphereical)
-    //vec3 ePos = vec3((1.0f+FragPos.y)*sin(FragPos.x/4+3.14159/2)*cos(FragPos.z/4+3.14159/2),
-    //                 (1.0f+FragPos.y)*sin(FragPos.x/4+3.14159/2)*sin(FragPos.z/4+3.14159/2)-1,
-    //                 (1.0f+FragPos.y)*cos(FragPos.x/4+3.14159/2) );
-    //FragPos = ePos;
+    FragPos = (1.0f + height)*normalize(FragPos);
 
 
     // debug

@@ -5,7 +5,8 @@
 
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
-
+#include <vector>
+#include <memory>
 typedef unsigned int uint;
 
 // sizes
@@ -24,7 +25,7 @@ public:
 
     glm::vec2 lo, hi; // global coordinates
     glm::vec2 rlo, rhi; // relative coordinates
-    bool subdivided;
+    bool subdivided = false;
     bool crackfixed;
     uint level, offset_type;
     float elevation;
@@ -34,11 +35,12 @@ public:
     Node();
     ~Node();
 
-    void set_model_matrix()
+    void set_model_matrix(const glm::mat4& arg)
     {
-        model = glm::translate(glm::mat4(1), this->get_shift());
+        model = glm::translate(arg, this->get_shift());
         model = glm::scale(model, this->get_scale());
     }
+
     float size() const
     {
         return 0.5f*(hi.x-lo.x + hi.y-lo.y);
@@ -67,9 +69,17 @@ public:
     {
         return glm::vec3(0.5f*(hi.x + lo.x),elevation,0.5f*(hi.y + lo.y));
     }
-    void bake_height_map();
+    glm::vec3 get_relative_shift() const
+    {
+        return glm::vec3(rlo.x,0.0f,rlo.y);
+    }
+    glm::vec3 get_relative_center() const
+    {
+        return glm::vec3(0.5f*(rhi.x + rlo.x),0.0f,0.5f*(rhi.y + rlo.y));
+    }
+    void bake_height_map(glm::mat4 arg);
     void fix_heightmap(Node* neighbour, int edgedir);
-    void split();
+    void split(glm::mat4 arg);
     int search(glm::vec2 p) const;
 
     float min_elevation() const;
@@ -89,6 +99,7 @@ public:
     static uint NODE_COUNT;
     static uint INTERFACE_NODE_COUNT;
     static bool USE_CACHE;
+    static std::vector<uint> CACHE;
 };
 
 #endif

@@ -26,6 +26,7 @@ struct PointLight {
 in vec2 TexCoords;
 in vec3 Normal;
 in vec3 FragPos;
+in float height_display;
 in float blend_display;
 
 uniform sampler1D colormap;
@@ -55,9 +56,10 @@ void main()
 
     if(render_type == 0) // REAL
     {
-        color = texture( material,
-                         vec2((TexCoords.x + floor(16*FragPos.y))/8.0f ,TexCoords.y) ).rgb;
-        if(FragPos.y < 1.0/6e6) { color = vec3(0.2,0.2,0.7); } // ocean
+        color = mix(texture( material,
+                         vec2((TexCoords.x + floor(135*height_display))/8.0f ,TexCoords.y) ).rgb,
+                    vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(height_display+5e-5f))-0.1f,0,1));
+
         color = CalcDirLight(dirLight, Normal, viewDir, color);
     }else
     if(render_type == 1) // COLORMAP

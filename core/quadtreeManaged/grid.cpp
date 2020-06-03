@@ -14,11 +14,15 @@
 
 static Shader upsampling, crackfixing;
 static unsigned int noiseTex, elevationTex;
-std::vector<uint> _cache;
+
 
 uint Node::NODE_COUNT = 0;
 uint Node::INTERFACE_NODE_COUNT = 0;
 bool Node::USE_CACHE = true;
+
+#define MAX_CACHE_CAPACITY (1524)
+std::vector<uint> Node::CACHE;
+
 
 void renderGrid();
 
@@ -65,7 +69,7 @@ void Node::init()
             //    dataField.push_back( 0.5*(tanh(0.02f*(i - res/3)-1)) );
             //else
             //    dataField.push_back(0);
-            glm::vec3 data(0.5f*(tanh(-0.02f*sqrt((i - res/2)*(i - res/2) + (j- res/2)*(j - res/2))+1)));
+            glm::vec3 data( -6.0*tanh(0.005*(10*((i - res/2.0)*(i - res/2.0) + (j- res/2.0)*(j - res/2.0))/(float)res/(float)res-1.7)) );
             dataField.push_back( data );
         }
     }
@@ -83,11 +87,14 @@ void Node::finalize()
 {
     glDeleteTextures(1,&noiseTex);
     glDeleteTextures(1,&elevationTex);
+    if(!CACHE.empty())
+        glDeleteTextures(1,&Node::CACHE[0]);
+    CACHE.clear();
 }
 
-Node::Node() : lo(0), hi(1), subdivided(false), crackfixed(false), level(0), offset_type(0),elevation(0)
+Node::Node() : lo(-1), hi(1), rlo(0), rhi(1), subdivided(false), crackfixed(false), level(0), offset_type(0),elevation(0)
 {
-    if(_cache.empty() || !USE_CACHE)
+    if(Node::CACHE.empty() || !Node::USE_CACHE)
     {
         glGenTextures(1, &heightmap);
 
@@ -104,12 +111,13 @@ Node::Node() : lo(0), hi(1), subdivided(false), crackfixed(false), level(0), off
     }
     else
     {
-        heightmap = _cache.back();
-        _cache.pop_back();
+        heightmap = Node::CACHE.back();
+        Node::CACHE.pop_back();
     }
 
     //glGenTextures(1, &appearance);
-    NODE_COUNT++;
+    Node::NODE_COUNT++;
+
 }
 
 Node::~Node()
@@ -122,17 +130,17 @@ Node::~Node()
         delete child[3];
     }
 
-    if(_cache.size() > 512 || !USE_CACHE)
+    if(Node::CACHE.size() > MAX_CACHE_CAPACITY || !Node::USE_CACHE)
     {
         glDeleteTextures(1, &heightmap);
     }
     else
     {
-        _cache.push_back(heightmap);
+        Node::CACHE.push_back(heightmap);
     }
 
     //glDeleteTextures(1, &appearance);
-    NODE_COUNT--;
+    Node::NODE_COUNT--;
 }
 
 void Node::draw()
@@ -141,7 +149,7 @@ void Node::draw()
     renderGrid();
 }
 
-void Node::bake_height_map()
+void Node::bake_height_map(glm::mat4 arg)
 {
     // Initialize 2d heightmap texture
 
@@ -152,6 +160,8 @@ void Node::bake_height_map()
     upsampling.use();
     upsampling.setVec2("lo", lo);
     upsampling.setVec2("hi", hi);
+
+    upsampling.setMat4("globalMatrix", arg);
 
     // bind height map
     glActiveTexture(GL_TEXTURE0);
@@ -263,33 +273,37 @@ void Node::fix_heightmap(Node* neighbour, int edgedir)
     // Write flag
     crackfixed = true;
 }
-void Node::split()
+void Node::split(glm::mat4 arg = glm::mat4(1))
 {
     if(!this->subdivided)
     {
         child[0] = new Node;
         child[0]->setconnectivity<0>(this);
-        child[0]->bake_height_map();
+        child[0]->set_model_matrix(arg);
+        child[0]->bake_height_map(arg);
         child[0]->set_elevation();
-        child[0]->set_model_matrix();
+
 
         child[1] = new Node;
         child[1]->setconnectivity<1>(this);
-        child[1]->bake_height_map();
+        child[1]->set_model_matrix(arg);
+        child[1]->bake_height_map(arg);
         child[1]->set_elevation();
-        child[1]->set_model_matrix();
+
 
         child[2] = new Node;
         child[2]->setconnectivity<2>(this);
-        child[2]->bake_height_map();
+        child[2]->set_model_matrix(arg);
+        child[2]->bake_height_map(arg);
         child[2]->set_elevation();
-        child[2]->set_model_matrix();
+
 
         child[3] = new Node;
         child[3]->setconnectivity<3>(this);
-        child[3]->bake_height_map();
+        child[3]->set_model_matrix(arg);
+        child[3]->bake_height_map(arg);
         child[3]->set_elevation();
-        child[3]->set_model_matrix();
+
 
         this->subdivided = true;
     }
@@ -456,13 +470,13 @@ void Node::gui_interface()
     {
         ImGui::Text("Controllable parameters for Node class.");               // Display some text (you can use a format strings too)
 
-        ImGui::Checkbox("Use cache", &USE_CACHE);
-        if(USE_CACHE)
+        ImGui::Checkbox("Use cache", &Node::USE_CACHE);
+        if(Node::USE_CACHE)
         {
-            ImGui::Text("cache load %d", _cache.size());
+            ImGui::Text("cache load %d", Node::CACHE.size());
         }
-        ImGui::Text("Number of nodes generated %d", NODE_COUNT);
-        ImGui::Text("Number of interface nodes generated %d", INTERFACE_NODE_COUNT);
+        ImGui::Text("Number of nodes generated %d", Node::NODE_COUNT);
+        ImGui::Text("Number of interface nodes generated %d", Node::INTERFACE_NODE_COUNT);
 
         if (ImGui::TreeNode("Noise map"))
         {

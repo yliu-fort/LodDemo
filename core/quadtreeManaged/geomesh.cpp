@@ -7,7 +7,7 @@ Node* Geomesh::queryNode( const glm::vec2& pos) const
 {
     //bool isTraversible = node->subdivided;
         // find the node
-        Node* sh_node = root.get();
+        Node* sh_node = root;
         int result = -1;
         while(true)
         {
@@ -40,7 +40,7 @@ void Geomesh::refresh_heightmap(Node* node)
         // Refresh old height map for interface cells
         if(node->crackfixed)
         {
-            node->bake_height_map();
+            //node->bake_height_map();
         }
     }
 }
@@ -134,11 +134,10 @@ void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, 
     //}
 
     // Subdivision
-    if( d < K && node->level < MAX_DEPTH )
+    if( node->level < MAX_DEPTH && d < K  )
     {
-
         // split and bake heightmap
-        node->split();
+        node->split(model);
 
         subdivision(viewPos, viewFront, viewY, node->child[0]);
         subdivision(viewPos, viewFront, viewY, node->child[1]);
@@ -148,7 +147,7 @@ void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, 
     }
     else
     {
-        if( (node->level >= MAX_DEPTH || d >= CUTOUT_FACTOR * K ) && node->subdivided )
+        if( node->subdivided && d >= CUTOUT_FACTOR * K )
         {
             delete node->child[0];
             delete node->child[1];
@@ -182,6 +181,8 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
         shader.setVec2("shlo", node->rlo);
         shader.setVec2("shhi", node->rhi);
 
+        //std::cout << "current drawing node" << node->level << " - " << node->parent->level << std::endl;
+
         // Active textures
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, node->heightmap);
@@ -191,6 +192,8 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
 
         // Render grid (inline function call renderGrid())
         Node::draw();
+
+        //std::cout << "ok" << std::endl;
     }
     return;
 }
