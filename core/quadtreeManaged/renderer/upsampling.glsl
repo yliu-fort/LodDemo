@@ -13,7 +13,7 @@ layout(rgba32f, binding = 0) uniform image2D heightmap;
 
 // noisemap
 layout(binding = 1) uniform sampler2D noise;
-layout(binding = 2) uniform sampler2D elevationmap;
+layout(binding = 2) uniform samplerCube elevationmap;
 
 uniform vec2 lo;
 uniform vec2 hi;
@@ -26,7 +26,12 @@ const float freq[13] = {4.03*32,1.96*32,1.01*32, 32.0f/2.03f,
                  32.0f/256.07f,32.0f/511.89f,32.0f/1024.22f};
 
 #define EFFECTIVE_HEIGHT_SYNTHETIC (0.005)
-#define EFFECTIVE_HEIGHT (0.05)
+#define EFFECTIVE_HEIGHT (0.001)
+
+vec3 convertToDeformed(vec2 t)
+{
+    return vec3(globalMatrix*vec4(t.x,0.0f,t.y,1.0f));
+}
 
 float calc_height(vec2 pixel)
 {
@@ -46,8 +51,9 @@ float calc_height(vec2 pixel)
     // Read elevation map
     // Caution: low-res elevation map causes bumpy ground-> truncation issue
     //density += -2.0*tanh(0.03f*abs(dot(pixel,pixel))-0.15);
-    vec2 offset = 0.5/vec2(ELEVATION_MAP_RESOLUTION);
-    vec2 cpixel = offset + pixel*(1.0f - 2.0f*offset);
+    //vec2 offset = 0.5/vec2(ELEVATION_MAP_RESOLUTION);
+    //vec2 cpixel = offset + pixel*(1.0f - 2.0f*offset);
+    vec3 cpixel = convertToDeformed(pixel);
     density += texture( elevationmap,  cpixel ).r;
 
     // Bound height
@@ -58,7 +64,7 @@ float calc_height(vec2 pixel)
 
 vec3 convertToSphere(vec2 t)
 {
-    return (1.0f + calc_height(t)) * normalize(vec3(globalMatrix*vec4(t.x,0.0f,t.y,1.0f)));
+    return (1.0f + calc_height(t)) * normalize(convertToDeformed(t));
 }
 
 void main()
@@ -94,7 +100,7 @@ void main()
     //height = clamp(1.7f*height,0.0,0.4);
 
     // deformed coordinate
-    vec3 dPos = normalize(vec3(globalMatrix*vec4(pixel.x,0.0f, pixel.y,1.0f)));
+    //vec3 dPos = normalize(vec3(globalMatrix*vec4(pixel.x,0.0f, pixel.y,1.0f)));
 
     // Compute normal
     // may convert to non-euclidian space before computing the actual value

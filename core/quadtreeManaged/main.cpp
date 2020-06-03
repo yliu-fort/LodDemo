@@ -56,19 +56,6 @@ void processInput(GLFWwindow *window);
 void renderBox();
 void renderPlane();
 
-// which mesh I am standing
-float currentElevation(const Geomesh& land, const glm::vec3& pos)
-{
-    {
-        // Caution: query in 2d grid on (x,z) plane
-        if(land.root->lo.x < pos.x && land.root->lo.y < pos.z
-                && land.root->hi.x >= pos.x && land.root->hi.y >= pos.z)
-        {
-            return land.queryElevation(pos);
-        }
-    }
-    return 0.0f;
-}
 
 void gui_interface(float h)
 {
@@ -132,6 +119,8 @@ public:
     }
 
 };
+
+
 int main()
 {
 #if defined(__linux__)
@@ -175,7 +164,7 @@ int main()
     Colormap::Rainbow();
 
     // real material texture
-    unsigned int material = loadTexture("Y42lf.png",FP("../../resources/textures"), false);
+    unsigned int material = loadLayeredTexture("Y42lf.png",FP("../../resources/textures"), false);
     unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
 
     //Geomesh north(glm::translate(glm::mat4(1),glm::vec3(0,1,0)));
@@ -234,7 +223,7 @@ int main()
         lightingShader.setInt("debugmap", 11);
 
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, material);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, material);
         lightingShader.setInt("material", 2);
 
         // lighting

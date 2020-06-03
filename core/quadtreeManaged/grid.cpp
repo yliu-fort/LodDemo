@@ -25,13 +25,14 @@ std::vector<uint> Node::CACHE;
 
 
 void renderGrid();
+void planeSeedInit();
+void cubeSeedInit();
 
-void Node::init()
+void cubeSeedInit()
 {
     //Store the volume data to polygonise
     glGenTextures(1, &noiseTex);
     glActiveTexture(GL_TEXTURE0);
-    //glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, noiseTex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -40,47 +41,59 @@ void Node::init()
 
     //Generate a distance field to the center of the cube
     std::vector<glm::vec3> dataField;
-    uint res = 256;
-    for(uint j=0; j<res; j++){
-        for(uint i=0; i<res; i++){
+    int width=256, height=256, nrChannels=3;
+    for(uint j=0; j<height; j++){
+        for(uint i=0; i<width; i++){
             dataField.push_back( glm::vec3(rand() / double(RAND_MAX)) );
         }
     }
 
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, &dataField[0]);
+
 
     // prescribed elevation map
     glGenTextures(1, &elevationTex);
     glActiveTexture(GL_TEXTURE0);
-    //glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, elevationTex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
+    glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     //Generate a distance field to the center of the cube
     dataField.clear();
-    res = 256;
-    for(uint j=0; j<res; j++){
-        for(uint i=0; i<res; i++){
+    for(uint j=0; j<height; j++){
+        for(uint i=0; i<width; i++){
             //if(i > res/3)
             //    dataField.push_back( 0.5*(tanh(0.02f*(i - res/3)-1)) );
             //else
             //    dataField.push_back(0);
-            glm::vec3 data( -6.0*tanh(0.005*(10*((i - res/2.0)*(i - res/2.0) + (j- res/2.0)*(j - res/2.0))/(float)res/(float)res-1.7)) );
+            glm::vec3 data( 6.0*tanh(0.0005*(10*((i - width/2.0)*(i - width/2.0) + (j- height/2.0)*(j - height/2.0))
+                                             /(float)width/(float)height-1.7)) );
             dataField.push_back( data );
         }
     }
 
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
+    for(GLuint i = 0; i < 6; i++)
+    {
+        //data = stbi_load(textures_faces[i].c_str(), &width, &height, &nrChannels, 0);
+        glTexImage2D(
+            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+            0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, &dataField[0]
+        );
+    }
 
     // Geo mesh, careful: need a noise texture and shader before intialized
     upsampling.reload_shader_program_from_files(FP("renderer/upsampling.glsl"));
     crackfixing.reload_shader_program_from_files(FP("renderer/crackfixing.glsl"));
 
     return;
+}
+
+void Node::init()
+{
+    cubeSeedInit();
 }
 
 void Node::finalize()
@@ -172,7 +185,7 @@ void Node::bake_height_map(glm::mat4 arg)
     glBindTexture(GL_TEXTURE_2D, noiseTex);
 
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, elevationTex);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
 
     // write to heightmap ? buggy
     glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
@@ -397,6 +410,63 @@ void Node::setconnectivity(Node* leaf)
 
     rlo = (lo - parent->lo)/(parent->hi - parent->lo);
     rhi = (hi - parent->lo)/(parent->hi - parent->lo);
+}
+
+void planeSeedInit()
+{
+    //Store the volume data to polygonise
+    glGenTextures(1, &noiseTex);
+    glActiveTexture(GL_TEXTURE0);
+    //glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, noiseTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+
+    //Generate a distance field to the center of the cube
+    std::vector<glm::vec3> dataField;
+    uint res = 256;
+    for(uint j=0; j<res; j++){
+        for(uint i=0; i<res; i++){
+            dataField.push_back( glm::vec3(rand() / double(RAND_MAX)) );
+        }
+    }
+
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
+
+    // prescribed elevation map
+    glGenTextures(1, &elevationTex);
+    glActiveTexture(GL_TEXTURE0);
+    //glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, elevationTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+
+    //Generate a distance field to the center of the cube
+    dataField.clear();
+    res = 256;
+    for(uint j=0; j<res; j++){
+        for(uint i=0; i<res; i++){
+            //if(i > res/3)
+            //    dataField.push_back( 0.5*(tanh(0.02f*(i - res/3)-1)) );
+            //else
+            //    dataField.push_back(0);
+            glm::vec3 data( -6.0*tanh(0.005*(10*((i - res/2.0)*(i - res/2.0) + (j- res/2.0)*(j - res/2.0))/(float)res/(float)res-1.7)) );
+            dataField.push_back( data );
+        }
+    }
+
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
+
+    // Geo mesh, careful: need a noise texture and shader before intialized
+    upsampling.reload_shader_program_from_files(FP("renderer/upsampling.glsl"));
+    crackfixing.reload_shader_program_from_files(FP("renderer/crackfixing.glsl"));
+
+    return;
 }
 
 // renderGrid() renders a 16x16 2d grid in NDC.

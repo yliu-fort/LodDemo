@@ -146,6 +146,74 @@ unsigned int loadTexture(const char *path, const std::string &directory, bool ga
     return textureID;
 }
 
+unsigned int loadLayeredTexture(const char *path, const std::string &directory, bool gamma)
+{
+    std::string filename = std::string(path);
+    filename = directory + '/' + filename;
+
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+    if (data)
+    {
+        GLenum format, internalformat;
+        if (nrComponents == 1)
+        {
+            format = GL_RED;
+            internalformat = GL_R8;
+        }
+        else if (nrComponents == 3)
+        {
+            format = GL_RGB;
+            internalformat = GL_RGB8;
+        }
+        else if (nrComponents == 4)
+        {
+            format = GL_RGBA;
+            internalformat = GL_RGBA8;
+        }
+
+        int nlayers = height/width;
+        if(nlayers > 1)
+        {
+            glBindTexture(GL_TEXTURE_2D_ARRAY, textureID);
+            glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, internalformat, width, width, nlayers);
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, width, width, nlayers, format, GL_UNSIGNED_BYTE, data);
+
+            //glBindTexture(GL_TEXTURE_2D_ARRAY,texture);
+            // Allocate the storage.
+            //glTexStorage3D(GL_TEXTURE_2D_ARRAY, mipLevelCount, GL_RGBA8, width, height, layerCount);
+            // Upload pixel data.
+            // The first 0 refers to the mipmap level (level 0, since there's only 1)
+            // The following 2 zeroes refers to the x and y offsets in case you only want to specify a subrectangle.
+            // The final 0 refers to the layer index offset (we start from index 0 and have 2 levels).
+            // Altogether you can specify a 3D box subset of the overall texture, but only one mip level at a time.
+            //glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, width, height, layerCount, GL_RGBA, GL_UNSIGNED_BYTE, texels);
+
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+
+            glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+
+        }
+
+        stbi_image_free(data);
+    }
+    else
+    {
+        std::cout << "Texture failed to load at path: " << path << std::endl;
+        stbi_image_free(data);
+    }
+
+    return textureID;
+}
+
 // loads a cubemap texture from 6 individual texture faces
 // order:
 // +X (right)
