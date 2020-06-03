@@ -121,10 +121,10 @@ void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, 
 
     // distance between nodepos and viewpos
     //auto d = node->get_center3() - viewPos;
-    float dx = fmin(abs(viewPos.x - node->lo.x),abs(viewPos.x - node->hi.x));
-    float dy = fmin(abs(viewPos.z - node->lo.y),abs(viewPos.z - node->hi.y));
+    float dx = fminf(fabsf(viewPos.x - node->lo.x),fabsf(viewPos.x - node->hi.x));
+    float dy = fminf(fabsf(viewPos.z - node->lo.y),fabsf(viewPos.z - node->hi.y));
     //float dz = abs(viewPos.z - viewZ);
-    float d = fmax(fmax(dx, dy), abs(viewPos.y - viewY));
+    float d = fmaxf(fmaxf(dx, dy), fabsf(viewPos.y - viewY));
 
     // frustrum culling
     float K = CUTIN_FACTOR*node->size();

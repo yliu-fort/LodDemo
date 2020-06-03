@@ -76,7 +76,7 @@ public:
         if(!intersected)
             return glm::vec3(9999);
 
-        nv = convertToNormal(nv*abs(d)); // project to plane then transform to +y plane
+        nv = convertToNormal(nv*fabsf(d)); // project to plane then transform to +y plane
         nv.y = glm::length(v) - 1.0f;
 
         return nv;
