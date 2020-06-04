@@ -14,6 +14,7 @@ out vec3 FragPos;
 
 uniform mat4 projection_view;
 uniform mat4 model;
+uniform mat4 sphereProjection;
 uniform vec3 viewPos;
 uniform vec3 projPos;
 
@@ -53,19 +54,16 @@ void main()
     vec4 data = mix( texelFetch(heightmap, texel, 0), texture(heightmapParent, computeSharedPixel(texel)), blend );
 
     elevation = data.r;
-    Normal = data.gba;
+    Normal = normalize(vec3(model*vec4(data.gba,0.0f)));
 
     // Write to fragpos and height field
-    FragPos = vec3(model*vec4(aPos,1.0));
-
-
     // Project to non-euclidian space (quat-sphereical)
-    FragPos = (1.0f + elevation)*normalize(FragPos);
+    FragPos = (1.0f + elevation)*normalize(vec3(sphereProjection*vec4(aPos,1.0)));
 
 
     // debug
     //height = sqrt(dot(TexCoords,TexCoords));
     //fragPos.y = 0.07*sqrt(dot(TexCoords,TexCoords));
 
-    gl_Position = projection_view*vec4(FragPos, 1.0);
+    gl_Position = projection_view*model*vec4(FragPos, 1.0);
 }

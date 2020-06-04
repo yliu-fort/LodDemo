@@ -30,7 +30,7 @@ static int SCR_WIDTH  = 800;
 static int SCR_HEIGHT = 600;
 
 // camera
-static Camera camera = Camera(glm::vec3(-1.0f, 0.0f, 0.0f), float(SCR_WIDTH)/SCR_HEIGHT);
+static Camera camera = Camera(glm::vec3(0.0f, 0.0f, 2.0f), float(SCR_WIDTH)/SCR_HEIGHT);
 
 static float lastX = SCR_WIDTH / 2.0f;
 static float lastY = SCR_HEIGHT / 2.0f;
@@ -73,9 +73,14 @@ void gui_interface(float h)
 class Geocube
 {
     Geomesh top, bottom, left, right, front, back;
+
+    glm::vec3 position,rotation,scale;
+    bool spinning = false;
+    float spin_vel = 0.001f;
+
 public:
-    Geocube()
-        :top(Geomesh(glm::translate(glm::mat4(1),glm::vec3(0,1,0))))
+    Geocube():position(0),rotation(0),scale(1)
+        ,top(Geomesh(glm::translate(glm::mat4(1),glm::vec3(0,1,0))))
         ,bottom(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(180.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
         ,left(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(90.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
         ,right(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(-90.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
@@ -84,37 +89,90 @@ public:
     {}
     void update(Camera& camera)
     {
-        top.subdivision(camera.Position, camera.Front);
-        bottom.subdivision(camera.Position, camera.Front);
-        left.subdivision(camera.Position, camera.Front);
-        right.subdivision(camera.Position, camera.Front);
-        front.subdivision(camera.Position, camera.Front);
-        back.subdivision(camera.Position, camera.Front);
+        self_spin();
+
+        auto localPos = convertToLocal(camera.Position);
+        top.subdivision(    localPos );
+        bottom.subdivision( localPos );
+        left.subdivision(   localPos );
+        right.subdivision(  localPos );
+        front.subdivision(  localPos );
+        back.subdivision(   localPos );
     }
     void draw(Shader& shader, Camera& camera)
     {
-        top.draw(shader, camera.Position);
-        bottom.draw(shader, camera.Position);
-        left.draw(shader, camera.Position);
-        right.draw(shader, camera.Position);
-        front.draw(shader, camera.Position);
-        back.draw(shader, camera.Position);
+        auto localPos = convertToLocal(camera.Position);
+        shader.setMat4("model",this->getModelMatrix());
+        top.draw(shader,    localPos );
+        bottom.draw(shader, localPos );
+        left.draw(shader,   localPos );
+        right.draw(shader,  localPos );
+        front.draw(shader,  localPos );
+        back.draw(shader,   localPos );
     }
     float currentElevation(const glm::vec3& pos) const
     {
-        if(top.isGroundReference(pos))
-            return top.queryElevation(pos);
-        if(bottom.isGroundReference(pos))
-            return bottom.queryElevation(pos);
-        if(left.isGroundReference(pos))
-            return left.queryElevation(pos);
-        if(right.isGroundReference(pos))
-            return right.queryElevation(pos);
-        if(front.isGroundReference(pos))
-            return front.queryElevation(pos);
-        if(back.isGroundReference(pos))
-            return back.queryElevation(pos);
+        auto localPos = convertToLocal(pos);
+        if(top.isGroundReference(localPos))
+            return top.queryElevation(localPos);
+        if(bottom.isGroundReference(localPos))
+            return bottom.queryElevation(localPos);
+        if(left.isGroundReference(localPos))
+            return left.queryElevation(localPos);
+        if(right.isGroundReference(localPos))
+            return right.queryElevation(localPos);
+        if(front.isGroundReference(localPos))
+            return front.queryElevation(localPos);
+        if(back.isGroundReference(localPos))
+            return back.queryElevation(localPos);
         return 0.0f;
+    }
+    void self_spin()
+    {
+        if(spinning)
+            rotation.y += spin_vel*glfwGetTime();
+    }
+    void gui_interface()
+    {
+        //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        if (ImGui::TreeNode("Geocube::Control Panel"))
+        {
+            ImGui::Text("Controllable parameters for Geocube class.");
+
+            // Transform
+            ImGui::DragFloat3("Position",&position[0],0.1f);
+            ImGui::DragFloat3("Rotation",&rotation[0],1.0f);
+            ImGui::DragFloat3("Scale",&scale[0],0.01f,0.0f);
+
+            ImGui::Checkbox("Self-spin",&spinning);
+            if(spinning)
+            {
+                ImGui::DragFloat("self-spin velocity",&spin_vel,0.0001f,0.0001f,0.001f,"%.4f");
+            }
+
+            // Global transformation
+            //ImGui::DragFloat4("rotation", (float*)&rotation,0.01f);
+            //ImGui::DragFloat4("refQuaternion", (float*)&refQuaternion,0.01f);
+
+            // Info
+            //ImGui::Text("Front  \t%02.6f, %02.6f, %02.6f"  , Front.x,Front.y,Front.z);
+            //ImGui::Text("Up     \t%02.6f, %02.6f, %02.6f"     , Up.x,Up.y,Up.z);
+            //ImGui::Text("Right  \t%02.6f, %02.6f, %02.6f"  , Right.x,Right.y,Right.z);
+            //ImGui::Text("WorldUp\t%02.6f, %02.6f, %02.6f", WorldUp.x,WorldUp.y,WorldUp.z);
+
+            ImGui::TreePop();
+        }
+
+    }
+protected:
+    glm::mat4 getModelMatrix() const
+    {
+        return glm::translate(glm::scale(glm::mat4(1),scale),position)
+                *glm::mat4(glm::quat(glm::radians(rotation)));
+    }
+    glm::vec3 convertToLocal(const glm::vec3& pos) const
+    {
+        return glm::vec3(glm::inverse(getModelMatrix())*glm::vec4(pos,1.0f));
     }
 
 };
@@ -205,6 +263,7 @@ int main()
         glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // pass matrixes in global coordinate system
         lightingShader.use();
         lightingShader.setMat4("projection_view", camera.GetFrustumMatrix());
         lightingShader.setVec3("viewPos", refcam.Position);
@@ -257,6 +316,7 @@ int main()
 
         // gui
         GuiInterface::Begin();
+        mesh.gui_interface();
         Node::gui_interface();
         Geomesh::gui_interface();
         refcam.gui_interface();

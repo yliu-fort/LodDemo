@@ -598,7 +598,7 @@ void renderGrid()
 void Node::gui_interface()
 {                       // Create a window called "Hello, world!" and append into it.
 
-    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode("Node::Control Panel"))
     {
         ImGui::Text("Controllable parameters for Node class.");               // Display some text (you can use a format strings too)

@@ -7,7 +7,7 @@
 class Lighting
 {
 private:
-    glm::vec3 position = glm::vec3(-12.5f, 4.3f, -12.5f);
+    glm::vec3 position = glm::vec3(-12.5f, 4.3f, 0.5f);
     glm::vec3 direction= glm::vec3(1,0,0);
 
     glm::vec3 ambient = glm::vec3( 0.1f, 0.1f, 0.1f);

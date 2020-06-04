@@ -7,7 +7,7 @@ Node* Geomesh::queryNode( const glm::vec2& pos) const
 {
     //bool isTraversible = node->subdivided;
         // find the node
-        Node* sh_node = root;
+        Node* sh_node = root.get();
         int result = -1;
         while(true)
         {
@@ -116,7 +116,7 @@ void Geomesh::fixcrack(Node* node)
     }
 }
 
-void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, const float& viewY, Node* node)
+void Geomesh::subdivision(const glm::vec3& viewPos, const float& viewY, Node* node)
 {
 
     // distance between nodepos and viewpos
@@ -139,10 +139,10 @@ void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, 
         // split and bake heightmap
         node->split(model);
 
-        subdivision(viewPos, viewFront, viewY, node->child[0]);
-        subdivision(viewPos, viewFront, viewY, node->child[1]);
-        subdivision(viewPos, viewFront, viewY, node->child[2]);
-        subdivision(viewPos, viewFront, viewY, node->child[3]);
+        subdivision(viewPos, viewY, node->child[0]);
+        subdivision(viewPos, viewY, node->child[1]);
+        subdivision(viewPos, viewY, node->child[2]);
+        subdivision(viewPos, viewY, node->child[3]);
 
     }
     else
@@ -171,7 +171,7 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
     else
     {
         // Transfer local grid model
-        shader.setMat4("model", node->model);
+        shader.setMat4("sphereProjection", node->model);
 
         // Transfer lo and hi
         shader.setInt("level",MAX_DEPTH - node->level);
@@ -219,7 +219,7 @@ void Geomesh::gui_interface()
 {
     static int counter = 0;
 
-    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode("Geomesh::Control Panel"))
     {
         ImGui::Text("Controllable parameters for Geomesh class.");

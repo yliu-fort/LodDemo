@@ -28,30 +28,20 @@ class Geomesh
     // if node requires further subdivision -> redirect/allocate new texture handle
     // 2 texture handles are required -> appearance (128x128) and height map (17x17)
 
-    Node* root;
-    glm::mat4 model;
+    std::shared_ptr<Node> root;
+    glm::mat4 model; // projection to cube faces
 
 public:
 
-    Geomesh() : root(new Node), model(glm::mat4(1)){
-        root->parent = root;
-        root->set_model_matrix(model);
-        root->bake_height_map(model);
-        root->bake_appearance_map(model);
-        root->set_elevation();
-
-    }
-    Geomesh(glm::mat4 arg) : root(new Node), model(arg){
-        //root->lo = lo;
-        //root->hi = hi;
-        root->parent = root; // should not cause cyclic referencing
+    Geomesh(glm::mat4 arg = glm::mat4(1)) : root(new Node), model(arg){
+        root->parent = root.get(); // should not cause cyclic referencing
         root->set_model_matrix(model);
         root->bake_height_map(model);
         root->bake_appearance_map(model);
         root->set_elevation();
     }
 
-    ~Geomesh(){ delete root; }
+    ~Geomesh(){}
 
     glm::vec3 convertToDeformed(const glm::vec3& v) const
     {
@@ -98,21 +88,21 @@ public:
         return root->get_elevation(glm::vec2(tpos.x, tpos.z));
     }
 
-    void refresh_heightmap()
-    {
-        refresh_heightmap(root);
-    }
+    //void refresh_heightmap()
+    //{
+    //    refresh_heightmap(root.get());
+    //}
+    //
+    //void fixcrack()
+    //{
+    //    fixcrack(root.get());
+    //}
 
-    void fixcrack()
-    {
-        fixcrack(root);
-    }
-
-    void subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront)
+    void subdivision(const glm::vec3& viewPos)
     {
         //auto v = convertFromSphere(viewPos);
         //std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
-        subdivision(convertFromSphere(viewPos), viewFront, queryElevation(viewPos), root);
+        subdivision(convertFromSphere(viewPos), queryElevation(viewPos), root.get());
         //refresh_heightmap();
         //if(CRACK_FILLING){fixcrack();}
     }
@@ -120,7 +110,7 @@ public:
     void draw(Shader& shader, const glm::vec3& viewPos) const
     {
         shader.setVec3("projPos",convertFromSphere(viewPos));
-        drawRecr(root, shader);
+        drawRecr(root.get(), shader);
     }
 
     // Caution: only return subdivided grids.
@@ -128,7 +118,7 @@ public:
     Node* queryNode( const glm::vec2& ) const;
     void refresh_heightmap( Node* );
     void fixcrack( Node* );
-    void subdivision( const glm::vec3&, const glm::vec3&, const float&, Node* );
+    void subdivision( const glm::vec3&, const float&, Node* );
     void drawRecr( Node*, Shader& ) const;
 
     // static functions

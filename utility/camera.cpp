@@ -175,7 +175,7 @@ void Camera::updateNearFar(float n, float f)
 #include "imgui.h"
 void Camera::gui_interface(void(*forwarder)(void*), void* object)
 {
-    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode("Camera::Control Panel"))
     {
         ImGui::Text("Controllable parameters for Camera class.");

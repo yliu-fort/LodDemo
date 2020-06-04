@@ -72,12 +72,12 @@ void main()
     if(render_type == 1) // COLORMAP
     {
         //color = texture(colormap, pow(FragPos.y,0.2f)).rgb;
-        //color = mix(texture( debugmap, TexCoords*(1<<level) ).rgb, vec3(0.0,0.0,1.0),blend_display);
-        //if(blend_display == 1.0)
-        //    color = vec3(0.0,0.0,0.0);
-        //if(blend_display == 0.0)
-        //    color = vec3(1.0,1.0,1.0);
-        color = texture( debugmap, TexCoords*(1<<level) ).rgb;
+        color = mix(texture( debugmap, TexCoords*(1<<level) ).rgb, vec3(0.0,0.0,1.0),blend_display);
+        if(blend_display == 1.0)
+            color = vec3(0.0,0.0,0.0);
+        if(blend_display == 0.0)
+            color = vec3(1.0,1.0,1.0);
+        //color = texture( debugmap, TexCoords*(1<<level) ).rgb;
     }else
     if(render_type == 2) // NORMAL
     {
