@@ -74,7 +74,8 @@ class Geocube
 {
     Geomesh top, bottom, left, right, front, back;
 
-    glm::vec3 position,rotation,scale;
+    glm::vec3 position,rotation;
+    float scale;
     bool spinning = false;
     float spin_vel = 0.001f;
 
@@ -127,6 +128,21 @@ public:
             return back.queryElevation(localPos);
         return 0.0f;
     }
+    float currentLocalHeight(const glm::vec3& pos) const
+    {
+        // h < e indicates that we are underground
+        float e = 1.0f+currentElevation(pos);
+        float h = glm::length(convertToLocal(pos));
+        return (h-e);
+    }
+    float currentGlobalHeight(const glm::vec3& pos) const
+    {
+        return currentLocalHeight(pos)*scale;
+    }
+    glm::vec3 currentGroundPos(const glm::vec3& pos, float bias) const
+    {
+        return glm::vec3(getModelMatrix()*glm::vec4(convertToLocal(pos)*(1.0f-currentLocalHeight(pos)+bias),1.0f));
+    }
     void self_spin()
     {
         if(spinning)
@@ -140,9 +156,9 @@ public:
             ImGui::Text("Controllable parameters for Geocube class.");
 
             // Transform
-            ImGui::DragFloat3("Position",&position[0],0.1f);
-            ImGui::DragFloat3("Rotation",&rotation[0],1.0f);
-            ImGui::DragFloat3("Scale",&scale[0],0.01f,0.0f);
+            ImGui::DragFloat3("Position",&(this->position)[0],0.1f);
+            ImGui::DragFloat3("Rotation",&(this->rotation)[0],1.0f);
+            ImGui::DragFloat("Scale",&(this->scale),0.01f,0.001f,1e6f);
 
             ImGui::Checkbox("Self-spin",&spinning);
             if(spinning)
@@ -167,7 +183,7 @@ public:
 protected:
     glm::mat4 getModelMatrix() const
     {
-        return glm::translate(glm::scale(glm::mat4(1),scale),position)
+        return glm::translate(glm::scale(glm::mat4(1),glm::vec3(scale)),position)
                 *glm::mat4(glm::quat(glm::radians(rotation)));
     }
     glm::vec3 convertToLocal(const glm::vec3& pos) const
@@ -241,9 +257,10 @@ int main()
 
         if(bindCam)
         {
-            float min_height = 1.0f + mesh.currentElevation(refcam.Position) + camera.Near;
-            if(glm::length(camera.Position) < min_height)
-                camera.Position = glm::mix(camera.Position, glm::normalize(camera.Position)*min_height, 0.5f);
+            //float min_height = mesh.currentElevation(refcam.Position) + camera.Near;
+            if(mesh.currentLocalHeight(refcam.Position) < 2.0f*camera.Near)
+                camera.Position = glm::mix(camera.Position, mesh.currentGroundPos(refcam.Position,2.0f*camera.Near), 0.5f);
+
             //camera.setReference(glm::vec3(0,1,0));
             refcam.sync_frustrum();
             refcam.sync_position();
@@ -321,7 +338,7 @@ int main()
         Geomesh::gui_interface();
         refcam.gui_interface();
         dirlight.gui_interface(camera);
-        gui_interface(mesh.currentElevation(refcam.Position));
+        gui_interface(mesh.currentGlobalHeight(refcam.Position));
         ImGui::ShowDemoWindow();
         GuiInterface::End();
 
