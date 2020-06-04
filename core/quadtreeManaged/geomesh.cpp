@@ -134,7 +134,7 @@ void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, 
     //}
 
     // Subdivision
-    if( node->level < MAX_DEPTH && d < K  )
+    if( node->level < MIN_DEPTH || (node->level < MAX_DEPTH && d < K)   )
     {
         // split and bake heightmap
         node->split(model);
@@ -174,7 +174,7 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
         shader.setMat4("model", node->model);
 
         // Transfer lo and hi
-        shader.setInt("level",pow(2,MAX_DEPTH - node->level));
+        shader.setInt("level",MAX_DEPTH - node->level);
         shader.setVec2("lo", node->lo);
         shader.setVec2("hi", node->hi);
 
@@ -190,6 +190,12 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, node->parent->heightmap);
 
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, node->appearance);
+
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, node->parent->appearance);
+
         // Render grid (inline function call renderGrid())
         Node::draw();
 
@@ -199,6 +205,7 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
 }
 
 // static variables
+uint Geomesh::MIN_DEPTH = 0;
 uint Geomesh::MAX_DEPTH = 9;
 float Geomesh::CUTIN_FACTOR = 2.0f; // 2.8 -> see function definition
 float Geomesh::CUTOUT_FACTOR = 1.0f; // >= 1
@@ -216,7 +223,8 @@ void Geomesh::gui_interface()
     if (ImGui::TreeNode("Geomesh::Control Panel"))
     {
         ImGui::Text("Controllable parameters for Geomesh class.");
-        ImGui::SliderInt("max depth", (int*)&MAX_DEPTH, 0, 16);
+        ImGui::SliderInt("min depth", (int*)&MIN_DEPTH, 0, 5);
+        ImGui::SliderInt("max depth", (int*)&MAX_DEPTH, 6, 16);
         ImGui::SliderFloat("cutout factor", &CUTOUT_FACTOR, 1.0f, 3.0f);
 
         // render mode

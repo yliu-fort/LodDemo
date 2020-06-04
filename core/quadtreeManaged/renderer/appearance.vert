@@ -1,12 +1,12 @@
 #version 430
-#define HEIGHT_MAP_X (19)
-#define HEIGHT_MAP_Y (19)
+#define ALBEDO_MAP_X (127)
+#define ALBEDO_MAP_Y (127)
 #define ELEVATION_MAP_RESOLUTION (256)
 // Kernel
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 // Child heightmaP
-layout(rgba32f, binding = 0) uniform image2D heightmap;
+layout(rgba32f, binding = 0) uniform image2D albedo;
 
 // Parent heightmap
 //layout(binding = 0) uniform sampler2D heightmap_parent;
@@ -14,11 +14,14 @@ layout(rgba32f, binding = 0) uniform image2D heightmap;
 // noisemap
 layout(binding = 1) uniform sampler2D noise;
 layout(binding = 2) uniform samplerCube elevationmap;
+layout(binding = 3) uniform sampler2DArray material;
 
 uniform vec2 lo;
 uniform vec2 hi;
 
 uniform mat4 globalMatrix;
+
+uniform int level;
 
 const float freq[13] = {4.03*32,1.96*32,1.01*32, 32.0f/2.03f,
                  32.0f/3.98f, 32.0f/8.01f, 32.0f/15.97f,
@@ -72,57 +75,20 @@ void main()
 
     // get index in global work group i.e x,y position
     ivec2 p = ivec2(gl_GlobalInvocationID.xy);
-    if(p.x >= HEIGHT_MAP_X || p.y >= HEIGHT_MAP_Y) return;
+    if(p.x >= ALBEDO_MAP_X || p.y >= ALBEDO_MAP_Y) return;
 
-    vec2 pixel = (p)/vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1); // map [0,1]
+    vec2 pixel = (p)/vec2(ALBEDO_MAP_X-1, ALBEDO_MAP_Y-1); // map [0,1]
 
     // map to global texture coordinate
     pixel = lo + ( pixel )*(hi-lo); // [lo, hi]
 
-    // offset to align to the pixel
-    //vec2 offset = 0.5/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
-    //pixel = offset + pixel*(1.0f - 2.0f*offset);
-
-    // [0, 1]? issue: align texture with pixel
-
     // Procedure
     float height = calc_height(pixel);
 
-    // Noise syethesis
-    //height += calc_height(pixel);
+    vec3 color = mix(textureLod( material,
+                     vec3(pixel*(1<<8), 6.45f*height/EFFECTIVE_HEIGHT), 8-level ).rgb,
+                vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(50*height+5e-5f))-0.1f,0,1));
 
-    // Read heightmap
-    // Caution: low-res elevation map causes bumpy ground-> truncation issue
-    //pixel = (pixel+8.0f)/16.0f;
-    //height += max(texture( elevationmap,  pixel ).r, 0.0f);
-    //height = clamp(1.7f*height,0.0,0.4);
-    //height += -tanh(0.02f*abs(dot(pixel,pixel))-0.5);
-    //height = clamp(1.7f*height,0.0,0.4);
-
-    // deformed coordinate
-    //vec3 dPos = normalize(vec3(globalMatrix*vec4(pixel.x,0.0f, pixel.y,1.0f)));
-
-    // Compute normal
-    // may convert to non-euclidian space before computing the actual value
-    vec2 s = dot(hi-lo,vec2(0.5f))/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
-    vec2 t1 = pixel - vec2(1.0f,0.0f)*s;
-    vec2 t2 = pixel + vec2(1.0f,0.0f)*s;
-    vec2 t3 = pixel - vec2(0.0f,1.0f)*s;
-    vec2 t4 = pixel + vec2(0.0f,1.0f)*s;
-
-
-    //vec3 e1 = vec3(t1.x-t2.x,calc_height(t1) - calc_height(t2), t1.y-t2.y);
-    //vec3 e2 = vec3(t3.x-t4.x,calc_height(t3) - calc_height(t4), t3.y-t4.y);
-
-    vec3 e1 = convertToSphere(t1) - convertToSphere(t2);
-    vec3 e2 = convertToSphere(t3) - convertToSphere(t4);
-
-    vec3 normal = normalize(-cross(e1,e2));
-    //normal = normalize(vec3(globalMatrix*vec4(normal,1.0f)));
-
-    //debug
-    //float height = EFFECTIVE_HEIGHT*texture(noise,  pixel ).r;
-
-    imageStore(heightmap, p, vec4(height,normal));
+    imageStore(albedo, p, vec4(color,1.0f));
 
 }

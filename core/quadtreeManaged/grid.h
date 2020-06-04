@@ -5,15 +5,19 @@
 
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+
 #include <vector>
 #include <memory>
+#include <tuple>
 typedef unsigned int uint;
 
 // sizes
-#define GRIDX (16)
-#define GRIDY (16)
+#define GRIDX (18)
+#define GRIDY (18)
 #define HEIGHT_MAP_X (GRIDX+1)
 #define HEIGHT_MAP_Y (GRIDY+1)
+#define ALBEDO_MAP_X (127)
+#define ALBEDO_MAP_Y (127)
 
 // Node class
 class Node
@@ -21,11 +25,12 @@ class Node
 public:
     Node* child[4];
     Node* parent;
-    uint appearance, heightmap;
+    uint heightmap;
+    uint appearance;
 
     glm::vec2 lo, hi; // global coordinates
     glm::vec2 rlo, rhi; // relative coordinates
-    bool subdivided = false;
+    bool subdivided;
     bool crackfixed;
     uint level, offset_type;
     float elevation;
@@ -40,7 +45,6 @@ public:
         model = glm::translate(arg, this->get_shift());
         model = glm::scale(model, this->get_scale());
     }
-
     float size() const
     {
         return 0.5f*(hi.x-lo.x + hi.y-lo.y);
@@ -78,6 +82,7 @@ public:
         return glm::vec3(0.5f*(rhi.x + rlo.x),0.0f,0.5f*(rhi.y + rlo.y));
     }
     void bake_height_map(glm::mat4 arg);
+    void bake_appearance_map(glm::mat4 arg);
     void fix_heightmap(Node* neighbour, int edgedir);
     void split(glm::mat4 arg);
     int search(glm::vec2 p) const;
@@ -99,7 +104,7 @@ public:
     static uint NODE_COUNT;
     static uint INTERFACE_NODE_COUNT;
     static bool USE_CACHE;
-    static std::vector<uint> CACHE;
+    static std::vector<std::tuple<uint,uint>> CACHE;
 };
 
 #endif

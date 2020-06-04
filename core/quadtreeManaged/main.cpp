@@ -162,18 +162,14 @@ int main()
     // colormap
     Colormap::Rainbow();
 
-    // real material texture
-    unsigned int material = loadLayeredTexture("Y42lf.png",FP("../../resources/textures"), false);
+    // read debug texture
     unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
-
-    //Geomesh north(glm::translate(glm::mat4(1),glm::vec3(0,1,0)));
-    //Geomesh west(glm::translate(glm::rotate(glm::mat4(1),glm::radians(90.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0)));
 
     Geocube mesh;
 
     // Adjust camera frustum
     camera.Near = 1000.0/6e6;
-    camera.Far = camera.Near*1e4;
+    camera.Far = camera.Near*1e6;
 
     while( !glfwWindowShouldClose( window ) )
     {
@@ -220,10 +216,6 @@ int main()
         glActiveTexture(GL_TEXTURE11);
         glBindTexture(GL_TEXTURE_2D, debug_tex);
         lightingShader.setInt("debugmap", 11);
-
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D_ARRAY, material);
-        lightingShader.setInt("material", 2);
 
         // lighting
         dirlight.setParam(lightingShader);

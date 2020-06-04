@@ -1,4 +1,4 @@
-#version 330 core
+#version 430 core
 out vec4 FragColor;
 
 struct DirLight {
@@ -26,11 +26,15 @@ struct PointLight {
 in vec2 TexCoords;
 in vec3 Normal;
 in vec3 FragPos;
-in float height_display;
+in float elevation;
 in float blend_display;
 
+uniform vec2 shlo;
+uniform vec2 shhi;
+
+layout(binding = 2) uniform sampler2D material;
+layout(binding = 3) uniform sampler2D materialParent;
 uniform sampler1D colormap;
-uniform sampler2DArray material;
 uniform sampler2D debugmap;
 uniform int render_type;
 uniform int level;
@@ -57,23 +61,23 @@ void main()
     if(render_type == 0) // REAL
     {
         //color = mix(texture( material,
-        //                 vec2((TexCoords.x + floor(6750*height_display))/8.0f ,TexCoords.y) ).rgb,
-        //            vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(50*height_display+5e-5f))-0.1f,0,1));
-        color = mix(texture( material,
-                         vec3(TexCoords*level, 6450.0f*height_display ) ).rgb,
-                    vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(50*height_display+5e-5f))-0.1f,0,1));
+        //                 vec2((TexCoords.x + floor(6750*elevation))/8.0f ,TexCoords.y) ).rgb,
+        //            vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(50*elevation+5e-5f))-0.1f,0,1));
+        color = mix(texture( material, TexCoords ).rgb,
+                    texture( materialParent, shlo+TexCoords*(shhi-shlo) ).rgb,
+                    blend_display);
 
         color = CalcDirLight(dirLight, Normal, viewDir, color);
     }else
     if(render_type == 1) // COLORMAP
     {
         //color = texture(colormap, pow(FragPos.y,0.2f)).rgb;
-        //color = mix(texture( debugmap, TexCoords*level ).rgb, vec3(0.0,0.0,1.0),blend_display);
+        //color = mix(texture( debugmap, TexCoords*(1<<level) ).rgb, vec3(0.0,0.0,1.0),blend_display);
         //if(blend_display == 1.0)
         //    color = vec3(0.0,0.0,0.0);
         //if(blend_display == 0.0)
         //    color = vec3(1.0,1.0,1.0);
-        color = texture( debugmap, TexCoords*level ).rgb;
+        color = texture( debugmap, TexCoords*(1<<level) ).rgb;
     }else
     if(render_type == 2) // NORMAL
     {
@@ -81,10 +85,10 @@ void main()
     }else
     if(render_type == 3) // PCOLOR
     {
-        //color = mix(texture( debugmap, TexCoords*level ).rgb, vec3(0.0,0.0,1.0),blend_display);
+        //color = mix(texture( debugmap, TexCoords*(1<<level) ).rgb, vec3(0.0,0.0,1.0),blend_display);
         //if(blend_display == 1.0)
         //    color = vec3(0.0,0.0,0.0);
-        //color = texture( debugmap, TexCoords*level ).rgb;
+        //color = texture( debugmap, TexCoords*(1<<level) ).rgb;
         color = CalcDirLight(dirLight, Normal, viewDir, vec3(0.7,0.7,0.7));
 
     }

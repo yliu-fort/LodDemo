@@ -22,9 +22,6 @@ enum RenderMode
 
 class Geomesh
 {
-
-public:
-
     // start from the deepest level (leaf node), compute the distance to reference point/camera
     // child sharing the same father are expected to be clustered
     // if all 4 childs are unused -> return the texture handle and merge
@@ -33,12 +30,14 @@ public:
 
     Node* root;
     glm::mat4 model;
-    //uint id=0;
+
+public:
 
     Geomesh() : root(new Node), model(glm::mat4(1)){
         root->parent = root;
         root->set_model_matrix(model);
         root->bake_height_map(model);
+        root->bake_appearance_map(model);
         root->set_elevation();
 
     }
@@ -48,6 +47,7 @@ public:
         root->parent = root; // should not cause cyclic referencing
         root->set_model_matrix(model);
         root->bake_height_map(model);
+        root->bake_appearance_map(model);
         root->set_elevation();
     }
 
@@ -136,7 +136,7 @@ public:
 
     //protected:
     // static member
-    static uint MAX_DEPTH;
+    static uint MIN_DEPTH, MAX_DEPTH;
     static float CUTIN_FACTOR;
     static float CUTOUT_FACTOR;
     static bool FRUSTRUM_CULLING;
