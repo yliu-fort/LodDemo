@@ -77,7 +77,7 @@ class Geocube
     glm::vec3 position,rotation;
     float scale;
     bool spinning = false;
-    float spin_vel = 0.001f;
+    float spin_vel = 0.1f;
 
 public:
     Geocube():position(0),rotation(0),scale(1)
@@ -146,7 +146,7 @@ public:
     void self_spin()
     {
         if(spinning)
-            rotation.y += spin_vel*glfwGetTime();
+            rotation.y += spin_vel*0.02f;
     }
     void gui_interface()
     {
@@ -163,7 +163,7 @@ public:
             ImGui::Checkbox("Self-spin",&spinning);
             if(spinning)
             {
-                ImGui::DragFloat("self-spin velocity",&spin_vel,0.0001f,0.0001f,0.001f,"%.4f");
+                ImGui::DragFloat("self-spin velocity",&spin_vel,0.001f,0.01f,0.3f);
             }
 
             // Global transformation
