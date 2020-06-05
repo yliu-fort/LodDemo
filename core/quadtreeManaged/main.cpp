@@ -242,8 +242,8 @@ int main()
     Geocube mesh;
 
     // Adjust camera frustum
-    camera.Near = 1000.0/6e6;
-    camera.Far = camera.Near*1e6;
+    camera.Near = 0.001;
+    camera.Far = camera.Near*1e5;
 
     while( !glfwWindowShouldClose( window ) )
     {
@@ -258,8 +258,8 @@ int main()
         if(bindCam)
         {
             //float min_height = mesh.currentElevation(refcam.Position) + camera.Near;
-            if(mesh.currentLocalHeight(refcam.Position) < 2.0f*camera.Near)
-                camera.Position = glm::mix(camera.Position, mesh.currentGroundPos(refcam.Position,2.0f*camera.Near), 0.5f);
+            if(mesh.currentLocalHeight(camera.Position) < 5e-4f)
+                camera.Position = glm::mix(camera.Position, mesh.currentGroundPos(camera.Position, 5e-4f), 0.5f);
 
             //camera.setReference(glm::vec3(0,1,0));
             refcam.sync_frustrum();
@@ -299,14 +299,25 @@ int main()
         // render type
         lightingShader.setInt("render_type", Geomesh::RENDER_MODE);
 
-
-        //for(const auto& land: mesh)
-        //{
-        //    land.draw(lightingShader);
-        //}
+        // "far" terrains
+        camera.Near = 0.001;
+        camera.Far = camera.Near*1e4;
+        refcam.sync_frustrum();
+        lightingShader.setMat4("projection_view", camera.GetFrustumMatrix());
         glEnable(GL_CULL_FACE);
         mesh.draw(lightingShader, refcam);
         glDisable(GL_CULL_FACE);
+
+        // "near" terrains
+        glClear(GL_DEPTH_BUFFER_BIT);
+        camera.Near = 0.002/1e4;
+        camera.Far = camera.Near*1e4;
+        refcam.sync_frustrum();
+        lightingShader.setMat4("projection_view", camera.GetFrustumMatrix());
+        glEnable(GL_CULL_FACE);
+        mesh.draw(lightingShader, refcam);
+        glDisable(GL_CULL_FACE);
+
 
         if(drawWireframe)
         {

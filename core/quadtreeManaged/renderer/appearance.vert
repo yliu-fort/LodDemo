@@ -86,7 +86,7 @@ void main()
     float height = calc_height(pixel);
 
     vec3 color = mix(textureLod( material,
-                     vec3(pixel*(1<<8), 6.45f*height/EFFECTIVE_HEIGHT), 8-level ).rgb,
+                     vec3(pixel*(1<<15), 6.45f*height/EFFECTIVE_HEIGHT), 15-level ).rgb,
                 vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(50*height+5e-5f))-0.1f,0,1));
 
     imageStore(albedo, p, vec4(color,1.0f));
