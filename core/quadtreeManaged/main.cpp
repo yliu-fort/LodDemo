@@ -30,7 +30,7 @@ static int SCR_WIDTH  = 800;
 static int SCR_HEIGHT = 600;
 
 // camera
-static Camera camera = Camera(glm::vec3(0.0f, 0.0f, 2.0f), float(SCR_WIDTH)/SCR_HEIGHT);
+static Camera camera = Camera(glm::vec3(-1.0f, 0.0f, 2.0f), float(SCR_WIDTH)/SCR_HEIGHT);
 
 static float lastX = SCR_WIDTH / 2.0f;
 static float lastY = SCR_HEIGHT / 2.0f;
@@ -239,11 +239,8 @@ int main()
     // read debug texture
     unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
 
+    // gen geocube
     Geocube mesh;
-
-    // Adjust camera frustum
-    camera.Near = 0.001;
-    camera.Far = camera.Near*1e5;
 
     while( !glfwWindowShouldClose( window ) )
     {
@@ -258,8 +255,8 @@ int main()
         if(bindCam)
         {
             //float min_height = mesh.currentElevation(refcam.Position) + camera.Near;
-            if(mesh.currentLocalHeight(camera.Position) < 5e-4f)
-                camera.Position = glm::mix(camera.Position, mesh.currentGroundPos(camera.Position, 5e-4f), 0.5f);
+            if(mesh.currentLocalHeight(camera.Position) < 5e-7)
+                camera.Position = glm::mix(camera.Position, mesh.currentGroundPos(camera.Position, 5e-7), 0.5f);
 
             //camera.setReference(glm::vec3(0,1,0));
             refcam.sync_frustrum();
@@ -267,12 +264,7 @@ int main()
             refcam.sync_rotation();
         }
 
-
-        //for(auto& land: mesh)
-        //{
-        //    auto refCamElev = land.queryElevation(refcam.Position);
-        //    land.subdivision(refcam.Position, refcam.Front, refCamElev);
-        //}
+        // update geomesh
         mesh.update(refcam);
 
         // Draw points
@@ -282,8 +274,7 @@ int main()
 
         // pass matrixes in global coordinate system
         lightingShader.use();
-        lightingShader.setMat4("projection_view", camera.GetFrustumMatrix());
-        lightingShader.setVec3("viewPos", refcam.Position);
+        lightingShader.setVec3("viewPos", camera.Position);
 
         // Colormap
         Colormap::Bind();
@@ -299,24 +290,30 @@ int main()
         // render type
         lightingShader.setInt("render_type", Geomesh::RENDER_MODE);
 
-        // "far" terrains
-        camera.Near = 0.001;
+        // todo: remap z buffer to increase valid bit
+        // "near" terrains
+        glDepthRange(0,0.4);
+        camera.Near = 0.002e-4;
         camera.Far = camera.Near*1e4;
-        refcam.sync_frustrum();
-        lightingShader.setMat4("projection_view", camera.GetFrustumMatrix());
+        //refcam.sync_frustrum();
+        lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
         glEnable(GL_CULL_FACE);
         mesh.draw(lightingShader, refcam);
         glDisable(GL_CULL_FACE);
 
-        // "near" terrains
-        glClear(GL_DEPTH_BUFFER_BIT);
-        camera.Near = 0.002/1e4;
-        camera.Far = camera.Near*1e4;
-        refcam.sync_frustrum();
-        lightingShader.setMat4("projection_view", camera.GetFrustumMatrix());
+
+        // "far" terrains
+        glDepthRange(0.4,0.8);
+        camera.Near = 100.0e-5;
+        camera.Far = camera.Near*1e5;
+        //refcam.sync_frustrum();
+        lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
         glEnable(GL_CULL_FACE);
         mesh.draw(lightingShader, refcam);
         glDisable(GL_CULL_FACE);
+
+        // "distant" objects
+        glDepthRange(0.8,1.0);
 
 
         if(drawWireframe)

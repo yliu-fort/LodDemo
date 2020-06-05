@@ -104,7 +104,7 @@ void main()
 
     // Compute normal
     // may convert to non-euclidian space before computing the actual value
-    vec2 s = dot(hi-lo,vec2(0.5f))/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
+    vec2 s = max(1e-4,dot(hi-lo,vec2(0.5f)))/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
     vec2 t1 = pixel - vec2(1.0f,0.0f)*s;
     vec2 t2 = pixel + vec2(1.0f,0.0f)*s;
     vec2 t3 = pixel - vec2(0.0f,1.0f)*s;

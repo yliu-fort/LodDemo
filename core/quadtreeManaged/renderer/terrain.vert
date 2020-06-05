@@ -58,13 +58,16 @@ void main()
 
     // Write to fragpos and height field
     // Project to non-euclidian space (quat-sphereical)
-    FragPos = (1.0 + elevation)*normalize(vec3(sphereProjection*vec4(aPos,1.0)));
+    // popping effect counter measure: compute view based fragpos
+    vec3 q = vec3(model*vec4(normalize(vec3(sphereProjection*vec4(aPos,1.0f))),1.0f));
+    FragPos = elevation*q + (q - viewPos);
 
 
     // debug
     //height = sqrt(dot(TexCoords,TexCoords));
     //fragPos.y = 0.07*sqrt(dot(TexCoords,TexCoords));
 
-    gl_Position = (projection_view*model)*vec4(FragPos, 1.0);
+    gl_Position = projection_view*vec4(FragPos, 1.0);
+    //gl_Position = vec4(FragPos, 1.0);
 
 }

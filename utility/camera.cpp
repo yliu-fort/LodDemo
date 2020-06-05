@@ -25,6 +25,11 @@ Camera::Camera(float posX, float posY, float posZ, float upX, float upY, float u
     updateCameraVectors();
 }
 
+const glm::mat4 Camera::GetViewMatrixOriginBased() const
+{
+    return glm::lookAt(glm::vec3(0), Front, Up);
+}
+
 // Returns the view matrix calculated using Euler Angles and the LookAt Matrix
 const glm::mat4 Camera::GetViewMatrix() const
 {

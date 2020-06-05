@@ -51,6 +51,7 @@ public:
     Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float aspect, float yaw = -90.0f, float pitch = 0.0f);
 
     // Returns the view matrix calculated using Euler Angles and the LookAt Matrix
+    const glm::mat4 GetViewMatrixOriginBased() const;
     const glm::mat4 GetViewMatrix() const;
     const glm::mat4 GetPerspectiveMatrix() const;
     const glm::mat4 GetPerspectiveMatrix(float,float) const;
