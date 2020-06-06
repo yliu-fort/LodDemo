@@ -346,7 +346,7 @@ int main()
         Geomesh::gui_interface();
         refcam.gui_interface();
         dirlight.gui_interface(camera);
-        gui_interface(mesh.currentGlobalHeight(refcam.Position));
+        gui_interface(mesh.currentGlobalHeight(refcam.Position)*6371000);
         ImGui::ShowDemoWindow();
         GuiInterface::End();
 

@@ -31,27 +31,6 @@ void cubeSeedInit();
 
 void cubeSeedInit()
 {
-    //Store the volume data to polygonise
-    glGenTextures(1, &noiseTex);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, noiseTex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-
-    //Generate a distance field to the center of the cube
-    std::vector<glm::vec3> dataField;
-    int width=256, height=256, nrChannels=3;
-    for(uint j=0; j<height; j++){
-        for(uint i=0; i<width; i++){
-            dataField.push_back( glm::vec3(rand() / double(RAND_MAX)) );
-        }
-    }
-
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, &dataField[0]);
-
-
     // prescribed elevation map
     glGenTextures(1, &elevationTex);
     glActiveTexture(GL_TEXTURE0);
@@ -63,7 +42,8 @@ void cubeSeedInit()
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     //Generate a distance field to the center of the cube
-    dataField.clear();
+    std::vector<glm::vec3> dataField;
+    int width=256, height=256, nrChannels=3;
     for(uint j=0; j<height; j++){
         for(uint i=0; i<width; i++){
             //if(i > res/3)
@@ -96,13 +76,13 @@ void Node::init()
 
     // Geo mesh, careful: need a noise texture and shader before intialized
     upsampling.reload_shader_program_from_files(FP("renderer/upsampling.glsl"));
-    appearance_baking.reload_shader_program_from_files(FP("renderer/appearance.vert"));
+    appearance_baking.reload_shader_program_from_files(FP("renderer/appearance.glsl"));
     crackfixing.reload_shader_program_from_files(FP("renderer/crackfixing.glsl"));
 }
 
 void Node::finalize()
 {
-    glDeleteTextures(1,&noiseTex);
+    //glDeleteTextures(1,&noiseTex);
     glDeleteTextures(1,&elevationTex);
     if(!CACHE.empty())
     {
@@ -206,14 +186,14 @@ void Node::bake_appearance_map(glm::mat4 arg)
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, appearance);
 
-    // bind noisemap
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, noiseTex);
+    // bind noisemap (deprecated)
+    //glActiveTexture(GL_TEXTURE1);
+    //glBindTexture(GL_TEXTURE_2D, noiseTex);
 
-    glActiveTexture(GL_TEXTURE2);
+    glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
 
-    glActiveTexture(GL_TEXTURE3);
+    glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D_ARRAY, materialTex);
 
 
@@ -239,15 +219,17 @@ void Node::bake_height_map(glm::mat4 arg)
 
     upsampling.setMat4("globalMatrix", arg);
 
+    upsampling.setInt("level", this->level);
+
     // bind height map
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, heightmap);
 
-    // bind noisemap
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, noiseTex);
+    // bind noisemap (deprecated)
+    //glActiveTexture(GL_TEXTURE1);
+    //glBindTexture(GL_TEXTURE_2D, noiseTex);
 
-    glActiveTexture(GL_TEXTURE2);
+    glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
 
     // write to heightmap ? buggy
