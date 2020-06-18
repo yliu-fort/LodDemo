@@ -1,12 +1,12 @@
 #version 430
-#define ALBEDO_MAP_X (127)
-#define ALBEDO_MAP_Y (127)
+#define HEIGHT_MAP_X (19)
+#define HEIGHT_MAP_Y (19)
 #define ELEVATION_MAP_RESOLUTION (256)
 // Kernel
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 // Child heightmaP
-layout(rgba32f, binding = 0) uniform image2D albedo;
+layout(rgba32f, binding = 0) uniform image2D heightmap;
 
 // Parent heightmap
 //layout(binding = 0) uniform sampler2D heightmap_parent;
@@ -14,7 +14,6 @@ layout(rgba32f, binding = 0) uniform image2D albedo;
 // noisemap
 //layout(binding = 1) uniform sampler2D noise;
 layout(binding = 1) uniform samplerCube elevationmap;
-layout(binding = 2) uniform sampler2DArray material;
 
 //uniform vec2 lo;
 //uniform vec2 hi;
@@ -39,7 +38,7 @@ vec2 getCurrentUV()
 {
     return dpos(hash)
             + 2.0*ivec2(gl_GlobalInvocationID.xy)
-            /vec2(ALBEDO_MAP_X-1, ALBEDO_MAP_Y-1)
+            /vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)
             /float(1<<level);
 }
 
@@ -54,19 +53,27 @@ vec2 getCurrentUV()
 float snoise(vec2 v);
 
 float ridgenoise(vec2 t, int freq) {
-  return  2.0*(0.5 - abs( 0.5 - snoise( t*(1<<freq)*16.00 ) ));
+  return  2.0*(0.5 - abs( 0.5 - snoise( t*(1<<freq)*16.0 ) ));
 }
 
 #define EFFECTIVE_HEIGHT_SYNTHETIC (0.001)
-#define EFFECTIVE_HEIGHT (0.005)
-float calc_height(vec2 pixel);
+#define EFFECTIVE_HEIGHT (0.001)
 
-// Always read north face
-vec3 convertToGlobal(vec2 t)
+vec3 convertToDeformed(vec2 t)
 {
-    return vec3(globalMatrix*vec4(t,1.0f,1.0f));
+    return vec3(globalMatrix*vec4(t.x,0.0f,t.y,1.0f));
 }
 
+
+vec3 convertToSphere(vec2 t)
+{
+    return normalize(convertToDeformed(t));
+}
+
+vec2 convertToRadial(vec3 coord)
+{
+    return vec2(atan(coord.y,coord.x),acos(coord.z));
+}
 
 float calc_height(vec2 pixel)
 {
@@ -89,7 +96,7 @@ float calc_height(vec2 pixel)
     //vec2 offset = 0.5/vec2(ELEVATION_MAP_RESOLUTION);
     //vec2 cpixel = offset + pixel*(1.0f - 2.0f*offset);
 
-    density += texture( elevationmap,  vec3(convertToGlobal(pixel)) ).r;
+    density += texture( elevationmap,  vec3(convertToDeformed(pixel)) ).r;
 
     // Bound height
     density = clamp(density,0.0,EFFECTIVE_HEIGHT);
@@ -99,30 +106,67 @@ float calc_height(vec2 pixel)
 
 
 
-
 void main()
 {
 
     // get index in global work group i.e x,y position
     ivec2 p = ivec2(gl_GlobalInvocationID.xy);
-    if(p.x >= ALBEDO_MAP_X || p.y >= ALBEDO_MAP_Y) return;
+    if(p.x >= HEIGHT_MAP_X || p.y >= HEIGHT_MAP_Y) return;
 
-    vec2 pixel = getCurrentUV();
+    //vec2 pixel = vec2(p/vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)); // map [0,1]
 
     // map to global texture coordinate
     //pixel = lo + ( pixel )*(hi-lo); // [lo, hi]
-    //pixel = dpos(hash) + 2.0*pixel/double(1<<level);
+    vec2 pixel = getCurrentUV();
+
+    // offset to align to the pixel
+    //vec2 offset = 0.5/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
+    //pixel = offset + pixel*(1.0f - 2.0f*offset);
+
+    // [0, 1]? issue: align texture with pixel
 
     // Procedure
     float height = calc_height(pixel);
 
-    vec3 color = mix(textureLod( material,
-                     vec3(pixel*(1<<15), 6.45f*height/EFFECTIVE_HEIGHT), 15-level ).rgb,
-                vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(50*height+5e-5f))-0.1f,0,1));
+    // Noise syethesis
+    //height += calc_height(pixel);
 
-    imageStore(albedo, p, vec4(color,1.0f));
+    // Read heightmap
+    // Caution: low-res elevation map causes bumpy ground-> truncation issue
+    //pixel = (pixel+8.0f)/16.0f;
+    //height += max(texture( elevationmap,  pixel ).r, 0.0f);
+    //height = clamp(1.7f*height,0.0,0.4);
+    //height += -tanh(0.02f*abs(dot(pixel,pixel))-0.5);
+    //height = clamp(1.7f*height,0.0,0.4);
+
+    // deformed coordinate
+    //vec3 dPos = normalize(vec3(globalMatrix*vec4(pixel.x,0.0f, pixel.y,1.0f)));
+
+    // Compute normal
+    // may convert to non-euclidian space before computing the actual value
+    vec2 s = (1.0/(1<<level))/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
+    vec2 t1 = vec2(pixel) - vec2(1.0f,0.0f)*s;
+    vec2 t2 = vec2(pixel) + vec2(1.0f,0.0f)*s;
+    vec2 t3 = vec2(pixel) - vec2(0.0f,1.0f)*s;
+    vec2 t4 = vec2(pixel) + vec2(0.0f,1.0f)*s;
+
+
+    //vec3 e1 = vec3(t1.x-t2.x,calc_height(t1) - calc_height(t2), t1.y-t2.y);
+    //vec3 e2 = vec3(t3.x-t4.x,calc_height(t3) - calc_height(t4), t3.y-t4.y);
+
+    vec3 e1 = (1.0 + calc_height(t1))*convertToSphere(t1) - (1.0 + calc_height(t2))*convertToSphere(t2);
+    vec3 e2 = (1.0 + calc_height(t3))*convertToSphere(t3) - (1.0 + calc_height(t4))*convertToSphere(t4);
+
+    vec3 normal = normalize(-cross(e1,e2));
+    //normal = normalize(vec3(globalMatrix*vec4(normal,1.0f)));
+
+    //debug
+    //float height = EFFECTIVE_HEIGHT*texture(noise,  pixel ).r;
+
+    imageStore(heightmap, p, vec4(height,normal));
 
 }
+
 
 //
 // Description : Array and textureless GLSL 2D simplex noise function.

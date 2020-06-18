@@ -90,7 +90,7 @@ void main()
     }else
     if(render_type == 2) // NORMAL
     {
-        color = normalize(vec3(Normal.x,0.1*Normal.y,Normal.z));
+        color = Normal;
     }else
     if(render_type == 3) // PCOLOR
     {

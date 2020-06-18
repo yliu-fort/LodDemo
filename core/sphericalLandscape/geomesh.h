@@ -43,20 +43,20 @@ public:
 
     ~Geomesh(){}
 
-    glm::vec3 convertToGlobal(const glm::vec3& v) const
+    glm::vec3 convertToDeformed(const glm::vec3& v) const
     {
         return glm::vec3(model*glm::vec4(v,1.0));
     }
-    glm::vec3 convertToLocal(const glm::vec3& v) const
+    glm::vec3 convertToNormal(const glm::vec3& v) const
     {
         return glm::vec3(glm::inverse(model)*glm::vec4(v,1.0));
     }
-    glm::vec3 convertToLocals(const glm::vec3& v) const
+    glm::vec3 convertFromSphere(const glm::vec3& v) const
     {
         auto nv = glm::normalize(v); // normalize to R=1
         float d;
-        auto orig = convertToGlobal(glm::vec3(0));
-        auto dir = glm::normalize(convertToGlobal(glm::vec3(0,1,0)));
+        auto orig = convertToDeformed(glm::vec3(0));
+        auto dir = glm::normalize(convertToDeformed(glm::vec3(0,1,0)));
         bool intersected = glm::intersectRayPlane	(	glm::vec3(0),
                                                         -nv,
                                                         orig,
@@ -66,14 +66,14 @@ public:
         if(!intersected)
             return glm::vec3(9999);
 
-        nv = glm::vec3(glm::inverse(model)*glm::vec4(nv*fabsf(d),1.0));; // project to plane then transform to +y plane
+        nv = convertToNormal(nv*fabsf(d)); // project to plane then transform to +y plane
         nv.y = glm::length(v) - 1.0f;
 
         return nv;
     }
     bool isGroundReference(const glm::vec3& pos) const
     {
-        auto tpos = convertToLocal(pos);
+        auto tpos = convertFromSphere(pos);
         if(abs(tpos.x)<= 1 && abs(tpos.z)<= 1)
             return true;
         return false;
@@ -81,25 +81,35 @@ public:
 
     float queryElevation(const glm::vec3& pos) const
     {
-        auto tpos = convertToLocal(pos);
+        auto tpos = convertFromSphere(pos);
         Node* node = queryNode(glm::vec2(tpos.x, tpos.z));
         if(node)
             return node->get_elevation(glm::vec2(tpos.x, tpos.z));
         return root->get_elevation(glm::vec2(tpos.x, tpos.z));
     }
 
+    //void refresh_heightmap()
+    //{
+    //    refresh_heightmap(root.get());
+    //}
+    //
+    //void fixcrack()
+    //{
+    //    fixcrack(root.get());
+    //}
+
     void subdivision(const glm::vec3& viewPos)
     {
-        //auto v = convertToLocal(viewPos);
+        //auto v = convertFromSphere(viewPos);
         //std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
-        subdivision(convertToLocal(viewPos), queryElevation(viewPos), root.get());
+        subdivision(convertFromSphere(viewPos), queryElevation(viewPos), root.get());
         //refresh_heightmap();
         //if(CRACK_FILLING){fixcrack();}
     }
 
     void draw(Shader& shader, const glm::vec3& viewPos) const
     {
-        shader.setVec3("projPos",convertToLocal(viewPos));
+        shader.setVec3("projPos",convertFromSphere(viewPos));
         drawRecr(root.get(), shader);
     }
 

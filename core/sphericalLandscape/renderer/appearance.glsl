@@ -54,17 +54,27 @@ vec2 getCurrentUV()
 float snoise(vec2 v);
 
 float ridgenoise(vec2 t, int freq) {
-  return  2.0*(0.5 - abs( 0.5 - snoise( t*(1<<freq)*16.00 ) ));
+  return  2.0*(0.5 - abs( 0.5 - snoise( t*(1<<freq)*16.0 ) ));
 }
 
 #define EFFECTIVE_HEIGHT_SYNTHETIC (0.001)
-#define EFFECTIVE_HEIGHT (0.005)
+#define EFFECTIVE_HEIGHT (0.001)
 float calc_height(vec2 pixel);
 
-// Always read north face
-vec3 convertToGlobal(vec2 t)
+vec3 convertToDeformed(vec2 t)
 {
-    return vec3(globalMatrix*vec4(t,1.0f,1.0f));
+    return vec3(globalMatrix*vec4(t.x,0.0f,t.y,1.0f));
+}
+
+
+vec3 convertToSphere(vec2 t)
+{
+    return normalize(convertToDeformed(t));
+}
+
+vec2 convertToRadial(vec3 coord)
+{
+    return vec2(atan(coord.y,coord.x),acos(coord.z));
 }
 
 
@@ -89,7 +99,7 @@ float calc_height(vec2 pixel)
     //vec2 offset = 0.5/vec2(ELEVATION_MAP_RESOLUTION);
     //vec2 cpixel = offset + pixel*(1.0f - 2.0f*offset);
 
-    density += texture( elevationmap,  vec3(convertToGlobal(pixel)) ).r;
+    density += texture( elevationmap,  vec3(convertToDeformed(pixel)) ).r;
 
     // Bound height
     density = clamp(density,0.0,EFFECTIVE_HEIGHT);

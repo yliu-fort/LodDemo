@@ -70,9 +70,9 @@ void gui_interface(float h)
     }
 }
 
-class Geocube
+class Geoplane
 {
-    Geomesh top, bottom, left, right, front, back;
+    Geomesh top;
 
     glm::vec3 position,rotation;
     float scale;
@@ -80,13 +80,9 @@ class Geocube
     float spin_vel = 0.1f;
 
 public:
-    Geocube():position(0),rotation(0),scale(1)
-        ,top(Geomesh(glm::translate(glm::mat4(1),glm::vec3(0,1,0))))
-        ,bottom(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(180.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
-        ,left(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(90.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
-        ,right(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(-90.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
-        ,front(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(90.0f),glm::vec3(1,0,0)),glm::vec3(0,1,0))))
-        ,back(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(-90.0f),glm::vec3(1,0,0)),glm::vec3(0,1,0))))
+    Geoplane():position(0),rotation(0),scale(1)
+        ,top(Geomesh())
+
     {}
     void update(Camera& camera)
     {
@@ -94,45 +90,25 @@ public:
 
         auto localPos = convertToLocal(camera.Position);
         top.subdivision(    localPos );
-        bottom.subdivision( localPos );
-        left.subdivision(   localPos );
-        right.subdivision(  localPos );
-        front.subdivision(  localPos );
-        back.subdivision(   localPos );
     }
     void draw(Shader& shader, Camera& camera)
     {
         auto localPos = convertToLocal(camera.Position);
         shader.setMat4("model",this->getModelMatrix());
         top.draw(shader,    localPos );
-        bottom.draw(shader, localPos );
-        left.draw(shader,   localPos );
-        right.draw(shader,  localPos );
-        front.draw(shader,  localPos );
-        back.draw(shader,   localPos );
     }
     float currentElevation(const glm::vec3& pos) const
     {
         auto localPos = convertToLocal(pos);
         if(top.isGroundReference(localPos))
             return top.queryElevation(localPos);
-        if(bottom.isGroundReference(localPos))
-            return bottom.queryElevation(localPos);
-        if(left.isGroundReference(localPos))
-            return left.queryElevation(localPos);
-        if(right.isGroundReference(localPos))
-            return right.queryElevation(localPos);
-        if(front.isGroundReference(localPos))
-            return front.queryElevation(localPos);
-        if(back.isGroundReference(localPos))
-            return back.queryElevation(localPos);
         return 0.0f;
     }
     float currentLocalHeight(const glm::vec3& pos) const
     {
         // h < e indicates that we are underground
-        float e = 1.0f+currentElevation(pos);
-        float h = glm::length(convertToLocal(pos));
+        float e = currentElevation(pos);
+        float h = (convertToLocal(pos).y);
         return (h-e);
     }
     float currentGlobalHeight(const glm::vec3& pos) const
@@ -240,7 +216,7 @@ int main()
     unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
 
     // gen geocube
-    Geocube mesh;
+    Geoplane mesh;
 
     while( !glfwWindowShouldClose( window ) )
     {
@@ -320,12 +296,32 @@ int main()
         {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            //lodShader.use();
-            //lodShader.setMat4("projection_view", camera.GetFrustumMatrix());
-            //lodShader.setVec3("viewPos", refcam.Position);
-            //lodShader.setInt("heightmap", 0);
             glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+            // todo: remap z buffer to increase valid bit
+            // "near" terrains
+            glDepthRange(0,0.4);
+            camera.Near = 0.002e-4;
+            camera.Far = camera.Near*1e4;
+            //refcam.sync_frustrum();
+            lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
+            glEnable(GL_CULL_FACE);
             mesh.draw(lightingShader, refcam);
+            glDisable(GL_CULL_FACE);
+
+
+            // "far" terrains
+            glDepthRange(0.4,0.8);
+            camera.Near = 100.0e-5;
+            camera.Far = camera.Near*1e5;
+            //refcam.sync_frustrum();
+            lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
+            glEnable(GL_CULL_FACE);
+            mesh.draw(lightingShader, refcam);
+            glDisable(GL_CULL_FACE);
+
+            // "distant" objects
+            glDepthRange(0.8,1.0);
+
             glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
         }
 

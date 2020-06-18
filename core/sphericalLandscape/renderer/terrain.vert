@@ -66,16 +66,15 @@ void main()
 
     // blend (need repair)
     //vec2 gPos = lo + aPos.xz*(hi-lo);
-    vec2 gPos = vec2( dpos(hash) + 2*aPos.xz/float(1<<level) );
+    vec2 gPos = vec2(dpos(hash) + 2*aPos.xz/(1<<level) - projPos.xz);
     //float d = max(abs(gPos.x - projPos.x),abs(gPos.y - projPos.z));
     //float l = 0.5f*dot(hi-lo, vec2(1));
-    float d_l = max(abs(gPos.x - projPos.x),abs(gPos.y - projPos.z))*(1<<level)/2;
+    float d_l = max(abs(gPos.x),abs(gPos.y))*(1<<level)/2;
     float blend = clamp((d_l-K-1)/(K-1),0,1);
     blend_display = blend;
 
     // get values
-    vec4 data = mix( texture(heightmap, 0.5/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y) + TexCoords*(1-1/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y))), texture(heightmapParent, computeSharedPixel(texel)), blend );
-    //vec4 data = mix( texelFetch(heightmap, texel, 0), texture(heightmapParent, computeSharedPixel(texel)), blend );
+    vec4 data = mix( texelFetch(heightmap, texel, 0), texture(heightmapParent, computeSharedPixel(texel)), blend );
 
     elevation = data.r;
     Normal = normalize(vec3(model*vec4(data.gba,0.0f)));
@@ -83,9 +82,8 @@ void main()
     // Write to fragpos and height field
     // Project to non-euclidian space (quat-sphereical)
     // popping effect counter measure: compute view based fragpos
-    //vec3 q = vec3(sphereProjection*vec4(aPos,1.0f));
-    //FragPos = vec3( model*vec4( (1.0+elevation)*normalize(q),1.0f ) ) - viewPos;
-    FragPos = vec3( model*vec4(gPos.x, elevation, gPos.y, 1.0f) ) - viewPos;
+    vec3 q = vec3(sphereProjection*vec4(aPos,1.0f));
+    FragPos = vec3( model*vec4( (1.0+elevation)*normalize(q),1.0f ) ) - viewPos;
 
 
     // debug
