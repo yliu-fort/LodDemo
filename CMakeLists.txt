@@ -56,7 +56,8 @@ add_library(GLAD "external/glad.c")
 set(LIBS ${LIBS} GLAD)
 
 # TIFF LIB
-#include_directories("external/tiff")
+#add_subdirectory(external/tiff-4.1.0)
+#include_directories("external/tiff-4.1.0/libtiff")
 #set(LIBS ${LIBS} tiff)
 
 # IMAGE_IO LIB
@@ -93,5 +94,6 @@ add_subdirectory("core/quadtreeManaged")
 add_subdirectory("core/sphericalLandscape")
 add_subdirectory("core/textureFetch")
 #add_subdirectory("core/mipmap")
+add_subdirectory("core/atmosphere")
 ### TESTS&DEMOS
 #add_subdirectory("test")
