@@ -7,6 +7,7 @@ uniform sampler2D hdrBuffer;
 uniform bool hdr;
 uniform float exposure;
 
+
 void main()
 {             
     //const float gamma = 2.2;

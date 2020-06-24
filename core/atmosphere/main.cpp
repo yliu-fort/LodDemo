@@ -37,6 +37,7 @@ static auto m_Kr4PI = m_Kr*4.0f*PI;
 static auto m_Km = 0.0010f;		// Mie scattering constant
 static auto m_Km4PI = m_Km*4.0f*PI;
 static auto m_ESun = 20.0f;		// Sun brightness constant
+////For Mie aerosol scattering, g is usually set between -0.75 and -0.999
 static auto m_g = -0.990f;		// The Mie phase asymmetry factor
 static auto m_fExposure = 2.0f;
 
@@ -54,7 +55,7 @@ static float m_fWavelength4[3] {
             powf(m_fWavelength[1], 4.0f),
             powf(m_fWavelength[2], 4.0f)
 };
-
+////My implementation uses 0.25, so the average density is found 25 percent of the way up from the ground to the sky dome.
 static auto m_fRayleighScaleDepth = 0.25f;
 static auto m_fMieScaleDepth = 0.1f;
 static bool m_fHdr = true;
@@ -123,7 +124,7 @@ static void gui_interface()
         ImGui::DragFloat("Rayleigh", &m_Kr,0.0001);		// Rayleigh scattering constant
         ImGui::DragFloat("Mie", &m_Km,0.0001);		// Mie scattering constant
         ImGui::DragFloat("Brightness", &m_ESun,0.1);		// Sun brightness constant
-        ImGui::DragFloat("Mie phase asymmetry", &m_g,0.01);		// The Mie phase asymmetry factor
+        ImGui::DragFloat("Mie phase asymmetry", &m_g,0.001,-0.999,-0.75);		// The Mie phase asymmetry factor
 
         ImGui::DragFloat("Inner Radius", &m_fInnerRadius,0.1,0.1,m_fOuterRadius);
         ImGui::DragFloat("Outer Radius", &m_fOuterRadius,0.1,m_fInnerRadius,9999);
@@ -139,11 +140,16 @@ static void gui_interface()
 
         if(ImGui::Button("Reset"))
             reset();
+
         // Global transformation
         //ImGui::DragFloat4("rotation", (float*)&rotation,0.01f);
         //ImGui::DragFloat4("refQuaternion", (float*)&refQuaternion,0.01f);
 
         // Info
+        if(glm::length(m_3DCamera.Position) >= m_fOuterRadius)
+            ImGui::Text("In vaccum.");
+        else
+            ImGui::Text("In atmosphere.");
         //ImGui::Text("Front  \t%02.6f, %02.6f, %02.6f"  , Front.x,Front.y,Front.z);
         //ImGui::Text("Up     \t%02.6f, %02.6f, %02.6f"     , Up.x,Up.y,Up.z);
         //ImGui::Text("Right  \t%02.6f, %02.6f, %02.6f"  , Right.x,Right.y,Right.z);
@@ -245,6 +251,11 @@ int main()
         glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // Bound camera position
+        if(glm::length(m_3DCamera.Position) < m_fInnerRadius + m_3DCamera.Near)
+            m_3DCamera.Position = glm::normalize(m_3DCamera.Position) * (m_fInnerRadius + m_3DCamera.Near);
+
+        // get reference
         auto& vCamera = m_3DCamera.Position;
         Shader *pGroundShader, *pSkyShader;
 
