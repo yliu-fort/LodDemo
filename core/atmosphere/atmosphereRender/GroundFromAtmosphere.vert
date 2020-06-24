@@ -13,10 +13,12 @@ layout (location = 2) in vec2 aTexCoords;
 
 out vec3 v3FrontColor;
 out vec3 v3FrontSecondaryColor;
+out vec3 FragPos;
+out vec3 Normal;
 out vec2 TexCoords;
 
 uniform vec3 v3CameraPos;		// The camera's current position
-uniform vec3 v3LightPos;		// The direction vector to the light source
+uniform vec3 v3LightDir;		// The direction vector to the light source
 uniform vec3 v3InvWavelength;	// 1 / pow(wavelength, 4) for the red, green, and blue channels
 uniform float fCameraHeight;	// The camera's current height
 uniform float fCameraHeight2;	// fCameraHeight^2
@@ -44,7 +46,7 @@ float scale(float fCos)
 	return fScaleDepth * exp(-0.00287 + x*(0.459 + x*(3.83 + x*(-6.80 + x*5.25))));
 }
 
-void main(void)
+void main()
 {
 	// Get the ray from the camera to the vertex, and its length (which is the far point of the ray passing through the atmosphere)
         vec3 v3Pos = vec3(m4ModelMatrix*vec4(aPos,1.0));
@@ -56,7 +58,7 @@ void main(void)
 	vec3 v3Start = v3CameraPos;
 	float fDepth = exp((fInnerRadius - fCameraHeight) / fScaleDepth);
 	float fCameraAngle = dot(-v3Ray, v3Pos) / length(v3Pos);
-	float fLightAngle = dot(v3LightPos, v3Pos) / length(v3Pos);
+        float fLightAngle = dot(v3LightDir, v3Pos) / length(v3Pos);
 	float fCameraScale = scale(fCameraAngle);
 	float fLightScale = scale(fLightAngle);
 	float fCameraOffset = fDepth*fCameraScale;
@@ -87,5 +89,8 @@ void main(void)
         v3FrontSecondaryColor = v3Attenuate;
 
         gl_Position = m4ModelViewProjectionMatrix * vec4(aPos,1.0);
+        FragPos = v3Pos;
+        Normal = normalize(vec3(m4ModelMatrix*vec4(aNormal,0.0)));
+        //Normal = aNormal;
         TexCoords = aTexCoords;
 }

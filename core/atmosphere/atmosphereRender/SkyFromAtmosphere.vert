@@ -16,7 +16,7 @@ out vec3 v3FrontSecondaryColor;
 out vec3 v3Direction;
 
 uniform vec3 v3CameraPos;		// The camera's current position
-uniform vec3 v3LightPos;		// The direction vector to the light source
+uniform vec3 v3LightDir;		// The direction vector to the light source
 uniform vec3 v3InvWavelength;	// 1 / pow(wavelength, 4) for the red, green, and blue channels
 uniform float fCameraHeight;	// The camera's current height
 uniform float fCameraHeight2;	// fCameraHeight^2
@@ -44,7 +44,7 @@ float scale(float fCos)
 	return fScaleDepth * exp(-0.00287 + x*(0.459 + x*(3.83 + x*(-6.80 + x*5.25))));
 }
 
-void main(void)
+void main()
 {
 	// Get the ray from the camera to the vertex, and its length (which is the far point of the ray passing through the atmosphere)
         vec3 v3Pos = vec3(m4ModelMatrix*vec4(aPos,1.0));
@@ -72,7 +72,7 @@ void main(void)
 	{
 		float fHeight = length(v3SamplePoint);
 		float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
-		float fLightAngle = dot(v3LightPos, v3SamplePoint) / fHeight;
+                float fLightAngle = dot(v3LightDir, v3SamplePoint) / fHeight;
 		float fCameraAngle = dot(v3Ray, v3SamplePoint) / fHeight;
 		float fScatter = (fStartOffset + fDepth*(scale(fLightAngle) - scale(fCameraAngle)));
 		vec3 v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));

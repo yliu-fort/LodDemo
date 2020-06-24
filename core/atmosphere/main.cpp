@@ -30,19 +30,20 @@ static int SCR_HEIGHT = 900;
 static Camera m_3DCamera = Camera(glm::vec3(0.0f, 0.0f, 2.50f), float(SCR_WIDTH)/SCR_HEIGHT);
 static auto m_vLight = glm::vec3(0, 0, 1000);
 static auto m_vLightDirection = glm::normalize(m_vLight);
+static auto m_vRotation = glm::vec3(0, 0, 0);
 
 static auto m_nSamples = 3;		// Number of sample rays to use in integral equation
-static auto m_Kr = 0.00025f;		// Rayleigh scattering constant
+static auto m_Kr = 0.0025f;		// Rayleigh scattering constant
 static auto m_Kr4PI = m_Kr*4.0f*PI;
 static auto m_Km = 0.0010f;		// Mie scattering constant
 static auto m_Km4PI = m_Km*4.0f*PI;
 static auto m_ESun = 20.0f;		// Sun brightness constant
 ////For Mie aerosol scattering, g is usually set between -0.75 and -0.999
 static auto m_g = -0.990f;		// The Mie phase asymmetry factor
-static auto m_fExposure = 2.0f;
+static auto m_fExposure = 1.0f;
 
 static auto m_fInnerRadius = 1.0f;
-static auto m_fOuterRadius = 1.0025f;
+static auto m_fOuterRadius = 1.0126f;
 static auto m_fScale = 1 / (m_fOuterRadius - m_fInnerRadius);
 
 static float m_fWavelength[3]{
@@ -50,14 +51,16 @@ static float m_fWavelength[3]{
     0.570f,     // 570 nm for green
     0.475f      // 475 nm for blue
 };
+
 static float m_fWavelength4[3] {
     powf(m_fWavelength[0], 4.0f),
             powf(m_fWavelength[1], 4.0f),
             powf(m_fWavelength[2], 4.0f)
 };
+
 ////My implementation uses 0.25, so the average density is found 25 percent of the way up from the ground to the sky dome.
-static auto m_fRayleighScaleDepth = 0.25f;
-static auto m_fMieScaleDepth = 0.1f;
+static auto m_fRayleighScaleDepth = 0.1187f;
+static auto m_fMieScaleDepth = 0.05f;
 static bool m_fHdr = true;
 
 
@@ -83,6 +86,11 @@ void renderQuad();
 
 static void update()
 {
+    m_fWavelength4[0] = powf(m_fWavelength[0], 4.0f);
+    m_fWavelength4[1] = powf(m_fWavelength[1], 4.0f);
+    m_fWavelength4[2] = powf(m_fWavelength[2], 4.0f);
+
+
     m_Kr4PI = m_Kr*4.0f*PI;
     m_Km4PI = m_Km*4.0f*PI;
     m_vLightDirection = glm::normalize(m_vLight);
@@ -98,13 +106,17 @@ static void reset()
     m_Km = 0.0010f;		// Mie scattering constant
     m_ESun = 20.0f;		// Sun brightness constant
     m_g = -0.990f;		// The Mie phase asymmetry factor
-    m_fExposure = 2.0f;
+    m_fExposure = 1.0f;
 
     m_fInnerRadius = 1.0f;
-    m_fOuterRadius = 1.025f;
+    m_fOuterRadius = 1.0126f;
 
-    m_fRayleighScaleDepth = 0.25f;
-    m_fMieScaleDepth = 0.1f;
+    m_fWavelength[0] = 0.650f;
+    m_fWavelength[1] = 0.570f;
+    m_fWavelength[2] = 0.475f;
+
+    m_fRayleighScaleDepth = 0.1187f;
+    m_fMieScaleDepth = 0.05f;
     m_fHdr = true;
 
     update();
@@ -118,7 +130,9 @@ static void gui_interface()
         ImGui::Text("Controllable parameters for Atmosphere class.");
 
         // Transform
+        ImGui::DragFloat3("Planet Rotation",&(m_vRotation)[0]);
         ImGui::DragFloat3("Light Position",&(m_vLight)[0]);
+        ImGui::DragFloat3("Wave length",&(m_fWavelength)[0],0.001);
         ImGui::DragInt("m_nSamples",&m_nSamples,1,1,16);
 
         ImGui::DragFloat("Rayleigh", &m_Kr,0.0001);		// Rayleigh scattering constant
@@ -187,21 +201,22 @@ int main()
     Shader m_shSkyFromAtmosphere    (FP("atmosphereRender/SkyFromAtmosphere.vert"     ),FP("atmosphereRender/SkyFromAtmosphere.frag"    ));
     Shader m_shGroundFromSpace      (FP("atmosphereRender/GroundFromSpace.vert"       ),FP("atmosphereRender/GroundFromSpace.frag"      ));
     Shader m_shGroundFromAtmosphere (FP("atmosphereRender/GroundFromAtmosphere.vert"  ),FP("atmosphereRender/GroundFromAtmosphere.frag" ));
-    //Shader m_shSpaceFromSpace       (FP("atmosphereRender/SpaceFromSpace.vert"        ),FP("atmosphereRender/SpaceFromSpace.frag"       ));
-    //Shader m_shSpaceFromAtmosphere  (FP("atmosphereRender/SpaceFromAtmosphere.vert"   ),FP("atmosphereRender/SpaceFromAtmosphere.frag"  ));
+    Shader m_shSpaceFromSpace       (FP("atmosphereRender/SpaceFromSpace.vert"        ),FP("atmosphereRender/SpaceFromSpace.frag"       ));
+    Shader m_shSpaceFromAtmosphere  (FP("atmosphereRender/SpaceFromAtmosphere.vert"   ),FP("atmosphereRender/SpaceFromAtmosphere.frag"  ));
 
     // For automatic file reloading
     //FileSystemMonitor::Init(SRC_PATH);
     GuiInterface::Init(window);
 
     // Prepare buffers
-    Icosphere sphere(6);
+    Icosphere m_tEarth(6);
+    //Icosphere m_tMoon(3);
 
     // load textures
     // -------------
-    uint texture1 = loadTexture("2k_earth_daymap.jpg", FP("../../resources/textures/earth"), true);
-    //uint texture2 = loadTiffTexture("2k_earth_normal_map.tif", FP("../../resources/textures/earth"));
-    //uint texture3 = loadTiffTexture("2k_earth_specular_map.tif", FP("../../resources/textures/earth"));
+    uint texture1 = loadTexture("5k_earth_daymap.jpg", FP("../../resources/textures/earth"), true);
+    //uint texture12 = loadTexture("2k_earth_clouds.jpg", FP("../../resources/textures/earth"));
+    uint texture2 = loadTexture("2k_earth_specular_map.jpg", FP("../../resources/textures/earth"));
 
 
     // configure floating point framebuffer
@@ -257,15 +272,17 @@ int main()
 
         // get reference
         auto& vCamera = m_3DCamera.Position;
-        Shader *pGroundShader, *pSkyShader;
+        Shader *pGroundShader, *pSkyShader, *pSpaceShader;
 
         if(glm::length(vCamera) >= m_fOuterRadius)
         {
+            pSpaceShader = &m_shSpaceFromSpace;
             pGroundShader = &m_shGroundFromSpace;
             pSkyShader = &m_shSkyFromSpace;
         }
         else
         {
+            pSpaceShader = &m_shSpaceFromAtmosphere;
             pGroundShader = &m_shGroundFromAtmosphere;
             pSkyShader = &m_shSkyFromAtmosphere;
         }
@@ -274,7 +291,7 @@ int main()
             // Draw ground
             pGroundShader->use();
             pGroundShader->setVec3("v3CameraPos", vCamera.x, vCamera.y, vCamera.z);
-            pGroundShader->setVec3("v3LightPos", m_vLightDirection.x, m_vLightDirection.y, m_vLightDirection.z);
+            pGroundShader->setVec3("v3LightDir", m_vLightDirection);
             pGroundShader->setVec3("v3InvWavelength", 1.0/m_fWavelength4[0], 1.0/m_fWavelength4[1], 1.0/m_fWavelength4[2]);
             pGroundShader->setFloat("fCameraHeight", glm::length(vCamera));
             pGroundShader->setFloat("fCameraHeight2", glm::length2(vCamera));
@@ -292,23 +309,28 @@ int main()
             pGroundShader->setFloat("g", m_g);
             pGroundShader->setFloat("g2", m_g*m_g);
             pGroundShader->setInt("s2Tex1", 0);
+            pGroundShader->setInt("s2Tex2", 1);
 
             pGroundShader->setMat4("m4ModelViewProjectionMatrix",
-                                   m_3DCamera.GetFrustumMatrix()*glm::scale(glm::mat4(1), glm::vec3(m_fInnerRadius)));
+                                   m_3DCamera.GetFrustumMatrix()*glm::scale(glm::mat4(1), glm::vec3(m_fInnerRadius))
+                                   *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
             pGroundShader->setMat4("m4ModelMatrix",
-                                   glm::scale(glm::mat4(1), glm::vec3(m_fInnerRadius)));
+                                   glm::scale(glm::mat4(1), glm::vec3(m_fInnerRadius))
+                                   *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, texture1);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, texture2);
 
-            sphere.draw();
+            m_tEarth.draw();
         }
 
         {
             // Draw sky
             pSkyShader->use();
             pSkyShader->setVec3("v3CameraPos", vCamera.x, vCamera.y, vCamera.z);
-            pSkyShader->setVec3("v3LightPos", m_vLightDirection.x, m_vLightDirection.y, m_vLightDirection.z);
+            pSkyShader->setVec3("v3LightDir", m_vLightDirection);
             pSkyShader->setVec3("v3InvWavelength", 1/m_fWavelength4[0], 1/m_fWavelength4[1], 1/m_fWavelength4[2]);
             pSkyShader->setFloat("fCameraHeight", glm::length(vCamera));
             pSkyShader->setFloat("fCameraHeight2", glm::length2(vCamera));
@@ -327,16 +349,18 @@ int main()
             pSkyShader->setFloat("g2", m_g*m_g);
 
             pSkyShader->setMat4("m4ModelViewProjectionMatrix",
-                                m_3DCamera.GetFrustumMatrix()*glm::scale(glm::mat4(1), glm::vec3(m_fOuterRadius)));
+                                m_3DCamera.GetFrustumMatrix()*glm::scale(glm::mat4(1), glm::vec3(m_fOuterRadius))
+                                *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
             pSkyShader->setMat4("m4ModelMatrix",
-                                glm::scale(glm::mat4(1), glm::vec3(m_fOuterRadius)));
+                                glm::scale(glm::mat4(1), glm::vec3(m_fOuterRadius))
+                                *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
 
 
             glFrontFace(GL_CW);
-            //glEnable(GL_BLEND);
+            glEnable(GL_BLEND);
             glBlendFunc(GL_ONE, GL_ONE);
-            sphere.draw();
-            //glDisable(GL_BLEND);
+            m_tEarth.draw();
+            glDisable(GL_BLEND);
             glFrontFace(GL_CCW);
         }
 
@@ -471,8 +495,8 @@ void renderQuad()
             // positions        // texture Coords
             -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
             -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-             1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
-             1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+            1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
         };
         // setup plane VAO
         glGenVertexArrays(1, &quadVAO);

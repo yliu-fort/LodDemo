@@ -7,11 +7,16 @@
 // Copyright (c) 2004 Sean O'Neil
 //
 
+out vec4 color;
+
+in vec3 v3FrontSecondaryColor;
+in vec2 TexCoords;
+
 uniform sampler2D s2Test;
 
 
-void main (void)
+void main ()
 {
-	gl_FragColor = gl_SecondaryColor * texture2D(s2Test, gl_TexCoord[0].st);
-	//gl_FragColor = gl_SecondaryColor;
+        //color = vec4(v3FrontSecondaryColor * texture(s2Test, TexCoords).rgb, 1.0);
+        color = vec4(v3FrontSecondaryColor,1.0);
 }
