@@ -27,12 +27,12 @@ static int SCR_WIDTH  = 1600;
 static int SCR_HEIGHT = 900;
 
 // camera
-static Camera m_3DCamera = Camera(glm::vec3(0.0f, 0.0f, 25.0f), float(SCR_WIDTH)/SCR_HEIGHT);
+static Camera m_3DCamera = Camera(glm::vec3(0.0f, 0.0f, 2.50f), float(SCR_WIDTH)/SCR_HEIGHT);
 static auto m_vLight = glm::vec3(0, 0, 1000);
 static auto m_vLightDirection = glm::normalize(m_vLight);
 
 static auto m_nSamples = 3;		// Number of sample rays to use in integral equation
-static auto m_Kr = 0.0025f;		// Rayleigh scattering constant
+static auto m_Kr = 0.00025f;		// Rayleigh scattering constant
 static auto m_Kr4PI = m_Kr*4.0f*PI;
 static auto m_Km = 0.0010f;		// Mie scattering constant
 static auto m_Km4PI = m_Km*4.0f*PI;
@@ -41,8 +41,8 @@ static auto m_ESun = 20.0f;		// Sun brightness constant
 static auto m_g = -0.990f;		// The Mie phase asymmetry factor
 static auto m_fExposure = 2.0f;
 
-static auto m_fInnerRadius = 10.0f;
-static auto m_fOuterRadius = 10.25f;
+static auto m_fInnerRadius = 1.0f;
+static auto m_fOuterRadius = 1.0025f;
 static auto m_fScale = 1 / (m_fOuterRadius - m_fInnerRadius);
 
 static float m_fWavelength[3]{
@@ -100,8 +100,8 @@ static void reset()
     m_g = -0.990f;		// The Mie phase asymmetry factor
     m_fExposure = 2.0f;
 
-    m_fInnerRadius = 10.0f;
-    m_fOuterRadius = 10.25f;
+    m_fInnerRadius = 1.0f;
+    m_fOuterRadius = 1.025f;
 
     m_fRayleighScaleDepth = 0.25f;
     m_fMieScaleDepth = 0.1f;
@@ -199,7 +199,7 @@ int main()
 
     // load textures
     // -------------
-    uint texture1 = loadTexture("2k_earth_daymap.jpg", FP("../../resources/textures/earth"));
+    uint texture1 = loadTexture("2k_earth_daymap.jpg", FP("../../resources/textures/earth"), true);
     //uint texture2 = loadTiffTexture("2k_earth_normal_map.tif", FP("../../resources/textures/earth"));
     //uint texture3 = loadTiffTexture("2k_earth_specular_map.tif", FP("../../resources/textures/earth"));
 

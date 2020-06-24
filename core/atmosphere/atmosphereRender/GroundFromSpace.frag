@@ -19,6 +19,7 @@ uniform sampler2D s2Tex1; // diffusive
 
 void main ()
 {
-        color.rgb = v3FrontColor + 0.25 * v3FrontSecondaryColor;
-        color.rgb += texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor;
+        //color.rgb = v3FrontColor + 0.25 * v3FrontSecondaryColor;
+        color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor;
+        color.a = 1.0f;
 }
