@@ -15,13 +15,16 @@
 #include "filesystemmonitor.h"
 #include "texture_utility.h"
 #include "icosphere.h"
+
+#include "gui_interface.h"
+#include "imgui.h"
 //#include "Icosphere.h"
 
 #define PI (3.141592654)
 
 // settings
-static int SCR_WIDTH  = 800;
-static int SCR_HEIGHT = 600;
+static int SCR_WIDTH  = 1600;
+static int SCR_HEIGHT = 900;
 
 // camera
 static Camera m_3DCamera = Camera(glm::vec3(0.0f, 0.0f, 25.0f), float(SCR_WIDTH)/SCR_HEIGHT);
@@ -54,7 +57,7 @@ static float m_fWavelength4[3] {
 
 static auto m_fRayleighScaleDepth = 0.25f;
 static auto m_fMieScaleDepth = 0.1f;
-
+static bool m_fHdr = true;
 
 
 static float lastX = SCR_WIDTH / 2.0f;
@@ -75,12 +78,83 @@ bool countAndDisplayFps(GLFWwindow* window);
 void processInput(GLFWwindow *window);
 
 void renderBox();
+void renderQuad();
 
-#define VISUAL
+static void update()
+{
+    m_Kr4PI = m_Kr*4.0f*PI;
+    m_Km4PI = m_Km*4.0f*PI;
+    m_vLightDirection = glm::normalize(m_vLight);
+    m_fScale = 1 / (m_fOuterRadius - m_fInnerRadius);
+}
 
+static void reset()
+{
+    m_vLight = glm::vec3(0, 0, 1000);
 
-// Shortcut
-static bool pause = true;
+    m_nSamples = 3;		// Number of sample rays to use in integral equation
+    m_Kr = 0.0025f;		// Rayleigh scattering constant
+    m_Km = 0.0010f;		// Mie scattering constant
+    m_ESun = 20.0f;		// Sun brightness constant
+    m_g = -0.990f;		// The Mie phase asymmetry factor
+    m_fExposure = 2.0f;
+
+    m_fInnerRadius = 10.0f;
+    m_fOuterRadius = 10.25f;
+
+    m_fRayleighScaleDepth = 0.25f;
+    m_fMieScaleDepth = 0.1f;
+    m_fHdr = true;
+
+    update();
+}
+
+static void gui_interface()
+{
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    if (ImGui::TreeNode("Atmosphere::Control Panel"))
+    {
+        ImGui::Text("Controllable parameters for Atmosphere class.");
+
+        // Transform
+        ImGui::DragFloat3("Light Position",&(m_vLight)[0]);
+        ImGui::DragInt("m_nSamples",&m_nSamples,1,1,16);
+
+        ImGui::DragFloat("Rayleigh", &m_Kr,0.0001);		// Rayleigh scattering constant
+        ImGui::DragFloat("Mie", &m_Km,0.0001);		// Mie scattering constant
+        ImGui::DragFloat("Brightness", &m_ESun,0.1);		// Sun brightness constant
+        ImGui::DragFloat("Mie phase asymmetry", &m_g,0.01);		// The Mie phase asymmetry factor
+
+        ImGui::DragFloat("Inner Radius", &m_fInnerRadius,0.1,0.1,m_fOuterRadius);
+        ImGui::DragFloat("Outer Radius", &m_fOuterRadius,0.1,m_fInnerRadius,9999);
+
+        ImGui::DragFloat("Rayleigh ScaleDepth", &m_fRayleighScaleDepth,0.01);
+        ImGui::DragFloat("Mie ScaleDepth", &m_fMieScaleDepth,0.01);
+
+        ImGui::Checkbox("HDR",&m_fHdr);
+        if(m_fHdr)
+        {
+            ImGui::DragFloat("HDR Exposure", &m_fExposure,0.01 );
+        }
+
+        if(ImGui::Button("Reset"))
+            reset();
+        // Global transformation
+        //ImGui::DragFloat4("rotation", (float*)&rotation,0.01f);
+        //ImGui::DragFloat4("refQuaternion", (float*)&refQuaternion,0.01f);
+
+        // Info
+        //ImGui::Text("Front  \t%02.6f, %02.6f, %02.6f"  , Front.x,Front.y,Front.z);
+        //ImGui::Text("Up     \t%02.6f, %02.6f, %02.6f"     , Up.x,Up.y,Up.z);
+        //ImGui::Text("Right  \t%02.6f, %02.6f, %02.6f"  , Right.x,Right.y,Right.z);
+        //ImGui::Text("WorldUp\t%02.6f, %02.6f, %02.6f", WorldUp.x,WorldUp.y,WorldUp.z);
+
+        ImGui::TreePop();
+    }
+
+    update();
+
+}
 
 int main()
 {
@@ -101,6 +175,7 @@ int main()
     //Shader shader(FP("renderer/icosphere.vert"),FP("renderer/icosphere.frag"));
     Shader lightShader(FP("renderer/icosphere.vert"),FP("renderer/icosphere_with_light.frag"));
     //Shader lineShader(FP("renderer/icosphere.vert"),FP("renderer/icosphere_line.frag"));
+    Shader hdrShader(FP("renderer/hdr.vs"),FP("renderer/hdr.fs"));
 
     Shader m_shSkyFromSpace         (FP("atmosphereRender/SkyFromSpace.vert"          ),FP("atmosphereRender/SkyFromSpace.frag"         ));
     Shader m_shSkyFromAtmosphere    (FP("atmosphereRender/SkyFromAtmosphere.vert"     ),FP("atmosphereRender/SkyFromAtmosphere.frag"    ));
@@ -111,6 +186,7 @@ int main()
 
     // For automatic file reloading
     //FileSystemMonitor::Init(SRC_PATH);
+    GuiInterface::Init(window);
 
     // Prepare buffers
     Icosphere sphere(6);
@@ -121,48 +197,34 @@ int main()
     //uint texture2 = loadTiffTexture("2k_earth_normal_map.tif", FP("../../resources/textures/earth"));
     //uint texture3 = loadTiffTexture("2k_earth_specular_map.tif", FP("../../resources/textures/earth"));
 
-    //Store the volume data to polygonise
-    uint texture2 = 0;
-    glGenTextures(1, &texture2);
-    glActiveTexture(GL_TEXTURE0);
-    //glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, texture2);
+
+    // configure floating point framebuffer
+    // ------------------------------------
+    unsigned int hdrFBO;
+    glGenFramebuffers(1, &hdrFBO);
+    // create floating point color buffer
+    unsigned int colorBuffer;
+    glGenTextures(1, &colorBuffer);
+    glBindTexture(GL_TEXTURE_2D, colorBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // create depth buffer (renderbuffer)
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    // attach buffers
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    //Generate a distance field to the center of the cube
-    std::vector<glm::vec3> dataField;
-    uint res = 4;
-    for(uint j=0; j<res; j++){
-        for(uint i=0; i<res; i++){
-            dataField.push_back( glm::vec3(0,0,1) );
-        }
-    }
 
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
-
-
-    uint texture3 = 0;
-    glGenTextures(1, &texture3);
-    glActiveTexture(GL_TEXTURE0);
-    //glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, texture3);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    //Generate a distance field to the center of the cube
-    dataField.clear();
-    for(uint j=0; j<res; j++){
-        for(uint i=0; i<res; i++){
-            dataField.push_back( glm::vec3(0,0,0) );
-        }
-    }
-
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
+    hdrShader.use();
+    hdrShader.setInt("hdrBuffer", 0);
 
 
     while( !glfwWindowShouldClose( window ) )
@@ -171,7 +233,7 @@ int main()
         // --------------------
         countAndDisplayFps(window);
 
-#ifdef VISUAL
+
         // input
         glfwGetFramebufferSize(window, &SCR_WIDTH, &SCR_HEIGHT);
         processInput(window);
@@ -179,41 +241,13 @@ int main()
         // Draw points
         glViewport(0,0,SCR_WIDTH, SCR_HEIGHT);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        //lightShader.use();
-        //
-        //glActiveTexture(GL_TEXTURE0);
-        //glBindTexture(GL_TEXTURE_2D, texture1);
-        //lightShader.setInt("diffuseMap",0);
-        //lightShader.setInt("heightMap",0);
-        //
-        //glActiveTexture(GL_TEXTURE1);
-        //glBindTexture(GL_TEXTURE_2D, texture2);
-        //lightShader.setInt("normalMap",1);
-        //
-        //glActiveTexture(GL_TEXTURE2);
-        //glBindTexture(GL_TEXTURE_2D, texture3);
-        //lightShader.setInt("specularMap",2);
-        //
-        //lightShader.setMat4("projection_view", m_3DCamera.GetFrustumMatrix());
-        //lightShader.setMat4("model", glm::scale(glm::mat4(1), glm::vec3(10)));
-        //lightShader.setVec3("viewPos",m_3DCamera.Position);
-        //lightShader.setVec3("lightPos", glm::vec3(-0.25f,-0.23f,100.2f));
-
-        //lineShader.use();
-        //lineShader.setVec3("color",glm::vec3(1));
-        //lineShader.setMat4("projectionMatrix", camera.GetFrustumMatrix());
-        //
-        //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-        //sphere.draw();
-        //glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-
-        //renderBox();
-
 
         auto& vCamera = m_3DCamera.Position;
         Shader *pGroundShader, *pSkyShader;
+
         if(glm::length(vCamera) >= m_fOuterRadius)
         {
             pGroundShader = &m_shGroundFromSpace;
@@ -295,7 +329,19 @@ int main()
             glFrontFace(GL_CCW);
         }
 
-#endif
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        hdrShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorBuffer);
+        hdrShader.setInt("hdr", m_fHdr);
+        hdrShader.setFloat("exposure", m_fExposure);
+        renderQuad();
+
+        GuiInterface::Begin();
+        gui_interface();
+        GuiInterface::End();
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -334,7 +380,7 @@ bool countAndDisplayFps(GLFWwindow* window)
     }
     return false;
 }
-#ifdef VISUAL
+
 
 
 
@@ -402,6 +448,38 @@ void renderBox()
     glBindVertexArray(0);
 }
 
+// renderQuad() renders a 1x1 XY quad in NDC
+// -----------------------------------------
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        float quadVertices[] = {
+            // positions        // texture Coords
+            -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+             1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+             1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        // setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
+
 static int key_space_old_state = GLFW_RELEASE;
 void processInput(GLFWwindow *window)
 {
@@ -419,9 +497,22 @@ void processInput(GLFWwindow *window)
 
     if ((glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) && (key_space_old_state == GLFW_RELEASE))
     {
-        pause = !pause;
+        m_fHdr = !m_fHdr;
     }
     key_space_old_state = glfwGetKey(window, GLFW_KEY_SPACE);
+
+
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    {
+        if (m_fExposure > 0.0f)
+            m_fExposure -= 0.001f;
+        else
+            m_fExposure = 0.0f;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    {
+        m_fExposure += 0.001f;
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -473,7 +564,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     mouse_button_right = false;
     mods = 0;
 }
-#endif
 
 GLFWwindow* initGL(int w, int h)
 {
@@ -490,7 +580,7 @@ GLFWwindow* initGL(int w, int h)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifndef VISUAL
+#if 0
     glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 #endif
 
@@ -544,7 +634,7 @@ GLFWwindow* initGL(int w, int h)
     glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
     printf("max local work group invocations %i\n", work_grp_inv);
 
-#ifdef VISUAL
+
     // framebuffer mode
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     // Mouse input mode
@@ -553,9 +643,6 @@ GLFWwindow* initGL(int w, int h)
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSwapInterval(1); // 60 fps constraint
-#else
-    glfwSwapInterval(0); // No fps constraint
-#endif
     
     return window;
 }

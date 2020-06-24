@@ -13,8 +13,8 @@ in vec3 v3FrontColor;
 in vec3 v3FrontSecondaryColor;
 in vec2 TexCoords;
 
-uniform sampler2D s2Tex1;
-//uniform sampler2D s2Tex2;
+uniform sampler2D s2Tex1; // diffusive
+//uniform sampler2D s2Tex2; // specular
 
 
 void main ()
