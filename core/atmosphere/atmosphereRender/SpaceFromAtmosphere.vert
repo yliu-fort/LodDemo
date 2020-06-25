@@ -32,6 +32,7 @@ uniform float fScaleDepth;		// The scale depth (i.e. the altitude at which the a
 uniform float fScaleOverScaleDepth;	// fScale / fScaleDepth
 uniform mat4 m4ModelViewProjectionMatrix;
 uniform mat4 m4ModelMatrix;
+uniform sampler2D opticalTex;
 
 float scale(float fCos)
 {

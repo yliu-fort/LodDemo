@@ -62,7 +62,7 @@ static float m_fWavelength4[3] {
 static auto m_fRayleighScaleDepth = 0.1187f;
 static auto m_fMieScaleDepth = 0.05f;
 static bool m_fHdr = true;
-
+static unsigned int m_tOpticalDepthBuffer, m_tPhaseBuffer;
 
 static float lastX = SCR_WIDTH / 2.0f;
 static float lastY = SCR_HEIGHT / 2.0f;
@@ -84,6 +84,143 @@ void processInput(GLFWwindow *window);
 void renderBox();
 void renderQuad();
 
+static void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float fRayleighScaleHeight, float fMieScaleHeight)
+{
+    const float DELTA = 1e-6;
+    const int m_nChannels = 4;
+    const int nSize = 64;
+    const int nSamples = 50;
+    const float fScale = 1.0f / (fOuterRadius - fInnerRadius);
+
+
+    std::vector<float> m_pBuffer(m_nChannels*nSize*nSize);
+    //Init(nSize, nSize, 1, 4, GL_RGBA, GL_FLOAT);
+    int nIndex = 0;
+    float fPrev = 0;
+    for(int nAngle=0; nAngle<nSize; nAngle++)
+    {
+        // As the y tex coord goes from 0 to 1, the angle goes from 0 to 180 degrees
+        float fCos = 1.0f - (nAngle+nAngle) / (float)nSize;
+        float fAngle = acosf(fCos);
+        glm::vec3 vRay(sinf(fAngle), cosf(fAngle), 0);	// Ray pointing to the viewpoint
+
+        float fFirst = 0;
+        for(int nHeight=0; nHeight<nSize; nHeight++)
+        {
+            // As the x tex coord goes from 0 to 1, the height goes from the bottom of the atmosphere to the top
+            float fHeight = DELTA + fInnerRadius + ((fOuterRadius - fInnerRadius) * nHeight) / nSize;
+            glm::vec3 vPos(0, fHeight, 0);				// The position of the camera
+
+            // If the ray from vPos heading in the vRay direction intersects the inner radius (i.e. the planet), then this spot is not visible from the viewpoint
+            float B = 2.0f * glm::dot(vPos, vRay);
+            float Bsq = B * B;
+            float Cpart = glm::dot(vPos, vPos);
+            float C = Cpart - fInnerRadius*fInnerRadius;
+            float fDet = Bsq - 4.0f * C;
+            bool bVisible = (fDet < 0 || ((0.5f * (-B - sqrtf(fDet)) <= 0) && (0.5f * (-B + sqrtf(fDet)) <= 0)));
+            float fRayleighDensityRatio;
+            float fMieDensityRatio;
+            if(bVisible)
+            {
+                fRayleighDensityRatio = expf(-(fHeight - fInnerRadius) * fScale / fRayleighScaleHeight);
+                fMieDensityRatio = expf(-(fHeight - fInnerRadius) * fScale / fMieScaleHeight);
+            }
+            else
+            {
+                // Smooth the transition from light to shadow (it is a soft shadow after all)
+                fRayleighDensityRatio = (m_pBuffer)[nIndex - nSize*m_nChannels] * 0.5f;
+                fMieDensityRatio = (m_pBuffer)[nIndex+2 - nSize*m_nChannels] * 0.5f;
+            }
+
+            // Determine where the ray intersects the outer radius (the top of the atmosphere)
+            // This is the end of our ray for determining the optical depth (vPos is the start)
+            C = Cpart - fOuterRadius*fOuterRadius;
+            fDet = Bsq - 4.0f * C;
+            float fFar = 0.5f * (-B + sqrtf(fDet));
+
+            // Next determine the length of each sample, scale the sample ray, and make sure position checks are at the center of a sample ray
+            float fSampleLength = fFar / nSamples;
+            float fScaledLength = fSampleLength * fScale;
+            glm::vec3 vSampleRay = vRay * fSampleLength;
+            vPos += vSampleRay * 0.5f;
+
+            // Iterate through the samples to sum up the optical depth for the distance the ray travels through the atmosphere
+            float fRayleighDepth = 0;
+            float fMieDepth = 0;
+            for(int i=0; i<nSamples; i++)
+            {
+                float fHeight = glm::length(vPos);
+                float fAltitude = (fHeight - fInnerRadius) * fScale;
+                //fAltitude = Max(fAltitude, 0.0f);
+                fRayleighDepth += expf(-fAltitude / fRayleighScaleHeight);
+                fMieDepth += expf(-fAltitude / fMieScaleHeight);
+                vPos += vSampleRay;
+            }
+
+            // Multiply the sums by the length the ray traveled
+            fRayleighDepth *= fScaledLength;
+            fMieDepth *= fScaledLength;
+
+            // happens on the back side
+            //if(!_finite(fRayleighDepth) || fRayleighDepth > 1.0e25f)
+            //    fRayleighDepth = 0;
+            //if(!_finite(fMieDepth) || fMieDepth > 1.0e25f)
+            //    fMieDepth = 0;
+
+            // Store the results for Rayleigh to the light source, Rayleigh to the camera, Mie to the light source, and Mie to the camera
+            (m_pBuffer)[nIndex++] = fRayleighDensityRatio;
+            (m_pBuffer)[nIndex++] = fRayleighDepth;
+            (m_pBuffer)[nIndex++] = fMieDensityRatio;
+            (m_pBuffer)[nIndex++] = fMieDepth;
+
+        }
+        //ofGraph << std::endl;
+    }
+
+    if(m_tOpticalDepthBuffer)
+        glDeleteTextures(1,&m_tOpticalDepthBuffer);
+    glGenTextures(1, &m_tOpticalDepthBuffer);
+    glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, nSize, nSize, 0, GL_RGBA, GL_FLOAT, &m_pBuffer[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+}
+
+static void MakePhaseBuffer(float ESun, float Kr, float Km, float g)
+{
+    const int m_nWidth = 64;
+    std::vector<float> m_pBuffer(2*m_nWidth);
+
+    auto KmSun = Km*ESun;
+    auto KrSun = Kr*ESun;
+    float g2 = g*g;
+    float fMiePart = 1.5f * (1.0f - g2) / (2.0f + g2);
+
+    int nIndex = 0;
+    for(int nAngle=0; nAngle<m_nWidth; nAngle++)
+    {
+        float fCos = 1.0f - (nAngle+nAngle) / (float)m_nWidth;
+        float fCos2 = fCos*fCos;
+        float fRayleighPhase = 0.75f * (1.0f + fCos2);
+        float fMiePhase = fMiePart * (1.0f + fCos2) / powf(1.0f + g2 - 2.0f*g*fCos, 1.5f);
+        (m_pBuffer)[nIndex++] = fRayleighPhase * KrSun;
+        (m_pBuffer)[nIndex++] = fMiePhase * KmSun;
+    }
+
+    if(m_tPhaseBuffer)
+        glDeleteTextures(1,&m_tPhaseBuffer);
+    glGenTextures(1, &m_tPhaseBuffer);
+    glBindTexture(GL_TEXTURE_1D, m_tPhaseBuffer);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, m_nWidth, 0, GL_RG, GL_FLOAT, &m_pBuffer[0]);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+}
+
 static void update()
 {
     m_fWavelength4[0] = powf(m_fWavelength[0], 4.0f);
@@ -95,6 +232,9 @@ static void update()
     m_Km4PI = m_Km*4.0f*PI;
     m_vLightDirection = glm::normalize(m_vLight);
     m_fScale = 1 / (m_fOuterRadius - m_fInnerRadius);
+
+    MakeOpticalDepthBuffer(m_fInnerRadius,m_fOuterRadius,m_fRayleighScaleDepth,m_fMieScaleDepth);
+    MakePhaseBuffer(m_ESun, m_Kr, m_Km, m_g);
 }
 
 static void reset()
@@ -155,6 +295,9 @@ static void gui_interface()
         if(ImGui::Button("Reset"))
             reset();
 
+        if(ImGui::Button("Update"))
+            update();
+
         // Global transformation
         //ImGui::DragFloat4("rotation", (float*)&rotation,0.01f);
         //ImGui::DragFloat4("refQuaternion", (float*)&refQuaternion,0.01f);
@@ -171,8 +314,6 @@ static void gui_interface()
 
         ImGui::TreePop();
     }
-
-    update();
 
 }
 
@@ -247,6 +388,9 @@ int main()
     hdrShader.use();
     hdrShader.setInt("hdrBuffer", 0);
 
+    // Pre-compute atmosphere
+    update();
+
 
     while( !glfwWindowShouldClose( window ) )
     {
@@ -310,6 +454,8 @@ int main()
             pGroundShader->setFloat("g2", m_g*m_g);
             pGroundShader->setInt("s2Tex1", 0);
             pGroundShader->setInt("s2Tex2", 1);
+            pGroundShader->setInt("opticalTex", 2);
+
 
             pGroundShader->setMat4("m4ModelViewProjectionMatrix",
                                    m_3DCamera.GetFrustumMatrix()*glm::scale(glm::mat4(1), glm::vec3(m_fInnerRadius))
@@ -322,6 +468,9 @@ int main()
             glBindTexture(GL_TEXTURE_2D, texture1);
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, texture2);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
+
 
             m_tEarth.draw();
         }
@@ -347,6 +496,8 @@ int main()
             pSkyShader->setFloat("fScaleOverScaleDepth", (1.0f / (m_fOuterRadius - m_fInnerRadius)) / m_fRayleighScaleDepth);
             pSkyShader->setFloat("g", m_g);
             pSkyShader->setFloat("g2", m_g*m_g);
+            pSkyShader->setInt("opticalTex", 2);
+
 
             pSkyShader->setMat4("m4ModelViewProjectionMatrix",
                                 m_3DCamera.GetFrustumMatrix()*glm::scale(glm::mat4(1), glm::vec3(m_fOuterRadius))
@@ -354,6 +505,9 @@ int main()
             pSkyShader->setMat4("m4ModelMatrix",
                                 glm::scale(glm::mat4(1), glm::vec3(m_fOuterRadius))
                                 *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
+
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
 
 
             glFrontFace(GL_CW);

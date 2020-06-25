@@ -37,11 +37,20 @@ uniform mat4 m4ModelMatrix;
 const int nSamples = 2;
 const float fSamples = 2.0;
 
+uniform sampler2D opticalTex;
 
 float scale(float fCos)
 {
 	float x = 1.0 - fCos;
 	return fScaleDepth * exp(-0.00287 + x*(0.459 + x*(3.83 + x*(-6.80 + x*5.25))));
+}
+
+vec2 getRayleigh(float fCos, float fHeight)
+{
+    float x = (1.0f-fCos)/2.0f;
+    float y = (fHeight - fInnerRadius)*fScale;
+
+    return texture(opticalTex, vec2(y,x)).xy;
 }
 
 void main()
@@ -57,7 +66,7 @@ void main()
 	float fHeight = length(v3Start);
 	float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fCameraHeight));
 	float fStartAngle = dot(v3Ray, v3Start) / fHeight;
-	float fStartOffset = fDepth*scale(fStartAngle);
+        //float fStartOffset = fDepth*scale(fStartAngle);
 
 	// Initialize the scattering loop variables
 	//gl_FrontColor = vec4(0.0, 0.0, 0.0, 0.0);
@@ -65,16 +74,25 @@ void main()
 	float fScaledLength = fSampleLength * fScale;
 	vec3 v3SampleRay = v3Ray * fSampleLength;
 	vec3 v3SamplePoint = v3Start + v3SampleRay * 0.5;
+        float fCameraAngle = dot(v3Ray, v3SamplePoint) / length(v3SamplePoint);
+        float fStartOffset = getRayleigh(fCameraAngle, length(v3CameraPos)).y;
 
 	// Now loop through the sample rays
         v3FrontColor = vec3(0.0, 0.0, 0.0);
 	for(int i=0; i<nSamples; i++)
 	{
 		float fHeight = length(v3SamplePoint);
-		float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
+                //float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
                 float fLightAngle = dot(v3LightDir, v3SamplePoint) / fHeight;
 		float fCameraAngle = dot(v3Ray, v3SamplePoint) / fHeight;
-		float fScatter = (fStartOffset + fDepth*(scale(fLightAngle) - scale(fCameraAngle)));
+                //float fScatter = (fStartOffset + fDepth*(scale(fLightAngle) - scale(fCameraAngle)));
+
+                float fDepth = getRayleigh(fLightAngle, fHeight).x;
+
+                float fScatter = getRayleigh(fLightAngle, fHeight).y
+                        + getRayleigh(fCameraAngle, fHeight).y
+                        - fStartOffset;
+
 		vec3 v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
 		v3FrontColor += v3Attenuate * (fDepth * fScaledLength);
 		v3SamplePoint += v3SampleRay;
