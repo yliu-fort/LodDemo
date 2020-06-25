@@ -62,7 +62,10 @@ static float m_fWavelength4[3] {
 static auto m_fRayleighScaleDepth = 0.1187f;
 static auto m_fMieScaleDepth = 0.05f;
 static bool m_fHdr = true;
+
 static unsigned int m_tOpticalDepthBuffer, m_tPhaseBuffer;
+static int m_nODBSize = 64;
+static int m_nODBSamples = 50;
 
 static float lastX = SCR_WIDTH / 2.0f;
 static float lastY = SCR_HEIGHT / 2.0f;
@@ -88,8 +91,8 @@ static void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float
 {
     const float DELTA = 1e-6;
     const int m_nChannels = 4;
-    const int nSize = 64;
-    const int nSamples = 50;
+    const int nSize = m_nODBSize;
+    const int nSamples = m_nODBSamples;
     const float fScale = 1.0f / (fOuterRadius - fInnerRadius);
 
 
@@ -274,6 +277,8 @@ static void gui_interface()
         ImGui::DragFloat3("Light Position",&(m_vLight)[0]);
         ImGui::DragFloat3("Wave length",&(m_fWavelength)[0],0.001);
         ImGui::DragInt("m_nSamples",&m_nSamples,1,1,16);
+        ImGui::DragInt("ODBsize",&m_nODBSize,16,16,1024);
+        ImGui::DragInt("ODBsamples",&m_nODBSamples,1,16,256);
 
         ImGui::DragFloat("Rayleigh", &m_Kr,0.0001);		// Rayleigh scattering constant
         ImGui::DragFloat("Mie", &m_Km,0.0001);		// Mie scattering constant
