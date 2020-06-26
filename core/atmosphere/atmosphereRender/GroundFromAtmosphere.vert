@@ -35,6 +35,7 @@ uniform float fScaleDepth;		// The scale depth (i.e. the altitude at which the a
 uniform float fScaleOverScaleDepth;	// fScale / fScaleDepth
 uniform mat4 m4ModelViewProjectionMatrix;
 uniform mat4 m4ModelMatrix;
+uniform float fESun;			// ESun
 
 const int nSamples = 2;
 const float fSamples = 2.0;
@@ -72,7 +73,8 @@ void main()
     float fLightScale = scale(fLightAngle);
     float fCameraOffset = fDepth*fCameraScale;
     float fTemp = (fLightScale + fCameraScale);
-    float fStartOffset = getRayleigh(fCameraAngle, length(v3CameraPos)).y;
+    float fStartOffset = getRayleigh(fCameraAngle, fOuterRadius).y
+            + getRayleigh(fLightAngle, fOuterRadius).y;
 
     // Initialize the scattering loop variables
     float fSampleLength = fFar / fSamples;
@@ -91,8 +93,7 @@ void main()
         float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
         float fScatter = getRayleigh(fLightAngle, fHeight).y
-                + getRayleigh(fCameraAngle, fHeight).y
-                - fStartOffset;
+                + getRayleigh(fCameraAngle, fHeight).y;
 
         v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
         v3FrontColor += v3Attenuate * (fDepth * fScaledLength);
@@ -109,4 +110,10 @@ void main()
     Normal = normalize(vec3(m4ModelMatrix*vec4(aNormal,0.0)));
     //Normal = aNormal;
     TexCoords = aTexCoords;
+
+    //
+    //float diffuse = max( dot(v3LightDir, Normal),0 );
+    //v3Attenuate += diffuse*fESun*exp(-getRayleigh(fLightAngle, length(v3Pos)).y * (v3InvWavelength * fKr4PI + fKm4PI));
+    //v3FrontSecondaryColor = exp(-getRayleigh(fCameraAngle, length(v3Pos)).y * (v3InvWavelength * fKr4PI + fKm4PI));
+    //v3FrontSecondaryColor *=  v3Attenuate;
 }

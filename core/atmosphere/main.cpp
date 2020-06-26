@@ -275,6 +275,7 @@ static void gui_interface()
         // Transform
         ImGui::DragFloat3("Planet Rotation",&(m_vRotation)[0]);
         ImGui::DragFloat3("Light Position",&(m_vLight)[0]);
+        m_vLightDirection = glm::normalize(m_vLight);
         ImGui::DragFloat3("Wave length",&(m_fWavelength)[0],0.001);
         ImGui::DragInt("m_nSamples",&m_nSamples,1,1,16);
         ImGui::DragInt("ODBsize",&m_nODBSize,16,16,1024);
@@ -300,7 +301,7 @@ static void gui_interface()
         if(ImGui::Button("Reset"))
             reset();
 
-        if(ImGui::Button("Update"))
+        if(ImGui::Button("Update Buffers"))
             update();
 
         // Global transformation
@@ -457,6 +458,7 @@ int main()
             pGroundShader->setFloat("fScaleOverScaleDepth", (1.0f / (m_fOuterRadius - m_fInnerRadius)) / m_fRayleighScaleDepth);
             pGroundShader->setFloat("g", m_g);
             pGroundShader->setFloat("g2", m_g*m_g);
+            pGroundShader->setFloat("fESun",m_ESun);
             pGroundShader->setInt("s2Tex1", 0);
             pGroundShader->setInt("s2Tex2", 1);
             pGroundShader->setInt("opticalTex", 2);
