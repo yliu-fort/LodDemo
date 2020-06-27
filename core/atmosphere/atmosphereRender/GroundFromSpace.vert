@@ -40,6 +40,7 @@ const int nSamples = 2;
 const float fSamples = 2.0;
 
 uniform sampler2D opticalTex;
+uniform sampler2D s2Tex3;
 
 float scale(float fCos)
 {
@@ -58,7 +59,8 @@ vec2 getRayleigh(float fCos, float fHeight)
 void main()
 {
     // Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
-    vec3 v3Pos = vec3(m4ModelMatrix*vec4(aPos,1.0)); // Fragpos
+    vec3 aaPos = aPos + 0.003*aNormal*(texture(s2Tex3, aTexCoords).xyz - 0.5);
+    vec3 v3Pos = vec3(m4ModelMatrix*vec4(aaPos,1.0)); // Fragpos
     vec3 v3Ray = v3Pos - v3CameraPos;
     float fFar = length(v3Ray);
     v3Ray /= fFar;
@@ -79,8 +81,7 @@ void main()
     float fLightScale = scale(fLightAngle);
     float fCameraOffset = fDepth*fCameraScale;
     float fTemp = (fLightScale + fCameraScale);
-    float fStartOffset = getRayleigh(fCameraAngle, fOuterRadius).y
-            + getRayleigh(fLightAngle, fOuterRadius).y;
+    float fStartOffset = getRayleigh(fCameraAngle, fOuterRadius).y;
 
     // Initialize the scattering loop variables
     float fSampleLength = fFar / fSamples;
@@ -94,11 +95,15 @@ void main()
     for(int i=0; i<nSamples; i++)
     {
         float fHeight = length(v3SamplePoint);
+
+        float fLightAngle = dot(v3LightDir, v3SamplePoint) / fHeight;
+        float fCameraAngle = dot(-v3Ray, v3SamplePoint) / fHeight;
+
         //float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
         float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
         float fScatter = getRayleigh(fLightAngle, fHeight).y
-                + getRayleigh(fCameraAngle, fHeight).y;
+                + fStartOffset - getRayleigh(fCameraAngle, fHeight).y;
 
         //float fScatter = fDepth*fTemp - fCameraOffset;
         v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
@@ -112,7 +117,7 @@ void main()
     // Calculate the attenuation factor for the ground
     v3FrontSecondaryColor = v3Attenuate;
 
-    gl_Position = m4ModelViewProjectionMatrix * vec4(aPos,1.0);
+    gl_Position = m4ModelViewProjectionMatrix * vec4(aaPos,1.0);
     FragPos = v3Pos;
     Normal = normalize(vec3(m4ModelMatrix*vec4(aNormal,0.0)));
     //Normal = aNormal;

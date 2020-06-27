@@ -73,6 +73,7 @@ void main()
     float fStartAngle = dot(v3Ray, v3Start) / fOuterRadius;
     float fStartDepth = exp(-1.0 / fScaleDepth);
     //float fStartOffset = fStartDepth*scale(fStartAngle);
+    float fStartOffset = getRayleigh(fStartAngle, fOuterRadius).y;
 
 
     // Initialize the scattering loop variables
@@ -81,8 +82,6 @@ void main()
     float fScaledLength = fSampleLength * fScale;
     vec3 v3SampleRay = v3Ray * fSampleLength;
     vec3 v3SamplePoint = v3Start + v3SampleRay * 0.5;
-    float fCameraAngle = dot(v3Ray, v3SamplePoint) / length(v3SamplePoint);
-    float fStartOffset = getRayleigh(fCameraAngle, length(v3CameraPos)).y;
 
     // Now loop through the sample rays
     // Todo: separate Rayleigh and Mie scattering
@@ -97,7 +96,7 @@ void main()
         float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
         float fScatter = getRayleigh(fLightAngle, fHeight).y
-                + getRayleigh(fCameraAngle, fHeight).y;
+                + fStartOffset - getRayleigh(fCameraAngle, fHeight).y;
 
         //float fScatter = (fStartOffset + fDepth*(scale(fLightAngle) - scale(fCameraAngle)));
         vec3 v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));

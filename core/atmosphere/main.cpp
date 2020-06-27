@@ -59,8 +59,8 @@ static float m_fWavelength4[3] {
 };
 
 ////My implementation uses 0.25, so the average density is found 25 percent of the way up from the ground to the sky dome.
-static auto m_fRayleighScaleDepth = 0.1187f;
-static auto m_fMieScaleDepth = 0.05f;
+static auto m_fRayleighScaleDepth = 0.1f;
+static auto m_fMieScaleDepth = 0.1f;
 static bool m_fHdr = true;
 
 static unsigned int m_tOpticalDepthBuffer, m_tPhaseBuffer;
@@ -154,7 +154,7 @@ static void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float
             {
                 float fHeight = glm::length(vPos);
                 float fAltitude = (fHeight - fInnerRadius) * fScale;
-                //fAltitude = Max(fAltitude, 0.0f);
+                //fAltitude = fmaxf(fAltitude, 0.0f);
                 fRayleighDepth += expf(-fAltitude / fRayleighScaleHeight);
                 fMieDepth += expf(-fAltitude / fMieScaleHeight);
                 vPos += vSampleRay;
@@ -258,8 +258,8 @@ static void reset()
     m_fWavelength[1] = 0.570f;
     m_fWavelength[2] = 0.475f;
 
-    m_fRayleighScaleDepth = 0.1187f;
-    m_fMieScaleDepth = 0.05f;
+    m_fRayleighScaleDepth = 0.1f;
+    m_fMieScaleDepth = 0.1f;
     m_fHdr = true;
 
     update();
@@ -361,9 +361,10 @@ int main()
 
     // load textures
     // -------------
-    uint texture1 = loadTexture("5k_earth_daymap.jpg", FP("../../resources/textures/earth"), true);
+    uint texture1 = loadTexture("5k_earth_daymap_bathy.jpg", FP("../../resources/textures/earth"), true);
     //uint texture12 = loadTexture("2k_earth_clouds.jpg", FP("../../resources/textures/earth"));
     uint texture2 = loadTexture("2k_earth_specular_map.jpg", FP("../../resources/textures/earth"));
+    uint texture3 = loadTexture("256_earth_bumpmap.jpg", FP("../../resources/textures/earth"));
 
 
     // configure floating point framebuffer
@@ -459,9 +460,10 @@ int main()
             pGroundShader->setFloat("g", m_g);
             pGroundShader->setFloat("g2", m_g*m_g);
             pGroundShader->setFloat("fESun",m_ESun);
-            pGroundShader->setInt("s2Tex1", 0);
-            pGroundShader->setInt("s2Tex2", 1);
-            pGroundShader->setInt("opticalTex", 2);
+            pGroundShader->setInt("s2Tex1", 1);
+            pGroundShader->setInt("s2Tex2", 2);
+            pGroundShader->setInt("s2Tex3", 3);
+            pGroundShader->setInt("opticalTex", 0);
 
 
             pGroundShader->setMat4("m4ModelViewProjectionMatrix",
@@ -472,11 +474,14 @@ int main()
                                    *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
 
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, texture1);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, texture2);
-            glActiveTexture(GL_TEXTURE2);
             glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, texture1);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, texture2);
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, texture3);
+
 
 
             m_tEarth.draw();
@@ -503,7 +508,7 @@ int main()
             pSkyShader->setFloat("fScaleOverScaleDepth", (1.0f / (m_fOuterRadius - m_fInnerRadius)) / m_fRayleighScaleDepth);
             pSkyShader->setFloat("g", m_g);
             pSkyShader->setFloat("g2", m_g*m_g);
-            pSkyShader->setInt("opticalTex", 2);
+            pSkyShader->setInt("opticalTex", 0);
 
 
             pSkyShader->setMat4("m4ModelViewProjectionMatrix",
@@ -513,7 +518,7 @@ int main()
                                 glm::scale(glm::mat4(1), glm::vec3(m_fOuterRadius))
                                 *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
 
-            glActiveTexture(GL_TEXTURE2);
+            glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
 
 

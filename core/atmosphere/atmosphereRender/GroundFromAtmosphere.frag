@@ -24,15 +24,8 @@ uniform vec3 v3LightDir;		// The direction vector to the light source
 void main ()
 {
 
-    // diffuse
-    //float diffuse = max(dot(v3LightDir, Normal), 0.0);
+    float diffuse = max(dot(v3LightDir, Normal), 0.0);
 
-    //gl_FragColor = gl_Color + 0.25 * gl_SecondaryColor;
-    //gl_FragColor = gl_Color + texture2D(s2Tex1, gl_TexCoord[0].st) * texture2D(s2Tex2, gl_TexCoord[1].st) * gl_SecondaryColor;
-    //color.rgb = v3FrontColor + 0.25 * v3FrontSecondaryColor;
-    color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor;
-
-    //color.rgb *= diffuse;
-
-    color.a = 1.0f;
+    //color.rgb = v3FrontColor;
+    color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse * 6.36;
 }

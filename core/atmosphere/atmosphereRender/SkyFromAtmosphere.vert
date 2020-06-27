@@ -67,6 +67,7 @@ void main()
 	float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fCameraHeight));
 	float fStartAngle = dot(v3Ray, v3Start) / fHeight;
         //float fStartOffset = fDepth*scale(fStartAngle);
+        float fStartOffset = getRayleigh(fStartAngle, fHeight).y;
 
 	// Initialize the scattering loop variables
 	//gl_FrontColor = vec4(0.0, 0.0, 0.0, 0.0);
@@ -74,8 +75,6 @@ void main()
 	float fScaledLength = fSampleLength * fScale;
 	vec3 v3SampleRay = v3Ray * fSampleLength;
 	vec3 v3SamplePoint = v3Start + v3SampleRay * 0.5;
-        float fCameraAngle = dot(v3Ray, v3SamplePoint) / length(v3SamplePoint);
-        float fStartOffset = getRayleigh(fCameraAngle, length(v3CameraPos)).y;
 
 	// Now loop through the sample rays
         v3FrontColor = vec3(0.0, 0.0, 0.0);
@@ -90,7 +89,7 @@ void main()
                 float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
                 float fScatter = getRayleigh(fLightAngle, fHeight).y
-                        + getRayleigh(fCameraAngle, fHeight).y;
+                        + fStartOffset - getRayleigh(fCameraAngle, fHeight).y;
 
 		vec3 v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
 		v3FrontColor += v3Attenuate * (fDepth * fScaledLength);
