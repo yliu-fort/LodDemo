@@ -27,7 +27,7 @@ static int SCR_WIDTH  = 1600;
 static int SCR_HEIGHT = 900;
 
 // camera
-static Camera m_3DCamera = Camera(glm::vec3(0.0f, 0.0f, 2.50f), float(SCR_WIDTH)/SCR_HEIGHT);
+static Camera m_3DCamera = Camera(glm::vec3(0.0f, 0.0f, 2.5f), float(SCR_WIDTH)/SCR_HEIGHT);
 static auto m_vLight = glm::vec3(0, 0, 1000);
 static auto m_vLightDirection = glm::normalize(m_vLight);
 static auto m_vRotation = glm::vec3(0, 0, 0);
@@ -35,21 +35,21 @@ static auto m_vRotation = glm::vec3(0, 0, 0);
 static auto m_nSamples = 3;		// Number of sample rays to use in integral equation
 static auto m_Kr = 0.0025f;		// Rayleigh scattering constant
 static auto m_Kr4PI = m_Kr*4.0f*PI;
-static auto m_Km = 0.0010f;		// Mie scattering constant
+static auto m_Km = 0.001f;		// Mie scattering constant
 static auto m_Km4PI = m_Km*4.0f*PI;
-static auto m_ESun = 20.0f;		// Sun brightness constant
+static auto m_ESun = 1.5f;		// Sun brightness constant
 ////For Mie aerosol scattering, g is usually set between -0.75 and -0.999
 static auto m_g = -0.990f;		// The Mie phase asymmetry factor
-static auto m_fExposure = 1.0f;
+static auto m_fExposure = 10.0f;
 
 static auto m_fInnerRadius = 1.0f;
 static auto m_fOuterRadius = 1.0126f;
 static auto m_fScale = 1 / (m_fOuterRadius - m_fInnerRadius);
 
 static float m_fWavelength[3]{
-    0.650f,     // 650 nm for red
-    0.570f,     // 570 nm for green
-    0.475f      // 475 nm for blue
+    0.700f,     // 650 nm for red
+    0.546f,     // 570 nm for green
+    0.435f      // 475 nm for blue
 };
 
 static float m_fWavelength4[3] {
@@ -108,6 +108,7 @@ static void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float
         glm::vec3 vRay(sinf(fAngle), cosf(fAngle), 0);	// Ray pointing to the viewpoint
 
         float fFirst = 0;
+        std::vector<float> rd;
         for(int nHeight=0; nHeight<nSize; nHeight++)
         {
             // As the x tex coord goes from 0 to 1, the height goes from the bottom of the atmosphere to the top
@@ -155,8 +156,12 @@ static void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float
                 float fHeight = glm::length(vPos);
                 float fAltitude = (fHeight - fInnerRadius) * fScale;
                 //fAltitude = fmaxf(fAltitude, 0.0f);
-                fRayleighDepth += expf(-fAltitude / fRayleighScaleHeight);
-                fMieDepth += expf(-fAltitude / fMieScaleHeight);
+                //float min_h = 1.0f/cosf(fmaxf(fAngle-PI/2.0f, 0.0f))-1.0f;
+                //if(fAltitude >= min_h)
+                {
+                    fRayleighDepth += expf(-fAltitude / fRayleighScaleHeight);
+                    fMieDepth += expf(-fAltitude / fMieScaleHeight);
+                }
                 vPos += vSampleRay;
             }
 
@@ -174,7 +179,9 @@ static void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float
             (m_pBuffer)[nIndex++] = fRayleighDensityRatio;
             (m_pBuffer)[nIndex++] = fRayleighDepth;
             (m_pBuffer)[nIndex++] = fMieDensityRatio;
-            (m_pBuffer)[nIndex++] = fMieDepth;
+            (m_pBuffer)[nIndex++] = /*fMieDepth*/ 1.0;
+
+            //rd.push_back(fRayleighDepth);
 
         }
         //ofGraph << std::endl;
@@ -254,9 +261,9 @@ static void reset()
     m_fInnerRadius = 1.0f;
     m_fOuterRadius = 1.0126f;
 
-    m_fWavelength[0] = 0.650f;
-    m_fWavelength[1] = 0.570f;
-    m_fWavelength[2] = 0.475f;
+    m_fWavelength[0] = 0.700f;
+    m_fWavelength[1] = 0.546f;
+    m_fWavelength[2] = 0.435f;
 
     m_fRayleighScaleDepth = 0.1f;
     m_fMieScaleDepth = 0.1f;
@@ -273,6 +280,7 @@ static void gui_interface()
         ImGui::Text("Controllable parameters for Atmosphere class.");
 
         // Transform
+        ImGui::DragFloat3("Camera Position",&(m_3DCamera.Position)[0], 0.0001,1.0f,99.0f,"%.6f");
         ImGui::DragFloat3("Planet Rotation",&(m_vRotation)[0]);
         ImGui::DragFloat3("Light Position",&(m_vLight)[0]);
         m_vLightDirection = glm::normalize(m_vLight);
@@ -318,6 +326,62 @@ static void gui_interface()
         //ImGui::Text("Right  \t%02.6f, %02.6f, %02.6f"  , Right.x,Right.y,Right.z);
         //ImGui::Text("WorldUp\t%02.6f, %02.6f, %02.6f", WorldUp.x,WorldUp.y,WorldUp.z);
 
+        if (ImGui::TreeNode("Scatter buffer"))
+        {
+            ImGuiIO& io = ImGui::GetIO();
+            //ImGui::TextWrapped("Below we are displaying the font texture (which is the only texture we have access to in this demo). Use the 'ImTextureID' type as storage to pass pointers or identifier to your own texture data. Hover the texture for a zoomed view!");
+
+            // Here we are grabbing the font texture because that's the only one we have access to inside the demo code.
+            // Remember that ImTextureID is just storage for whatever you want it to be, it is essentially a value that will be passed to the render function inside the ImDrawCmd structure.
+            // If you use one of the default imgui_impl_XXXX.cpp renderer, they all have comments at the top of their file to specify what they expect to be stored in ImTextureID.
+            // (for example, the imgui_impl_dx11.cpp renderer expect a 'ID3D11ShaderResourceView*' pointer. The imgui_impl_opengl3.cpp renderer expect a GLuint OpenGL texture identifier etc.)
+            // If you decided that ImTextureID = MyEngineTexture*, then you can pass your MyEngineTexture* pointers to ImGui::Image(), and gather width/height through your own functions, etc.
+            // Using ShowMetricsWindow() as a "debugger" to inspect the draw data that are being passed to your render will help you debug issues if you are confused about this.
+            // Consider using the lower-level ImDrawList::AddImage() API, via ImGui::GetWindowDrawList()->AddImage().
+            ImTextureID my_tex_id = (GLuint*)m_tOpticalDepthBuffer;
+            float my_tex_w = (float)256;
+            float my_tex_h = (float)256;
+
+            ImGui::Text("Rayleigh Density");
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), ImVec2(0,0), ImVec2(1,1), ImVec4(1.0f,0.0f,0.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::BeginTooltip();
+                float region_sz = 32.0f;
+                float region_x = io.MousePos.x - pos.x - region_sz * 0.5f; if (region_x < 0.0f) region_x = 0.0f; else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
+                float region_y = io.MousePos.y - pos.y - region_sz * 0.5f; if (region_y < 0.0f) region_y = 0.0f; else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
+                float zoom = 4.0f;
+                ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
+                ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+                ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
+                ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
+                ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImVec4(1.0f, 0.0f, 0.0f, 1.0f), ImVec4(1.0f, 1.0f, 1.0f, 0.5f));
+                ImGui::EndTooltip();
+            }
+
+            ImGui::Text("Rayleigh Optical Depth");
+            pos = ImGui::GetCursorScreenPos();
+            ImTextureID my_tex_id2 = (GLuint*)m_tOpticalDepthBuffer;
+            ImGui::Image(my_tex_id2, ImVec2(my_tex_w, my_tex_h), ImVec2(0,0), ImVec2(1,1), ImVec4(0.0f,1.0f,0.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::BeginTooltip();
+                float region_sz = 32.0f;
+                float region_x = io.MousePos.x - pos.x - region_sz * 0.5f; if (region_x < 0.0f) region_x = 0.0f; else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
+                float region_y = io.MousePos.y - pos.y - region_sz * 0.5f; if (region_y < 0.0f) region_y = 0.0f; else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
+                float zoom = 4.0f;
+                ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
+                ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+                ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
+                ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
+                ImGui::Image(my_tex_id2, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImVec4(0.0f, 1.0f, 0.0f, 1.0f), ImVec4(1.0f, 1.0f, 1.0f, 0.5f));
+                ImGui::EndTooltip();
+            }
+
+            ImGui::TreePop();
+        }
+
         ImGui::TreePop();
     }
 
@@ -343,6 +407,7 @@ int main()
     Shader lightShader(FP("renderer/icosphere.vert"),FP("renderer/icosphere_with_light.frag"));
     //Shader lineShader(FP("renderer/icosphere.vert"),FP("renderer/icosphere_line.frag"));
     Shader hdrShader(FP("renderer/hdr.vs"),FP("renderer/hdr.fs"));
+    Shader m_shTest (FP("atmosphereRender/AtmosphereRayTest.vs"   ),FP("atmosphereRender/AtmosphereRayTest.fs"  ));
 
     Shader m_shSkyFromSpace         (FP("atmosphereRender/SkyFromSpace.vert"          ),FP("atmosphereRender/SkyFromSpace.frag"         ));
     Shader m_shSkyFromAtmosphere    (FP("atmosphereRender/SkyFromAtmosphere.vert"     ),FP("atmosphereRender/SkyFromAtmosphere.frag"    ));
@@ -418,8 +483,9 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Bound camera position
-        if(glm::length(m_3DCamera.Position) < m_fInnerRadius + m_3DCamera.Near)
-            m_3DCamera.Position = glm::normalize(m_3DCamera.Position) * (m_fInnerRadius + m_3DCamera.Near);
+        if(glm::length(m_3DCamera.Position) < m_fInnerRadius)
+            m_3DCamera.Position = glm::normalize(m_3DCamera.Position) * (m_fInnerRadius);
+        m_3DCamera.Near = fmaxf(1e-6, fminf(1e-3, glm::length(m_3DCamera.Position)-1.0));
 
         // get reference
         auto& vCamera = m_3DCamera.Position;
@@ -437,7 +503,7 @@ int main()
             pGroundShader = &m_shGroundFromAtmosphere;
             pSkyShader = &m_shSkyFromAtmosphere;
         }
-
+#if 1
         {
             // Draw ground
             pGroundShader->use();
@@ -482,8 +548,6 @@ int main()
             glActiveTexture(GL_TEXTURE3);
             glBindTexture(GL_TEXTURE_2D, texture3);
 
-
-
             m_tEarth.draw();
         }
 
@@ -492,7 +556,7 @@ int main()
             pSkyShader->use();
             pSkyShader->setVec3("v3CameraPos", vCamera.x, vCamera.y, vCamera.z);
             pSkyShader->setVec3("v3LightDir", m_vLightDirection);
-            pSkyShader->setVec3("v3InvWavelength", 1/m_fWavelength4[0], 1/m_fWavelength4[1], 1/m_fWavelength4[2]);
+            pSkyShader->setVec3("v3InvWavelength", 1.0/m_fWavelength4[0], 1.0/m_fWavelength4[1], 1.0/m_fWavelength4[2]);
             pSkyShader->setFloat("fCameraHeight", glm::length(vCamera));
             pSkyShader->setFloat("fCameraHeight2", glm::length2(vCamera));
             pSkyShader->setFloat("fInnerRadius", m_fInnerRadius);
@@ -529,6 +593,52 @@ int main()
             glDisable(GL_BLEND);
             glFrontFace(GL_CCW);
         }
+#else
+        {
+            //if(glm::length(m_3DCamera.Position) > m_fOuterRadius)
+            //    m_3DCamera.Position = glm::normalize(m_3DCamera.Position) * m_fOuterRadius;
+            auto& vCamera = m_3DCamera.Position;
+            // Draw ground
+            m_shTest.use();
+            m_shTest.setVec3("v3CameraPos", vCamera.x, vCamera.y, vCamera.z);
+            m_shTest.setVec3("v3LightDir", m_vLightDirection);
+            m_shTest.setVec3("v3InvWavelength", 1.0/m_fWavelength4[0], 1.0/m_fWavelength4[1], 1.0/m_fWavelength4[2]);
+            m_shTest.setFloat("fCameraHeight", glm::length(vCamera));
+            m_shTest.setFloat("fCameraHeight2", glm::length2(vCamera));
+            m_shTest.setFloat("fInnerRadius", m_fInnerRadius);
+            m_shTest.setFloat("fInnerRadius2", m_fInnerRadius*m_fInnerRadius);
+            m_shTest.setFloat("fOuterRadius", m_fOuterRadius);
+            m_shTest.setFloat("fOuterRadius2", m_fOuterRadius*m_fOuterRadius);
+            m_shTest.setFloat("fKrESun", m_Kr*m_ESun);
+            m_shTest.setFloat("fKmESun", m_Km*m_ESun);
+            m_shTest.setFloat("fKr4PI", m_Kr4PI);
+            m_shTest.setFloat("fKm4PI", m_Km4PI);
+            m_shTest.setFloat("fScale", 1.0f / (m_fOuterRadius - m_fInnerRadius));
+            m_shTest.setFloat("fScaleDepth", m_fRayleighScaleDepth);
+            m_shTest.setFloat("fScaleOverScaleDepth", (1.0f / (m_fOuterRadius - m_fInnerRadius)) / m_fRayleighScaleDepth);
+            m_shTest.setFloat("g", m_g);
+            m_shTest.setFloat("g2", m_g*m_g);
+            m_shTest.setFloat("fESun",m_ESun);
+            m_shTest.setInt("s2Tex1", 1);
+            m_shTest.setInt("s2Tex2", 2);
+            m_shTest.setInt("s2Tex3", 3);
+            m_shTest.setInt("opticalTex", 0);
+
+            pSkyShader->setMat4("m4ModelMatrix",
+                                m_3DCamera.GetViewMatrix() );
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, texture1);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, texture2);
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, texture3);
+
+            renderQuad();
+        }
+#endif
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 

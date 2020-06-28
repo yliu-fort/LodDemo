@@ -89,7 +89,7 @@ void main()
                 float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
                 float fScatter = getRayleigh(fLightAngle, fHeight).y
-                        + fStartOffset - getRayleigh(fCameraAngle, fHeight).y;
+                        + getRayleigh(fCameraAngle, fHeight).y;
 
 		vec3 v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
 		v3FrontColor += v3Attenuate * (fDepth * fScaledLength);

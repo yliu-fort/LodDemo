@@ -37,8 +37,9 @@ uniform mat4 m4ModelViewProjectionMatrix;
 uniform mat4 m4ModelMatrix;
 uniform float fESun;			// ESun
 
-const int nSamples = 2;
-const float fSamples = 2.0;
+const int nSamples = 4;
+const float fSamples = 4.0;
+const float PI = 3.141592654;
 
 uniform sampler2D opticalTex;
 uniform sampler2D s2Tex3;
@@ -63,20 +64,16 @@ void main()
     vec3 aaPos = aPos + 0.003*aNormal*(texture(s2Tex3, aTexCoords).xyz - 0.5);
     vec3 v3Pos = vec3(m4ModelMatrix*vec4(aaPos,1.0)); // Fragpos
     vec3 v3Ray = v3Pos - v3CameraPos;
-    if(length(v3Pos) > length(v3CameraPos))
-        v3Ray = -v3Ray;
+    //if(length(v3Pos) > length(v3CameraPos))
+    //    v3Ray = -v3Ray;
     float fFar = length(v3Ray);
     v3Ray /= fFar;
 
     // Calculate the ray's starting position, then calculate its scattering offset
     vec3 v3Start = v3CameraPos;
-    float fDepth = exp((fInnerRadius - fCameraHeight) / fScaleDepth);
-    float fCameraAngle = dot(-v3Ray, v3Pos) / length(v3Pos);
-    float fLightAngle = dot(v3LightDir, v3Pos) / length(v3Pos);
-    float fCameraScale = scale(fCameraAngle);
-    float fLightScale = scale(fLightAngle);
-    float fCameraOffset = fDepth*fCameraScale;
-    float fTemp = (fLightScale + fCameraScale);
+    //float fDepth = exp((fInnerRadius - fCameraHeight) / fScaleDepth);
+    //float fCameraAngle = dot(-v3Ray, v3Pos) / length(v3Pos);
+    float fCameraAngle = dot(-v3Ray, v3CameraPos) / fCameraHeight;
     float fStartOffset = getRayleigh(fCameraAngle, fCameraHeight).y;
 
     // Initialize the scattering loop variables
@@ -98,28 +95,20 @@ void main()
         //float fScatter = fDepth*fTemp - fCameraOffset;
         float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
-        float fScatter = getRayleigh(fLightAngle, fHeight).y
-                + fStartOffset - getRayleigh(fCameraAngle, fHeight).y;
+        float fScatter = getRayleigh(fLightAngle, fHeight).y + getRayleigh(fCameraAngle, fHeight).y - fStartOffset;
 
         v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
         v3FrontColor += v3Attenuate * (fDepth * fScaledLength);
         v3SamplePoint += v3SampleRay;
     }
 
-    v3FrontColor = v3FrontColor * (v3InvWavelength * fKrESun + fKmESun);
-
-    // Calculate the attenuation factor for the ground
-    v3FrontSecondaryColor = v3Attenuate;
+    v3FrontColor *= (v3InvWavelength * fKrESun + fKmESun);
+    v3FrontSecondaryColor = v3Attenuate * fESun / PI;
 
     gl_Position = m4ModelViewProjectionMatrix * vec4(aaPos,1.0);
     FragPos = v3Pos;
     Normal = normalize(vec3(m4ModelMatrix*vec4(aNormal,0.0)));
-    //Normal = aNormal;
+    Normal = aNormal;
     TexCoords = aTexCoords;
 
-    //
-    //float diffuse = max( dot(v3LightDir, Normal),0 );
-    //v3Attenuate += diffuse*fESun*exp(-getRayleigh(fLightAngle, length(v3Pos)).y * (v3InvWavelength * fKr4PI + fKm4PI));
-    //v3FrontSecondaryColor = exp(-getRayleigh(fCameraAngle, length(v3Pos)).y * (v3InvWavelength * fKr4PI + fKm4PI));
-    //v3FrontSecondaryColor *=  v3Attenuate;
 }

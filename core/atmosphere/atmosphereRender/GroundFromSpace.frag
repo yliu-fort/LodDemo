@@ -23,9 +23,11 @@ uniform vec3 v3LightDir;		// The direction vector to the light source
 
 void main ()
 {
-    float diffuse = max(dot(v3LightDir, Normal), 0.0);
+    float diffuse = clamp(0.1 + dot(v3LightDir, Normal), 0.0, 1.0);
 
     //color.rgb = v3FrontColor;
-    color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse * 6.36;
+    //color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse;
+    color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse;
 
+    color.a = 1.0f;
 }

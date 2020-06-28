@@ -36,8 +36,9 @@ uniform mat4 m4ModelViewProjectionMatrix;
 uniform mat4 m4ModelMatrix;
 uniform float fESun;			// ESun
 
-const int nSamples = 2;
-const float fSamples = 2.0;
+const int nSamples = 4;
+const float fSamples = 4.0;
+const float PI = 3.141592654;
 
 uniform sampler2D opticalTex;
 uniform sampler2D s2Tex3;
@@ -51,7 +52,7 @@ float scale(float fCos)
 vec2 getRayleigh(float fCos, float fHeight)
 {
     float x = (1.0f-fCos)/2.0f;
-    float y = (fHeight - fInnerRadius)*fScale;
+    float y = (fHeight - fInnerRadius) * fScale;
 
     return texture(opticalTex, vec2(y,x)).xy;
 }
@@ -75,7 +76,8 @@ void main()
     vec3 v3Start = v3CameraPos + v3Ray * fNear;
     fFar -= fNear;
     float fDepth = exp((fInnerRadius - fOuterRadius) / fScaleDepth);
-    float fCameraAngle = dot(-v3Ray, v3Pos) / length(v3Pos);
+    //float fCameraAngle = dot(-v3Ray, v3Pos) / length(v3Pos);
+    float fCameraAngle = dot(-v3Ray, v3CameraPos) / fCameraHeight;
     float fLightAngle = dot(v3LightDir, v3Pos) / length(v3Pos);
     float fCameraScale = scale(fCameraAngle);
     float fLightScale = scale(fLightAngle);
@@ -103,7 +105,7 @@ void main()
         float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
         float fScatter = getRayleigh(fLightAngle, fHeight).y
-                + fStartOffset - getRayleigh(fCameraAngle, fHeight).y;
+                + getRayleigh(fCameraAngle, fHeight).y;
 
         //float fScatter = fDepth*fTemp - fCameraOffset;
         v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
@@ -113,19 +115,12 @@ void main()
     }
 
     v3FrontColor = v3FrontColor * (v3InvWavelength * fKrESun + fKmESun);
-
-    // Calculate the attenuation factor for the ground
-    v3FrontSecondaryColor = v3Attenuate;
+    v3FrontSecondaryColor = v3Attenuate * fESun / PI;
 
     gl_Position = m4ModelViewProjectionMatrix * vec4(aaPos,1.0);
     FragPos = v3Pos;
     Normal = normalize(vec3(m4ModelMatrix*vec4(aNormal,0.0)));
-    //Normal = aNormal;
+    Normal = aNormal;
     TexCoords = aTexCoords;
 
-    //
-    //float diffuse = max( dot(v3LightDir, Normal),0 );
-    //v3Attenuate += diffuse*fESun*exp(-getRayleigh(fLightAngle, length(v3Pos)).y * (v3InvWavelength * fKr4PI + fKm4PI));
-    //v3FrontSecondaryColor = exp(-getRayleigh(fCameraAngle, length(v3Pos)).y * (v3InvWavelength * fKr4PI + fKm4PI));
-    //v3FrontSecondaryColor *=  v3Attenuate;
 }
