@@ -129,8 +129,8 @@ void main()
     // Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
     vec3 v3Pos = projectVertexOntoSphere(elevation);
     vec3 v3Ray = v3Pos - v3CameraPos;
-    //if(length(v3Pos) > length(v3CameraPos))
-    //    v3Ray = -v3Ray;
+    if(length(v3Pos) > fCameraHeight)
+        v3Ray = -v3Ray;
     float fFar = length(v3Ray);
     v3Ray /= fFar;
 

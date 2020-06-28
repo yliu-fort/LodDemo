@@ -57,7 +57,7 @@ private:
     float m_Kr4PI = m_Kr*4.0f*PI;
     float m_Km = 0.001f;		// Mie scattering constant
     float m_Km4PI = m_Km*4.0f*PI;
-    float m_ESun = 1.5f;		// Sun brightness constant
+    float m_ESun = 20.0f;		// Sun brightness constant
     ////For Mie aerosol scattering, g is usually set between -0.75 and -0.999
     float m_g = -0.990f;		// The Mie phase asymmetry factor
     float m_fExposure = 1.0f;

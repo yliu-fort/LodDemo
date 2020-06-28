@@ -76,6 +76,9 @@ void main ()
     //float fStartOffset = fStartDepth*scale(fStartAngle);
     float fStartOffset = getRayleigh(fStartAngle, fOuterRadius).y;
 
+    float hVisible = (1.0f/cos(max(fStartAngle-PI/2.0f, 0.0f))-1.0f)/fScale + fInnerRadius;
+    if(length(v3CameraPos) < hVisible)
+        discard;
 
     // Initialize the scattering loop variables
     //gl_FrontColor = vec4(0.0, 0.0, 0.0, 0.0);

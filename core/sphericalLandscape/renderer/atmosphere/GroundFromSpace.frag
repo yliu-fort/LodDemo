@@ -39,7 +39,7 @@ void main ()
 
     //vec3 viewDir = normalize(v3CameraPos - FragPos);
 
-    vec3 albedo = mix(texture( s2Tex1, TexCoords ).rgb,
+    vec3 albedo = 0.1*mix(texture( s2Tex1, TexCoords ).rgb,
                 texture( s2Tex2, getRello(hash)+TexCoords/(1.0f + float(level > 0)) ).rgb,
                 blendNearFar);
 
