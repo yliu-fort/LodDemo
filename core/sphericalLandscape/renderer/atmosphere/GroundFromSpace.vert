@@ -141,14 +141,7 @@ void main()
     // Calculate the ray's starting position, then calculate its scattering offset
     vec3 v3Start = v3CameraPos + v3Ray * fNear;
     fFar -= fNear;
-    float fDepth = exp((fInnerRadius - fOuterRadius) / fScaleDepth);
-    //float fCameraAngle = dot(-v3Ray, v3Pos) / length(v3Pos);
     float fCameraAngle = dot(-v3Ray, v3CameraPos) / fCameraHeight;
-    float fLightAngle = dot(v3LightDir, v3Pos) / length(v3Pos);
-    float fCameraScale = scale(fCameraAngle);
-    float fLightScale = scale(fLightAngle);
-    float fCameraOffset = fDepth*fCameraScale;
-    float fTemp = (fLightScale + fCameraScale);
     float fStartOffset = getRayleigh(fCameraAngle, fOuterRadius).y;
 
     // Initialize the scattering loop variables
@@ -167,13 +160,11 @@ void main()
         float fLightAngle = dot(v3LightDir, v3SamplePoint) / fHeight;
         float fCameraAngle = dot(-v3Ray, v3SamplePoint) / fHeight;
 
-        //float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
         float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
         float fScatter = getRayleigh(fLightAngle, fHeight).y
                 + getRayleigh(fCameraAngle, fHeight).y;
 
-        //float fScatter = fDepth*fTemp - fCameraOffset;
         v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
         v3FrontColor += v3Attenuate * (fDepth * fScaledLength);
         v3SamplePoint += v3SampleRay;
@@ -185,8 +176,6 @@ void main()
 
     gl_Position = m4ModelViewProjectionMatrix * vec4(v3Pos,1.0);
     FragPos = v3Pos;
-    //Normal = normalize(vec3(m4ModelMatrix*vec4(aNormal,0.0)));
-    //Normal = aNormal;
     TexCoords = aTexCoords;
 
 }

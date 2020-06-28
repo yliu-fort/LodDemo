@@ -126,6 +126,7 @@ void main()
     float elevation = 0;
     getNormalAndHeightData(elevation, Normal);
 
+
     // Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
     vec3 v3Pos = projectVertexOntoSphere(elevation);
     vec3 v3Ray = v3Pos - v3CameraPos;
@@ -135,16 +136,18 @@ void main()
     // Calculate the ray's starting position, then calculate its scattering offset
     vec3 v3Start = v3CameraPos;
 
+    float fHeight = length(v3Pos);
+    float fCameraAngle = dot(-v3Ray, v3CameraPos) / fCameraHeight;
+    float fStartOffset = getRayleigh(fCameraAngle, fCameraHeight).y;
+
     // Flip direction of ray when point is above the camera
-    if(length(v3Pos) > fCameraHeight)
+    if(fHeight > fCameraHeight)
     {
         v3Ray = -v3Ray;
         v3Start = v3Pos;
+        fCameraAngle = dot(-v3Ray, v3Pos) / fHeight;
+        fStartOffset = getRayleigh(fCameraAngle, fHeight).y;
     }
-    //float fDepth = exp((fInnerRadius - fCameraHeight) / fScaleDepth);
-    //float fCameraAngle = dot(-v3Ray, v3Pos) / length(v3Pos);
-    float fCameraAngle = dot(-v3Ray, v3CameraPos) / fCameraHeight;
-    float fStartOffset = getRayleigh(fCameraAngle, fCameraHeight).y;
 
     // Initialize the scattering loop variables
     float fSampleLength = fFar / fSamples;
@@ -161,8 +164,6 @@ void main()
         float fLightAngle = dot(v3LightDir, v3SamplePoint) / fHeight;
         float fCameraAngle = dot(-v3Ray, v3SamplePoint) / fHeight;
 
-        //float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
-        //float fScatter = fDepth*fTemp - fCameraOffset;
         float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
         float fScatter = getRayleigh(fLightAngle, fHeight).y + getRayleigh(fCameraAngle, fHeight).y - fStartOffset;
@@ -177,8 +178,6 @@ void main()
 
     gl_Position = m4ModelViewProjectionMatrix * vec4(v3Pos,1.0);
     FragPos = v3Pos;
-    //Normal = normalize(vec3(m4ModelMatrix*vec4(aNormal,0.0)));
-    //Normal = aNormal;
     TexCoords = aTexCoords;
 
 }
