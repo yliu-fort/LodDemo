@@ -1,5 +1,5 @@
 #ifndef GEOMESH_H
-#define GROMESH_H
+#define GEOMESH_H
 
 #include "grid.h"
 #include <memory>
@@ -9,7 +9,6 @@
 #include "glm/gtx/intersect.hpp"
 
 #include "shader.h"
-#include <glad/glad.h>
 
 enum RenderMode
 {

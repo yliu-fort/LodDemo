@@ -25,6 +25,9 @@
 #include "refcamera.h"
 #include "lighting.h"
 
+#include "geocube.h"
+//#include "atmosphere.h"
+
 // settings
 static int SCR_WIDTH  = 800;
 static int SCR_HEIGHT = 600;
@@ -69,129 +72,6 @@ void gui_interface(float h)
         ImGui::TreePop();
     }
 }
-
-class Geocube
-{
-    Geomesh top, bottom, left, right, front, back;
-
-    glm::vec3 position,rotation;
-    float scale;
-    bool spinning = false;
-    float spin_vel = 0.1f;
-
-public:
-    Geocube():position(0),rotation(0),scale(1)
-        ,top(Geomesh(glm::translate(glm::mat4(1),glm::vec3(0,1,0))))
-        ,bottom(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(180.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
-        ,left(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(90.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
-        ,right(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(-90.0f),glm::vec3(0,0,1)),glm::vec3(0,1,0))))
-        ,front(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(90.0f),glm::vec3(1,0,0)),glm::vec3(0,1,0))))
-        ,back(Geomesh(glm::translate(glm::rotate(glm::mat4(1),glm::radians(-90.0f),glm::vec3(1,0,0)),glm::vec3(0,1,0))))
-    {}
-    void update(Camera& camera)
-    {
-        self_spin();
-
-        auto localPos = convertToLocal(camera.Position);
-        top.subdivision(    localPos );
-        bottom.subdivision( localPos );
-        left.subdivision(   localPos );
-        right.subdivision(  localPos );
-        front.subdivision(  localPos );
-        back.subdivision(   localPos );
-    }
-    void draw(Shader& shader, Camera& camera)
-    {
-        auto localPos = convertToLocal(camera.Position);
-        shader.setMat4("model",this->getModelMatrix());
-        top.draw(shader,    localPos );
-        bottom.draw(shader, localPos );
-        left.draw(shader,   localPos );
-        right.draw(shader,  localPos );
-        front.draw(shader,  localPos );
-        back.draw(shader,   localPos );
-    }
-    float currentElevation(const glm::vec3& pos) const
-    {
-        auto localPos = convertToLocal(pos);
-        if(top.isGroundReference(localPos))
-            return top.queryElevation(localPos);
-        if(bottom.isGroundReference(localPos))
-            return bottom.queryElevation(localPos);
-        if(left.isGroundReference(localPos))
-            return left.queryElevation(localPos);
-        if(right.isGroundReference(localPos))
-            return right.queryElevation(localPos);
-        if(front.isGroundReference(localPos))
-            return front.queryElevation(localPos);
-        if(back.isGroundReference(localPos))
-            return back.queryElevation(localPos);
-        return 0.0f;
-    }
-    float currentLocalHeight(const glm::vec3& pos) const
-    {
-        // h < e indicates that we are underground
-        float e = currentElevation(pos);
-        float h = glm::length(convertToLocal(pos))-1.0f;
-        return (h-e);
-    }
-    float currentGlobalHeight(const glm::vec3& pos) const
-    {
-        return currentLocalHeight(pos)*scale;
-    }
-    glm::vec3 currentGroundPos(const glm::vec3& pos, float bias) const
-    {
-        return glm::vec3(getModelMatrix()*glm::vec4(convertToLocal(pos)*(1.0f-currentLocalHeight(pos)+bias),1.0f));
-    }
-    void self_spin()
-    {
-        if(spinning)
-            rotation.y += spin_vel*0.02f;
-    }
-    void gui_interface()
-    {
-        //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-        if (ImGui::TreeNode("Geocube::Control Panel"))
-        {
-            ImGui::Text("Controllable parameters for Geocube class.");
-
-            // Transform
-            ImGui::DragFloat3("Position",&(this->position)[0],0.1f);
-            ImGui::DragFloat3("Rotation",&(this->rotation)[0],1.0f);
-            ImGui::DragFloat("Scale",&(this->scale),0.01f,0.001f,1e6f);
-
-            ImGui::Checkbox("Self-spin",&spinning);
-            if(spinning)
-            {
-                ImGui::DragFloat("self-spin velocity",&spin_vel,0.001f,0.01f,0.3f);
-            }
-
-            // Global transformation
-            //ImGui::DragFloat4("rotation", (float*)&rotation,0.01f);
-            //ImGui::DragFloat4("refQuaternion", (float*)&refQuaternion,0.01f);
-
-            // Info
-            //ImGui::Text("Front  \t%02.6f, %02.6f, %02.6f"  , Front.x,Front.y,Front.z);
-            //ImGui::Text("Up     \t%02.6f, %02.6f, %02.6f"     , Up.x,Up.y,Up.z);
-            //ImGui::Text("Right  \t%02.6f, %02.6f, %02.6f"  , Right.x,Right.y,Right.z);
-            //ImGui::Text("WorldUp\t%02.6f, %02.6f, %02.6f", WorldUp.x,WorldUp.y,WorldUp.z);
-
-            ImGui::TreePop();
-        }
-
-    }
-protected:
-    glm::mat4 getModelMatrix() const
-    {
-        return glm::translate(glm::scale(glm::mat4(1),glm::vec3(scale)),position)
-                *glm::mat4(glm::quat(glm::radians(rotation)));
-    }
-    glm::vec3 convertToLocal(const glm::vec3& pos) const
-    {
-        return glm::vec3(glm::inverse(getModelMatrix())*glm::vec4(pos,1.0f));
-    }
-
-};
 
 
 int main()

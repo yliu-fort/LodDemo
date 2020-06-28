@@ -1,5 +1,5 @@
 #include "geomesh.h"
-
+#include <glad/glad.h>
 
 // Caution: only return subdivided grids.
 // write additional condition if you need root

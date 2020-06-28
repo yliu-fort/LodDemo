@@ -37,10 +37,10 @@ static auto m_Kr = 0.0025f;		// Rayleigh scattering constant
 static auto m_Kr4PI = m_Kr*4.0f*PI;
 static auto m_Km = 0.001f;		// Mie scattering constant
 static auto m_Km4PI = m_Km*4.0f*PI;
-static auto m_ESun = 1.5f;		// Sun brightness constant
+static auto m_ESun = 15.0f;		// Sun brightness constant
 ////For Mie aerosol scattering, g is usually set between -0.75 and -0.999
 static auto m_g = -0.990f;		// The Mie phase asymmetry factor
-static auto m_fExposure = 10.0f;
+static auto m_fExposure = 1.0f;
 
 static auto m_fInnerRadius = 1.0f;
 static auto m_fOuterRadius = 1.0126f;
@@ -249,7 +249,7 @@ static void reset()
     m_nSamples = 3;		// Number of sample rays to use in integral equation
     m_Kr = 0.0025f;		// Rayleigh scattering constant
     m_Km = 0.0010f;		// Mie scattering constant
-    m_ESun = 20.0f;		// Sun brightness constant
+    m_ESun = 15.0f;		// Sun brightness constant
     m_g = -0.990f;		// The Mie phase asymmetry factor
     m_fExposure = 1.0f;
 
