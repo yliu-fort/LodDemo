@@ -155,13 +155,8 @@ static void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float
             {
                 float fHeight = glm::length(vPos);
                 float fAltitude = (fHeight - fInnerRadius) * fScale;
-                //fAltitude = fmaxf(fAltitude, 0.0f);
-                //float min_h = 1.0f/cosf(fmaxf(fAngle-PI/2.0f, 0.0f))-1.0f;
-                //if(fAltitude >= min_h)
-                {
-                    fRayleighDepth += expf(-fAltitude / fRayleighScaleHeight);
-                    fMieDepth += expf(-fAltitude / fMieScaleHeight);
-                }
+                fRayleighDepth += expf(-fAltitude / fRayleighScaleHeight);
+                fMieDepth += expf(-fAltitude / fMieScaleHeight);
                 vPos += vSampleRay;
             }
 
@@ -422,7 +417,7 @@ int main()
 
     // Prepare buffers
     Icosphere m_tEarth(6);
-    //Icosphere m_tMoon(3);
+    //Icosphere m_tSky(3);
 
     // load textures
     // -------------

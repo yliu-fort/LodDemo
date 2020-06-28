@@ -65,7 +65,7 @@ void main()
 	vec3 v3Start = v3CameraPos;
 	float fHeight = length(v3Start);
 	float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fCameraHeight));
-	float fStartAngle = dot(v3Ray, v3Start) / fHeight;
+        float fStartAngle = dot(v3Ray, v3Start) / fHeight;
         //float fStartOffset = fDepth*scale(fStartAngle);
         float fStartOffset = getRayleigh(fStartAngle, fHeight).y;
 
@@ -83,13 +83,13 @@ void main()
 		float fHeight = length(v3SamplePoint);
                 //float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
                 float fLightAngle = dot(v3LightDir, v3SamplePoint) / fHeight;
-		float fCameraAngle = dot(v3Ray, v3SamplePoint) / fHeight;
+                float fCameraAngle = dot(v3Ray, v3SamplePoint) / fHeight;
                 //float fScatter = (fStartOffset + fDepth*(scale(fLightAngle) - scale(fCameraAngle)));
 
                 float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
                 float fScatter = getRayleigh(fLightAngle, fHeight).y
-                        + getRayleigh(fCameraAngle, fHeight).y;
+                         + fStartOffset -  getRayleigh(fCameraAngle, fHeight).y ;
 
 		vec3 v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
 		v3FrontColor += v3Attenuate * (fDepth * fScaledLength);
