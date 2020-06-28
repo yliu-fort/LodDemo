@@ -10,8 +10,8 @@ void Atmosphere::init()
     m_shSkyFromAtmosphere    .reload_shader_program_from_files(FP("renderer/atmosphere/SkyFromAtmosphere.vert"     ),FP("renderer/atmosphere/SkyFromAtmosphere.frag"    ));
     m_shGroundFromSpace      .reload_shader_program_from_files(FP("renderer/atmosphere/GroundFromSpace.vert"       ),FP("renderer/atmosphere/GroundFromSpace.frag"      ));
     m_shGroundFromAtmosphere .reload_shader_program_from_files(FP("renderer/atmosphere/GroundFromAtmosphere.vert"  ),FP("renderer/atmosphere/GroundFromAtmosphere.frag" ));
-    m_shSpaceFromSpace       .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromSpace.vert"        ),FP("renderer/atmosphere/SpaceFromSpace.frag"       ));
-    m_shSpaceFromAtmosphere  .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromAtmosphere.vert"   ),FP("renderer/atmosphere/SpaceFromAtmosphere.frag"  ));
+    //m_shSpaceFromSpace       .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromSpace.vert"        ),FP("renderer/atmosphere/SpaceFromSpace.frag"       ));
+    //m_shSpaceFromAtmosphere  .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromAtmosphere.vert"   ),FP("renderer/atmosphere/SpaceFromAtmosphere.frag"  ));
 
     m_tSky = Geocube();
     m_tEarth = Geocube();
@@ -74,20 +74,20 @@ void Atmosphere::drawGround()
     pGroundShader.setFloat("g", m_g);
     pGroundShader.setFloat("g2", m_g*m_g);
     pGroundShader.setFloat("fESun",m_ESun);
-    pGroundShader.setInt("s2Tex1", 1);
-    pGroundShader.setInt("s2Tex2", 2);
-    pGroundShader.setInt("s2Tex3", 3);
-    pGroundShader.setInt("opticalTex", 0);
+    pGroundShader.setInt("heightmap", 0);
+    pGroundShader.setInt("heightmapParent", 1);
+    pGroundShader.setInt("s2Tex1", 2);
+    pGroundShader.setInt("s2Tex2", 3);
+    pGroundShader.setInt("opticalTex", 4);
 
 
     pGroundShader.setMat4("m4ModelViewProjectionMatrix",
-                           m_3DCamera.GetFrustumMatrix()*glm::scale(glm::mat4(1), glm::vec3(m_fInnerRadius))
-                           *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
-    pGroundShader.setMat4("m4ModelMatrix",
-                           glm::scale(glm::mat4(1), glm::vec3(m_fInnerRadius))
-                           *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
+                           m_3DCamera.GetFrustumMatrix() );
+    //pGroundShader.setMat4("m4ModelMatrix",
+    //                       glm::scale(glm::mat4(1), glm::vec3(m_fInnerRadius))
+    //                       *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
 
-    glActiveTexture(GL_TEXTURE0);
+    glActiveTexture(GL_TEXTURE4);
     glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
 
     m_tEarth.draw(pGroundShader, m_3DCamera);
@@ -124,17 +124,16 @@ void Atmosphere::drawSky()
         pSkyShader.setFloat("fScaleOverScaleDepth", (1.0f / (m_fOuterRadius - m_fInnerRadius)) / m_fRayleighScaleDepth);
         pSkyShader.setFloat("g", m_g);
         pSkyShader.setFloat("g2", m_g*m_g);
-        pSkyShader.setInt("opticalTex", 0);
+        pSkyShader.setInt("opticalTex", 4);
 
 
         pSkyShader.setMat4("m4ModelViewProjectionMatrix",
-                            m_3DCamera.GetFrustumMatrix()*glm::scale(glm::mat4(1), glm::vec3(m_fOuterRadius))
-                            *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
-        pSkyShader.setMat4("m4ModelMatrix",
-                            glm::scale(glm::mat4(1), glm::vec3(m_fOuterRadius))
-                            *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
+                            m_3DCamera.GetFrustumMatrix() );
+        //pSkyShader.setMat4("m4ModelMatrix",
+        //                    glm::scale(glm::mat4(1), glm::vec3(m_fOuterRadius))
+        //                    *glm::mat4(glm::quat(glm::radians(m_vRotation))) );
 
-        glActiveTexture(GL_TEXTURE0);
+        glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
 
 
@@ -304,6 +303,7 @@ void Atmosphere::update()
 
     m_tEarth.setScale(m_fInnerRadius);
     m_tSky.setScale(m_fOuterRadius);
+
 }
 
 void Atmosphere::reset()
@@ -313,7 +313,7 @@ void Atmosphere::reset()
     m_nSamples = 3;		// Number of sample rays to use in integral equation
     m_Kr = 0.0025f;		// Rayleigh scattering constant
     m_Km = 0.0010f;		// Mie scattering constant
-    m_ESun = 15.0f;		// Sun brightness constant
+    m_ESun = 1.5f;		// Sun brightness constant
     m_g = -0.990f;		// The Mie phase asymmetry factor
     m_fExposure = 1.0f;
 
@@ -341,7 +341,6 @@ void Atmosphere::gui_interface()
 
         // Transform
         ImGui::DragFloat3("Camera Position",&(m_3DCamera.Position)[0], 0.0001,1.0f,99.0f,"%.6f");
-        ImGui::DragFloat3("Planet Rotation",&(m_vRotation)[0]);
         ImGui::DragFloat3("Light Position",&(m_vLight)[0]);
         m_vLightDirection = glm::normalize(m_vLight);
         ImGui::DragFloat3("Wave length",&(m_fWavelength)[0],0.001);

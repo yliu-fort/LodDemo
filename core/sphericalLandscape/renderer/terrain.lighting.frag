@@ -27,7 +27,8 @@ in vec2 TexCoords;
 in vec3 Normal;
 in vec3 FragPos;
 in float elevation;
-in float blend_display;
+in float blendNearFar;
+in vec2 shlo;
 
 //uniform vec2 shlo;
 //uniform vec2 shhi;
@@ -74,17 +75,17 @@ void main()
         //            vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(50*elevation+5e-5f))-0.1f,0,1));
         color = mix(texture( material, TexCoords ).rgb,
                     texture( materialParent, getRello(hash)+TexCoords/(1.0f + float(level > 0)) ).rgb,
-                    blend_display);
+                    blendNearFar);
 
         color = CalcDirLight(dirLight, Normal, viewDir, color);
     }else
     if(render_type == 1) // COLORMAP
     {
         //color = texture(colormap, pow(FragPos.y,0.2f)).rgb;
-        color = mix(texture( debugmap, TexCoords*(1<<15)/(1<<level) ).rgb, vec3(0.0,0.0,1.0),blend_display);
-        if(blend_display == 1.0)
+        color = mix(texture( debugmap, TexCoords*(1<<15)/(1<<level) ).rgb, vec3(0.0,0.0,1.0),blendNearFar);
+        if(blendNearFar == 1.0)
             color = vec3(0.0,0.0,0.0);
-        if(blend_display == 0.0)
+        if(blendNearFar == 0.0)
             color = vec3(1.0,1.0,1.0);
         //color = texture( debugmap, TexCoords*(1<<level) ).rgb;
     }else
@@ -94,8 +95,8 @@ void main()
     }else
     if(render_type == 3) // PCOLOR
     {
-        //color = mix(texture( debugmap, TexCoords*(1<<level) ).rgb, vec3(0.0,0.0,1.0),blend_display);
-        //if(blend_display == 1.0)
+        //color = mix(texture( debugmap, TexCoords*(1<<level) ).rgb, vec3(0.0,0.0,1.0),blendNearFar);
+        //if(blendNearFar == 1.0)
         //    color = vec3(0.0,0.0,0.0);
         //color = texture( debugmap, TexCoords*(1<<level) ).rgb;
         color = CalcDirLight(dirLight, Normal, viewDir, vec3(0.7,0.7,0.7));

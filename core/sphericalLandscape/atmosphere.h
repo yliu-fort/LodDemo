@@ -13,12 +13,6 @@
 
 #include "geocube.h"
 
-//#include "texture_utility.h"
-//#include "icosphere.h"
-
-//#include "gui_interface.h"
-//#include "imgui.h"
-
 #define PI (3.141592654)
 
 class Atmosphere
@@ -34,6 +28,8 @@ public:
 
     void bindCamera(Camera& cam) { m_3DCamera = cam; }
     void init();
+    Geocube& getGroundHandle() {return m_tEarth;}
+    Geocube& getSkyHandle() {return m_tSky;}
     void drawGround();
     void drawSky();
     void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float fRayleighScaleHeight, float fMieScaleHeight);
@@ -41,24 +37,27 @@ public:
     void update();
     void reset();
     void gui_interface();
+    void setHDR(Shader& hdrShader)
+    {
+        hdrShader.setInt("hdr", m_fHdr);
+        hdrShader.setFloat("exposure", m_fExposure);
+    }
 
 protected:
     Shader& getGroundShader(const glm::vec3& pos);
     Shader& getSkyShader(const glm::vec3& pos);
 
-
 private:
     Camera& m_3DCamera;
     glm::vec3 m_vLight = glm::vec3(0, 0, 1000);
     glm::vec3 m_vLightDirection = glm::normalize(m_vLight);
-    glm::vec3 m_vRotation = glm::vec3(0, 0, 0);
 
     int m_nSamples = 3;		// Number of sample rays to use in integral equation
     float m_Kr = 0.0025f;		// Rayleigh scattering constant
     float m_Kr4PI = m_Kr*4.0f*PI;
     float m_Km = 0.001f;		// Mie scattering constant
     float m_Km4PI = m_Km*4.0f*PI;
-    float m_ESun = 15.0f;		// Sun brightness constant
+    float m_ESun = 1.5f;		// Sun brightness constant
     ////For Mie aerosol scattering, g is usually set between -0.75 and -0.999
     float m_g = -0.990f;		// The Mie phase asymmetry factor
     float m_fExposure = 1.0f;

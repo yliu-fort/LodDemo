@@ -26,11 +26,11 @@
 #include "lighting.h"
 
 #include "geocube.h"
-//#include "atmosphere.h"
+#include "atmosphere.h"
 
 // settings
-static int SCR_WIDTH  = 800;
-static int SCR_HEIGHT = 600;
+static int SCR_WIDTH  = 1600;
+static int SCR_HEIGHT = 900;
 
 // camera
 static Camera camera = Camera(glm::vec3(-1.0f, 0.0f, 2.0f), float(SCR_WIDTH)/SCR_HEIGHT);
@@ -58,7 +58,7 @@ bool countAndDisplayFps(GLFWwindow* window);
 void processInput(GLFWwindow *window);
 void renderBox();
 void renderPlane();
-
+void renderQuad();
 
 void gui_interface(float h)
 {
@@ -89,10 +89,11 @@ int main()
     glEnable(GL_DEPTH_TEST);
 
     // Read shader
-    Shader shader(FP("renderer/terrain.vert"),FP("renderer/terrain.frag"));
-    Shader lodShader(FP("renderer/lod.vert"),FP("renderer/lod.frag"));
-    Shader normalShader(FP("renderer/lod.vert"),FP("renderer/lod.pcolor.frag"),FP("renderer/lod.glsl"));
-    Shader lightingShader(FP("renderer/terrain.vert"),FP("renderer/terrain.lighting.frag"));
+    //Shader shader(FP("renderer/terrain.vert"),FP("renderer/terrain.frag"));
+    //Shader lodShader(FP("renderer/lod.vert"),FP("renderer/lod.frag"));
+    //Shader normalShader(FP("renderer/lod.vert"),FP("renderer/lod.pcolor.frag"),FP("renderer/lod.glsl"));
+    //Shader lightingShader(FP("renderer/terrain.vert"),FP("renderer/terrain.lighting.frag"));
+    Shader hdrShader(FP("renderer/hdr.vs"),FP("renderer/hdr.fs"));
 
     // Initlize geogrid system
     Node::init();
@@ -111,16 +112,47 @@ int main()
     refCamera refcam(camera);
 
     // lighting
-    Lighting dirlight;
+    //Lighting dirlight;
 
     // colormap
     Colormap::Rainbow();
 
     // read debug texture
-    unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
+    //unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
 
     // gen geocube
-    Geocube mesh;
+    //Geocube mesh;
+    Atmosphere mesh(refcam);
+    mesh.init();
+
+    // HDR
+    // configure floating point framebuffer
+    // ------------------------------------
+    unsigned int hdrFBO;
+    glGenFramebuffers(1, &hdrFBO);
+    // create floating point color buffer
+    unsigned int colorBuffer;
+    glGenTextures(1, &colorBuffer);
+    glBindTexture(GL_TEXTURE_2D, colorBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // create depth buffer (renderbuffer)
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    // attach buffers
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+    hdrShader.use();
+    hdrShader.setInt("hdrBuffer", 0);
 
     while( !glfwWindowShouldClose( window ) )
     {
@@ -135,8 +167,8 @@ int main()
         if(bindCam)
         {
             //float min_height = mesh.currentElevation(refcam.Position) + camera.Near;
-            if(mesh.currentLocalHeight(camera.Position) < 5e-7)
-                camera.Position = glm::mix(camera.Position, mesh.currentGroundPos(camera.Position, 5e-7), 0.5f);
+            //if(mesh.currentLocalHeight(camera.Position) < 5e-7)
+            //    camera.Position = glm::mix(camera.Position, mesh.currentGroundPos(camera.Position, 5e-7), 0.5f);
 
             //camera.setReference(glm::vec3(0,1,0));
             refcam.sync_frustrum();
@@ -144,17 +176,42 @@ int main()
             refcam.sync_rotation();
         }
 
-        // update geomesh
-        mesh.update(refcam);
-
         // Draw points
         glViewport(0,0,SCR_WIDTH, SCR_HEIGHT);
-        glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // update geomesh
+        mesh.getGroundHandle().update(refcam);
+
+        glDepthRange(0,0.4);
+        camera.Near = 0.002e-4;
+        camera.Far = camera.Near*1e4;
+        refcam.sync_frustrum();
+        mesh.drawGround();
+
+        glDepthRange(0.4,0.8);
+        camera.Near = 0.001;
+        camera.Far = camera.Near*1e4;
+        refcam.sync_frustrum();
+        mesh.drawGround();
+        mesh.drawSky();
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        hdrShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorBuffer);
+        mesh.setHDR(hdrShader);
+        renderQuad();
+
+#if 0
         // pass matrixes in global coordinate system
         lightingShader.use();
-        lightingShader.setVec3("viewPos", camera.Position);
+        lightingShader.setVec3("v3CameraPos", camera.Position);
 
         // Colormap
         Colormap::Bind();
@@ -176,7 +233,7 @@ int main()
         camera.Near = 0.002e-4;
         camera.Far = camera.Near*1e4;
         //refcam.sync_frustrum();
-        lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
+        lightingShader.setMat4("m4ModelViewProjectionMatrix", camera.GetFrustumMatrix());
         glEnable(GL_CULL_FACE);
         mesh.draw(lightingShader, refcam);
         glDisable(GL_CULL_FACE);
@@ -187,7 +244,7 @@ int main()
         camera.Near = 100.0e-5;
         camera.Far = camera.Near*1e5;
         //refcam.sync_frustrum();
-        lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
+        lightingShader.setMat4("m4ModelViewProjectionMatrix", camera.GetFrustumMatrix());
         glEnable(GL_CULL_FACE);
         mesh.draw(lightingShader, refcam);
         glDisable(GL_CULL_FACE);
@@ -207,7 +264,7 @@ int main()
             camera.Near = 0.002e-4;
             camera.Far = camera.Near*1e4;
             //refcam.sync_frustrum();
-            lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
+            lightingShader.setMat4("m4ModelViewProjectionMatrix", camera.GetFrustumMatrix());
             glEnable(GL_CULL_FACE);
             mesh.draw(lightingShader, refcam);
             glDisable(GL_CULL_FACE);
@@ -218,7 +275,7 @@ int main()
             camera.Near = 100.0e-5;
             camera.Far = camera.Near*1e5;
             //refcam.sync_frustrum();
-            lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
+            lightingShader.setMat4("m4ModelViewProjectionMatrix", camera.GetFrustumMatrix());
             glEnable(GL_CULL_FACE);
             mesh.draw(lightingShader, refcam);
             glDisable(GL_CULL_FACE);
@@ -232,21 +289,24 @@ int main()
         if(drawNormalArrows)
         {
             normalShader.use();
-            normalShader.setMat4("projection_view", camera.GetFrustumMatrix());
-            normalShader.setVec3("viewPos", refcam.Position);
+            normalShader.setMat4("m4ModelViewProjectionMatrix", camera.GetFrustumMatrix());
+            normalShader.setVec3("v3CameraPos", refcam.Position);
             normalShader.setInt("heightmap", 0);
             normalShader.setVec3("color", glm::vec3(1,1,0));
             mesh.draw(normalShader, refcam);
         }
+#else
 
+#endif
         // gui
         GuiInterface::Begin();
         mesh.gui_interface();
+        mesh.getGroundHandle().gui_interface();
         Node::gui_interface();
         Geomesh::gui_interface();
         refcam.gui_interface();
-        dirlight.gui_interface(camera);
-        gui_interface(mesh.currentGlobalHeight(refcam.Position)*6371000);
+        //dirlight.gui_interface(camera);
+        gui_interface(mesh.getGroundHandle().currentGlobalHeight(refcam.Position)*6371000);
         ImGui::ShowDemoWindow();
         GuiInterface::End();
 
@@ -548,6 +608,37 @@ void renderPlane()
     }
     // render Cube
     glBindVertexArray(planeVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
+// renderQuad() renders a 1x1 XY quad in NDC
+// -----------------------------------------
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        float quadVertices[] = {
+            // positions        // texture Coords
+            -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+            1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        // setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
 }

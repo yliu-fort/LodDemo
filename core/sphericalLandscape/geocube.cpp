@@ -18,7 +18,7 @@ void Geocube::update(Camera& camera)
 void Geocube::draw(Shader& shader, Camera& camera)
 {
     auto localPos = convertToLocal(camera.Position);
-    shader.setMat4("model",this->getModelMatrix());
+    shader.setMat4("m4ModelMatrix",this->getModelMatrix());
     top.draw(shader,    localPos );
     bottom.draw(shader, localPos );
     left.draw(shader,   localPos );

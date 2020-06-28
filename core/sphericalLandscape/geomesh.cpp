@@ -171,17 +171,11 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
     else
     {
         // Transfer local grid model
-        shader.setMat4("sphereProjection", node->model);
+        shader.setMat4("m4CubeProjMatrix", node->model);
 
         // Transfer lo and hi
         shader.setInt("level",node->level);
         shader.setInt("hash",node->morton);
-
-        //shader.setVec2("lo", node->lo);
-        //shader.setVec2("hi", node->hi);
-
-        //shader.setVec2("shlo", node->rlo);
-        //shader.setVec2("shhi", node->rhi);
 
         //std::cout << "current drawing node" << node->level << " - " << node->parent->level << std::endl;
 

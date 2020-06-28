@@ -108,7 +108,7 @@ public:
 
     void draw(Shader& shader, const glm::vec3& viewPos) const
     {
-        shader.setVec3("projPos",convertFromSphere(viewPos));
+        shader.setVec3("v3CameraProjectedPos",convertFromSphere(viewPos));
         drawRecr(root.get(), shader);
     }
 

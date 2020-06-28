@@ -3,9 +3,11 @@
 // Atmospheric scattering vertex shader
 //
 // Author: Sean O'Neil
-//
-// Copyright (c) 2004 Sean O'Neil
-//
+// Author: Yuxuan Liu
+#define HEIGHT_MAP_X (19)
+#define HEIGHT_MAP_Y (19)
+#define K (2)
+
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoords;
@@ -16,6 +18,8 @@ out vec3 FragPos;
 out vec3 Normal;
 out vec2 TexCoords;
 
+out float blendNearFar;
+
 uniform vec3 v3CameraPos;		// The camera's current position
 uniform vec3 v3LightDir;		// The direction vector to the light source
 uniform vec3 v3InvWavelength;	// 1 / pow(wavelength, 4) for the red, green, and blue channels
@@ -25,6 +29,7 @@ uniform float fOuterRadius;		// The outer (atmosphere) radius
 uniform float fOuterRadius2;	// fOuterRadius^2
 uniform float fInnerRadius;		// The inner (planetary) radius
 uniform float fInnerRadius2;	// fInnerRadius^2
+uniform float fESun;			// ESun
 uniform float fKrESun;			// Kr * ESun
 uniform float fKmESun;			// Km * ESun
 uniform float fKr4PI;			// Kr * 4 * PI
@@ -34,14 +39,72 @@ uniform float fScaleDepth;		// The scale depth (i.e. the altitude at which the a
 uniform float fScaleOverScaleDepth;	// fScale / fScaleDepth
 uniform mat4 m4ModelViewProjectionMatrix;
 uniform mat4 m4ModelMatrix;
-uniform float fESun;			// ESun
 
 const int nSamples = 4;
 const float fSamples = 4.0;
 const float PI = 3.141592654;
 
-uniform sampler2D opticalTex;
-uniform sampler2D s2Tex3;
+uniform sampler2D opticalTex; // 4
+
+uniform mat4 m4CubeProjMatrix;
+uniform vec3 v3CameraProjectedPos;
+uniform int level;
+uniform int hash;
+
+uniform sampler2D heightmap; // 0
+uniform sampler2D heightmapParent; // 1
+
+vec2 dpos(int code)
+{
+    vec2 o = vec2(-1);
+    for(int i = 0; i < 15; i++)
+    {
+        o += vec2((code>>1)&1, (code)&1)/float(1<<i);
+        code >>= 2;
+    }
+    return o;
+}
+
+vec2 computeSharedPixel(ivec2 texel, int code)
+{
+
+    // todo: might be better to compute dpos and shlow then pass into the vs
+    code >>= (2*(level-1));
+    vec2 shlo =  0.5f*vec2((code>>1)&1, (code)&1);
+
+    //vec2 rr = (shlo*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1))/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
+    //vec2 sh_pixel = ( shlo*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)
+    //                + (texel*vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y) - 0.5f)/2 + 0.5f )
+    //        /vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y); // map to shlo->shhi
+    return ( 0.5f + shlo*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1) + texel/(1.0f + float(level > 0)) )
+            /vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y); // map to shlo->shhi
+}
+
+
+void getNormalAndHeightData(out float h, out vec3 n)
+{
+    ivec2 texel = ivec2(floor(aTexCoords*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)));
+
+    // blend (need repair)
+    //vec2 gPos = lo + aPos.xz*(hi-lo);
+    vec2 gPos = vec2(dpos(hash) + 2*aPos.xz/(1<<level) - v3CameraProjectedPos.xz);
+    //float d = max(abs(gPos.x - v3CameraProjectedPos.x),abs(gPos.y - v3CameraProjectedPos.z));
+    //float l = 0.5f*dot(hi-lo, vec2(1));
+    float d_l = max(abs(gPos.x),abs(gPos.y))*(1<<level)/2;
+    blendNearFar = clamp((d_l-K-1)/(K-1),0,1);
+
+    // get values
+    vec4 data = mix( texelFetch(heightmap, texel, 0), texture(heightmapParent, computeSharedPixel(texel, hash)), blendNearFar );
+
+    h = data.r;
+    n = normalize(vec3(m4ModelMatrix*vec4(data.gba,0.0f)));
+}
+
+vec3 projectVertexOntoSphere(float h)
+{
+    vec3 q = vec3(m4CubeProjMatrix*vec4(aPos,1.0f));
+    return vec3( m4ModelMatrix*vec4( (1.0+h)*normalize(q),1.0f ) );
+}
 
 float scale(float fCos)
 {
@@ -59,9 +122,12 @@ vec2 getRayleigh(float fCos, float fHeight)
 
 void main()
 {
+    // Retrieve elevation and normal from texture
+    float elevation = 0;
+    getNormalAndHeightData(elevation, Normal);
+
     // Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
-    vec3 aaPos = aPos + 0.003*aNormal*(texture(s2Tex3, aTexCoords).xyz - 0.5);
-    vec3 v3Pos = vec3(m4ModelMatrix*vec4(aaPos,1.0)); // Fragpos
+    vec3 v3Pos = projectVertexOntoSphere(elevation);
     vec3 v3Ray = v3Pos - v3CameraPos;
     float fFar = length(v3Ray);
     v3Ray /= fFar;
@@ -117,10 +183,10 @@ void main()
     v3FrontColor = v3FrontColor * (v3InvWavelength * fKrESun + fKmESun);
     v3FrontSecondaryColor = v3Attenuate * fESun / PI;
 
-    gl_Position = m4ModelViewProjectionMatrix * vec4(aaPos,1.0);
+    gl_Position = m4ModelViewProjectionMatrix * vec4(v3Pos,1.0);
     FragPos = v3Pos;
-    Normal = normalize(vec3(m4ModelMatrix*vec4(aNormal,0.0)));
-    Normal = aNormal;
+    //Normal = normalize(vec3(m4ModelMatrix*vec4(aNormal,0.0)));
+    //Normal = aNormal;
     TexCoords = aTexCoords;
 
 }

@@ -15,19 +15,37 @@ in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
 
-uniform sampler2D s2Tex1;               // diffusive
-//uniform sampler2D s2Tex2;               // specular
+in float blendNearFar;
+
+uniform sampler2D s2Tex1;               // diffusive - 2
+uniform sampler2D s2Tex2;               // specular - 3
 
 uniform vec3 v3CameraPos;		// The camera's current position
 uniform vec3 v3LightDir;		// The direction vector to the light source
+
+uniform int level;
+uniform int hash;
+
+vec2 getRello(int code)
+{
+
+    code >>= (2*(level-1));
+    return 0.5f*vec2((code>>1)&1, (code)&1);
+}
 
 void main ()
 {
     float diffuse = clamp(0.1 + dot(v3LightDir, Normal), 0.0, 1.0);
 
+    //vec3 viewDir = normalize(v3CameraPos - FragPos);
+
+    vec3 albedo = mix(texture( s2Tex1, TexCoords ).rgb,
+                texture( s2Tex2, getRello(hash)+TexCoords/(1.0f + float(level > 0)) ).rgb,
+                blendNearFar);
+
     //color.rgb = v3FrontColor;
     //color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse;
-    color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse;
+    color.rgb = v3FrontColor + albedo * v3FrontSecondaryColor * diffuse;
 
     color.a = 1.0f;
 }

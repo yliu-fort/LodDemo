@@ -12,7 +12,7 @@ out VS_OUT {
     vec3 normal;
 } vs_out;
 
-uniform mat4 projection_view;
+uniform mat4 m4ModelViewProjectionMatrix;
 uniform mat4 model;
 uniform sampler2D heightmap;
 uniform sampler2D heightmapParent;
@@ -30,5 +30,5 @@ void main()
     // Modify fragpos
     FragPos = vec3(model*vec4(aPos.x,aPos.y+height,aPos.z,1.0));
 
-    gl_Position = projection_view * vec4(FragPos, 1.0);
+    gl_Position = m4ModelViewProjectionMatrix * vec4(FragPos, 1.0);
 }
