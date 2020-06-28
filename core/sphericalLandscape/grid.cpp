@@ -50,7 +50,7 @@ void cubeSeedInit()
             //    dataField.push_back( 0.5*(tanh(0.02f*(i - res/3)-1)) );
             //else
             //    dataField.push_back(0);
-            glm::vec3 data( 1200.0*tanh(0.0005*(10*((i - width/2.0)*(i - width/2.0) + (j- height/2.0)*(j - height/2.0))
+            glm::vec3 data( 2400.0*tanh(0.0005*(10*((i - width/2.0)*(i - width/2.0) + (j- height/2.0)*(j - height/2.0))
                                              /(float)width/(float)height-1.7)) );
             dataField.push_back( data );
         }

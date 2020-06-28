@@ -57,7 +57,7 @@ float ridgenoise(vec2 t, int freq) {
 }
 
 #define EFFECTIVE_HEIGHT_SYNTHETIC (0.001)
-#define EFFECTIVE_HEIGHT (0.003)
+#define EFFECTIVE_HEIGHT (0.001)
 
 vec3 convertToDeformed(vec2 t)
 {
