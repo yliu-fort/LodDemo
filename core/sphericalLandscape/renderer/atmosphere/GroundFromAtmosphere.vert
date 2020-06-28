@@ -129,13 +129,18 @@ void main()
     // Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
     vec3 v3Pos = projectVertexOntoSphere(elevation);
     vec3 v3Ray = v3Pos - v3CameraPos;
-    if(length(v3Pos) > fCameraHeight)
-        v3Ray = -v3Ray;
     float fFar = length(v3Ray);
     v3Ray /= fFar;
 
     // Calculate the ray's starting position, then calculate its scattering offset
     vec3 v3Start = v3CameraPos;
+
+    // Flip direction of ray when point is above the camera
+    if(length(v3Pos) > fCameraHeight)
+    {
+        v3Ray = -v3Ray;
+        v3Start = v3Pos;
+    }
     //float fDepth = exp((fInnerRadius - fCameraHeight) / fScaleDepth);
     //float fCameraAngle = dot(-v3Ray, v3Pos) / length(v3Pos);
     float fCameraAngle = dot(-v3Ray, v3CameraPos) / fCameraHeight;
