@@ -35,6 +35,7 @@ public:
     glm::vec2 rlo, rhi; // relative coordinates
     bool subdivided;
     bool crackfixed;
+    bool textureHandleAllocated = false;
     uint level, offset_type;
     float elevation;
 
@@ -93,6 +94,9 @@ public:
     float min_elevation() const;
     float get_elevation(const glm::vec2& pos) const;
     void set_elevation();
+
+    void queryTextureHandle();
+    void releaseTextureHandle();
 
     template<uint TYPE>
     void setconnectivity(Node* leaf);

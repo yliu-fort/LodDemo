@@ -1,19 +1,15 @@
 #version 330 core
 //
-// Atmospheric scattering vertex shader
+// Atmospheric scattering fragment shader
 //
 // Author: Sean O'Neil
 //
 // Copyright (c) 2004 Sean O'Neil
 //
 
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aNormal;
-layout (location = 2) in vec2 aTexCoords;
+out vec4 color;
 
-out vec3 v3FrontColor;
-out vec3 v3FrontSecondaryColor;
-out vec3 v3Direction;
+in vec3 FragPos;
 
 uniform vec3 v3CameraPos;		// The camera's current position
 uniform vec3 v3LightDir;		// The direction vector to the light source
@@ -32,22 +28,16 @@ uniform float fKm4PI;			// Km * 4 * PI
 uniform float fScale;			// 1 / (fOuterRadius - fInnerRadius)
 uniform float fScaleDepth;		// The scale depth (i.e. the altitude at which the atmosphere's average density is found)
 uniform float fScaleOverScaleDepth;	// fScale / fScaleDepth
-uniform mat4 m4ModelViewProjectionMatrix;
-uniform mat4 m4ModelMatrix;
+
 
 const int nSamples = 4;
 const float fSamples = 4.0;
 const float PI = 3.141592654;
 
+uniform float g;
+uniform float g2;
+//uniform sampler1D phaseTex;
 uniform sampler2D opticalTex; // 4
-
-uniform mat4 m4CubeProjMatrix;
-
-vec3 projectVertexOntoSphere(float h)
-{
-    vec3 q = vec3(m4CubeProjMatrix*vec4(aPos,1.0f));
-    return vec3( m4ModelMatrix*vec4( (1.0+h)*normalize(q),1.0f ) );
-}
 
 float scale(float fCos)
 {
@@ -63,11 +53,12 @@ vec2 getRayleigh(float fCos, float fHeight)
     return texture(opticalTex, vec2(y,x)).xy;
 }
 
-void main()
+void main ()
 {
-    // Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
-    vec3 v3Pos = projectVertexOntoSphere(0);
-    vec3 v3Ray = v3Pos - v3CameraPos;
+    vec3 v3FrontColor = vec3(0);
+    vec3 v3FrontSecondaryColor = vec3(0);
+
+    vec3 v3Ray = FragPos - v3CameraPos;
     float fFar = length(v3Ray);
     v3Ray /= fFar;
 
@@ -75,16 +66,19 @@ void main()
     float B = 2.0 * dot(v3CameraPos, v3Ray);
     float C = fCameraHeight2 - fOuterRadius2;
     float fDet = max(0.0, B*B - 4.0 * C);
-    float fNear = 0.5 * (-B - sqrt(fDet));
+    fFar = 0.5 * (-B + sqrt(fDet));
 
     // Calculate the ray's starting position, then calculate its scattering offset
-    vec3 v3Start = v3CameraPos + v3Ray * fNear;
-    fFar -= fNear;
-    float fStartAngle = dot(v3Ray, v3Start) / fOuterRadius;
-    float fStartDepth = exp(-1.0 / fScaleDepth);
-    //float fStartOffset = fStartDepth*scale(fStartAngle);
-    float fStartOffset = getRayleigh(fStartAngle, fOuterRadius).y;
+    vec3 v3Start = v3CameraPos;
+    float fHeight = length(v3Start);
+    float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fCameraHeight));
+    float fStartAngle = dot(v3Ray, v3Start) / fHeight;
+    //float fStartOffset = fDepth*scale(fStartAngle);
+    float fStartOffset = getRayleigh(fStartAngle, fHeight).y;
 
+    float hVisible = (1.0f/cos(max(fStartAngle-PI/2.0f, 0.0f))-1.0f)/fScale + fInnerRadius;
+    if(fHeight < hVisible)
+        discard;
 
     // Initialize the scattering loop variables
     //gl_FrontColor = vec4(0.0, 0.0, 0.0, 0.0);
@@ -94,21 +88,20 @@ void main()
     vec3 v3SamplePoint = v3Start + v3SampleRay * 0.5;
 
     // Now loop through the sample rays
-    // Todo: separate Rayleigh and Mie scattering
     v3FrontColor = vec3(0.0, 0.0, 0.0);
     for(int i=0; i<nSamples; i++)
     {
         float fHeight = length(v3SamplePoint);
-        //float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight)); // Rayleigh density
+        //float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
         float fLightAngle = dot(v3LightDir, v3SamplePoint) / fHeight;
         float fCameraAngle = dot(v3Ray, v3SamplePoint) / fHeight;
+        //float fScatter = (fStartOffset + fDepth*(scale(fLightAngle) - scale(fCameraAngle)));
 
         float fDepth = getRayleigh(fLightAngle, fHeight).x;
 
         float fScatter = getRayleigh(fLightAngle, fHeight).y
-                + fStartOffset - getRayleigh(fCameraAngle, fHeight).y;
+                + fStartOffset -  getRayleigh(fCameraAngle, fHeight).y ;
 
-        //float fScatter = (fStartOffset + fDepth*(scale(fLightAngle) - scale(fCameraAngle)));
         vec3 v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
         v3FrontColor += v3Attenuate * (fDepth * fScaledLength);
         v3SamplePoint += v3SampleRay;
@@ -117,6 +110,10 @@ void main()
     // Finally, scale the Mie and Rayleigh colors and set up the varying variables for the pixel shader
     v3FrontSecondaryColor = v3FrontColor * fKmESun;
     v3FrontColor = v3FrontColor * (v3InvWavelength * fKrESun);
-    gl_Position = m4ModelViewProjectionMatrix * vec4(v3Pos,1.0);
-    v3Direction = v3CameraPos - v3Pos;
+
+    float fCos = dot(v3LightDir, -v3Ray) / length(v3Ray);
+    float fMiePhase = 1.5 * ((1.0 - g2) / (2.0 + g2)) * (1.0 + fCos*fCos) / pow(1.0 + g2 - 2.0*g*fCos, 1.5);
+    color.rgb = v3FrontColor + fMiePhase * v3FrontSecondaryColor;
+    color.a = color.b;
+
 }

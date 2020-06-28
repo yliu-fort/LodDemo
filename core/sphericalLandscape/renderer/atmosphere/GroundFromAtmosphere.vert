@@ -54,6 +54,13 @@ uniform int hash;
 uniform sampler2D heightmap; // 0
 uniform sampler2D heightmapParent; // 1
 
+float mix2(float a, float b, float c, float d, float s, float t)
+{
+  float x = mix(a, b, t);
+  float y = mix(c, d, t);
+  return mix(x, y, s);
+}
+
 vec2 dpos(int code)
 {
     vec2 o = vec2(-1);
@@ -91,7 +98,7 @@ void getNormalAndHeightData(out float h, out vec3 n)
     //float d = max(abs(gPos.x - v3CameraProjectedPos.x),abs(gPos.y - v3CameraProjectedPos.z));
     //float l = 0.5f*dot(hi-lo, vec2(1));
     float d_l = max(abs(gPos.x),abs(gPos.y))*(1<<level)/2;
-    blendNearFar = clamp((d_l-K-1)/(K-1),0,1);
+    blendNearFar = clamp((d_l-K-1.0f)/(K-1.0f),0.0f,1.0f);
 
     // get values
     vec4 data = mix( texelFetch(heightmap, texel, 0), texture(heightmapParent, computeSharedPixel(texel, hash)), blendNearFar );

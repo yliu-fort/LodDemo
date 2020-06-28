@@ -28,6 +28,8 @@ public:
     {}
     void update(Camera& camera);
     void draw(Shader& shader, Camera& camera);
+    void subdivision(int);
+    void releaseAllTextureHandles();
     float currentElevation(const glm::vec3& pos) const;
     float currentLocalHeight(const glm::vec3& pos) const;
     float currentGlobalHeight(const glm::vec3& pos) const;

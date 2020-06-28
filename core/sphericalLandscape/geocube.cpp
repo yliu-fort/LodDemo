@@ -58,6 +58,27 @@ glm::vec3 Geocube::currentGroundPos(const glm::vec3& pos, float bias) const
 {
     return glm::vec3(getModelMatrix()*glm::vec4(convertToLocal(pos)*(1.0f-currentLocalHeight(pos)+bias),1.0f));
 }
+
+void Geocube::subdivision(int level)
+{
+    top.subdivision(    level);
+    bottom.subdivision( level);
+    left.subdivision(   level);
+    right.subdivision(  level);
+    front.subdivision(  level);
+    back.subdivision(   level);
+}
+
+void Geocube::releaseAllTextureHandles()
+{
+    top     .releaseAllTextureHandles();
+    bottom  .releaseAllTextureHandles();
+    left    .releaseAllTextureHandles();
+    right   .releaseAllTextureHandles();
+    front   .releaseAllTextureHandles();
+    back    .releaseAllTextureHandles();
+}
+
 void Geocube::self_spin()
 {
     if(spinning)

@@ -60,9 +60,9 @@ void cubeSeedInit()
     {
         //data = stbi_load(textures_faces[i].c_str(), &width, &height, &nrChannels, 0);
         glTexImage2D(
-            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-            0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, &dataField[0]
-        );
+                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, &dataField[0]
+                );
     }
 
     return;
@@ -95,46 +95,71 @@ void Node::finalize()
     CACHE.clear();
 }
 
+void Node::queryTextureHandle()
+{
+    if(!textureHandleAllocated)
+    {
+        if(Node::CACHE.empty() || !Node::USE_CACHE)
+        {
+            glGenTextures(1, &heightmap);
+
+            glActiveTexture(GL_TEXTURE0);
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, heightmap);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            //Generate a distance field to the center of the cube
+            glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
+
+            glGenTextures(1, &appearance);
+
+            glActiveTexture(GL_TEXTURE0);
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, appearance);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            //Generate a distance field to the center of the cube
+            glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
+        }
+        else
+        {
+            heightmap = std::get<0>(Node::CACHE.back());
+            appearance = std::get<1>(Node::CACHE.back());
+            Node::CACHE.pop_back();
+        }
+    }
+
+    textureHandleAllocated = true;
+
+}
+void Node::releaseTextureHandle()
+{
+    if(textureHandleAllocated)
+    {
+        if(Node::CACHE.size() > MAX_CACHE_CAPACITY || !Node::USE_CACHE)
+        {
+            glDeleteTextures(1, &heightmap);
+            glDeleteTextures(1, &appearance);
+        }
+        else
+        {
+            Node::CACHE.push_back(std::make_tuple(heightmap,appearance));
+        }
+    }
+
+    textureHandleAllocated = false;
+}
+
 Node::Node() : lo(-1), hi(1), rlo(0), rhi(1), subdivided(false), crackfixed(false), level(0), offset_type(0),elevation(0)
 {
-    if(Node::CACHE.empty() || !Node::USE_CACHE)
-    {
-        glGenTextures(1, &heightmap);
-
-        glActiveTexture(GL_TEXTURE0);
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, heightmap);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-        //Generate a distance field to the center of the cube
-        glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
-
-        glGenTextures(1, &appearance);
-
-        glActiveTexture(GL_TEXTURE0);
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, appearance);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-        //Generate a distance field to the center of the cube
-        glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
-    }
-    else
-    {
-        heightmap = std::get<0>(Node::CACHE.back());
-        appearance = std::get<1>(Node::CACHE.back());
-        Node::CACHE.pop_back();
-    }
-
-    //glGenTextures(1, &appearance);
+    queryTextureHandle();
     Node::NODE_COUNT++;
-
 }
 
 Node::~Node()
@@ -147,17 +172,7 @@ Node::~Node()
         delete child[3];
     }
 
-    if(Node::CACHE.size() > MAX_CACHE_CAPACITY || !Node::USE_CACHE)
-    {
-        glDeleteTextures(1, &heightmap);
-        glDeleteTextures(1, &appearance);
-    }
-    else
-    {
-        Node::CACHE.push_back(std::make_tuple(heightmap,appearance));
-    }
-
-    //glDeleteTextures(1, &appearance);
+    releaseTextureHandle();
     Node::NODE_COUNT--;
 }
 
@@ -419,7 +434,7 @@ float Node::get_elevation(const glm::vec2& pos) const
 
     float height = 0.0f;
     glGetTextureSubImage(heightmap,
-        0,xoffset,yoffset,0,1,1,1,GL_RED,GL_FLOAT,HEIGHT_MAP_X*HEIGHT_MAP_Y*sizeof(float),&height);
+                         0,xoffset,yoffset,0,1,1,1,GL_RED,GL_FLOAT,HEIGHT_MAP_X*HEIGHT_MAP_Y*sizeof(float),&height);
 
     return height;
 }
@@ -441,21 +456,21 @@ void Node::setconnectivity(Node* leaf)
         lo = leaf->lo;
         hi = center;
     }else
-    if(TYPE == 1) // top-left
-    {
-        lo = glm::vec2(leaf->lo.x, center.y);
-        hi = glm::vec2(center.x, leaf->hi.y);
-    }else
-    if(TYPE == 2) // bottom-right
-    {
-        lo = glm::vec2(center.x, leaf->lo.y);
-        hi = glm::vec2(leaf->hi.x, center.y);
-    }else
-    if(TYPE == 3) // top-right
-    {
-        lo = center;
-        hi = leaf->hi;
-    }
+        if(TYPE == 1) // top-left
+        {
+            lo = glm::vec2(leaf->lo.x, center.y);
+            hi = glm::vec2(center.x, leaf->hi.y);
+        }else
+            if(TYPE == 2) // bottom-right
+            {
+                lo = glm::vec2(center.x, leaf->lo.y);
+                hi = glm::vec2(leaf->hi.x, center.y);
+            }else
+                if(TYPE == 3) // top-right
+                {
+                    lo = center;
+                    hi = leaf->hi;
+                }
 
     parent = leaf;
 

@@ -159,6 +159,52 @@ void Geomesh::subdivision(const glm::vec3& viewPos, const float& viewY, Node* no
     }
 }
 
+void Geomesh::subdivision(int level, Node* node)
+{
+    // Subdivision
+    if( node->level < level && node->level < MAX_DEPTH )
+    {
+        // split and bake heightmap
+        node->split(model);
+
+        subdivision(level, node->child[0]);
+        subdivision(level, node->child[1]);
+        subdivision(level, node->child[2]);
+        subdivision(level, node->child[3]);
+
+    }
+    else
+    {
+        if( node->subdivided )
+        {
+            delete node->child[0];
+            delete node->child[1];
+            delete node->child[2];
+            delete node->child[3];
+
+            node->subdivided = false;
+        }
+    }
+}
+
+glm::vec2 computeShlo(int level, int code)
+{
+
+    code >>= (2*(level-1));
+    return 0.5f*glm::vec2((code>>1)&1, (code)&1);
+}
+
+glm::vec2 computeExactTexPos(int code)
+{
+    glm::vec2 o = glm::vec2(-1);
+    for(int i = 0; i < 15; i++)
+    {
+        o += glm::vec2((code>>1)&1, (code)&1)/float(1<<i);
+        code >>= 2;
+    }
+    return o;
+}
+
 void Geomesh::drawRecr(Node* node, Shader& shader) const
 {
     if(node->subdivided)
@@ -176,6 +222,8 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
         // Transfer lo and hi
         shader.setInt("level",node->level);
         shader.setInt("hash",node->morton);
+
+
 
         //std::cout << "current drawing node" << node->level << " - " << node->parent->level << std::endl;
 

@@ -13,8 +13,11 @@ void Atmosphere::init()
     //m_shSpaceFromSpace       .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromSpace.vert"        ),FP("renderer/atmosphere/SpaceFromSpace.frag"       ));
     //m_shSpaceFromAtmosphere  .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromAtmosphere.vert"   ),FP("renderer/atmosphere/SpaceFromAtmosphere.frag"  ));
 
-    m_tSky = Geocube();
     m_tEarth = Geocube();
+
+    m_tSky = Geocube();
+    m_tSky.subdivision(3);
+    m_tSky.releaseAllTextureHandles();
 
     update();
 }

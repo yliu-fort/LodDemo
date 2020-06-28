@@ -50,7 +50,7 @@ public:
     {
         return glm::vec3(glm::inverse(model)*glm::vec4(v,1.0));
     }
-    glm::vec3 convertFromSphere(const glm::vec3& v) const
+    glm::vec3 convertToUV(const glm::vec3& v) const
     {
         auto nv = glm::normalize(v); // normalize to R=1
         float d;
@@ -72,7 +72,7 @@ public:
     }
     bool isGroundReference(const glm::vec3& pos) const
     {
-        auto tpos = convertFromSphere(pos);
+        auto tpos = convertToUV(pos);
         if(abs(tpos.x)<= 1 && abs(tpos.z)<= 1)
             return true;
         return false;
@@ -80,36 +80,46 @@ public:
 
     float queryElevation(const glm::vec3& pos) const
     {
-        auto tpos = convertFromSphere(pos);
+        auto tpos = convertToUV(pos);
         Node* node = queryNode(glm::vec2(tpos.x, tpos.z));
         if(node)
             return node->get_elevation(glm::vec2(tpos.x, tpos.z));
         return root->get_elevation(glm::vec2(tpos.x, tpos.z));
     }
 
-    //void refresh_heightmap()
-    //{
-    //    refresh_heightmap(root.get());
-    //}
-    //
-    //void fixcrack()
-    //{
-    //    fixcrack(root.get());
-    //}
-
     void subdivision(const glm::vec3& viewPos)
     {
-        //auto v = convertFromSphere(viewPos);
-        //std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
-        subdivision(convertFromSphere(viewPos), queryElevation(viewPos), root.get());
-        //refresh_heightmap();
-        //if(CRACK_FILLING){fixcrack();}
+        subdivision(convertToUV(viewPos), queryElevation(viewPos), root.get());
+    }
+
+    void subdivision(int level)
+    {
+        subdivision( level, root.get() );
     }
 
     void draw(Shader& shader, const glm::vec3& viewPos) const
     {
-        shader.setVec3("v3CameraProjectedPos",convertFromSphere(viewPos));
+        shader.setVec3("v3CameraProjectedPos",convertToUV(viewPos));
+        shader.setInt("renderType", Geomesh::RENDER_MODE);
         drawRecr(root.get(), shader);
+    }
+
+    void releaseAllTextureHandles()
+    {
+        releaseAllTextureHandles(root.get());
+    }
+
+    void releaseAllTextureHandles( Node* node )
+    {
+        if(node->subdivided)
+        {
+            releaseAllTextureHandles(node->child[0]);
+            releaseAllTextureHandles(node->child[1]);
+            releaseAllTextureHandles(node->child[2]);
+            releaseAllTextureHandles(node->child[3]);
+        }
+
+        node->releaseTextureHandle();
     }
 
     // Caution: only return subdivided grids.
@@ -118,7 +128,9 @@ public:
     void refresh_heightmap( Node* );
     void fixcrack( Node* );
     void subdivision( const glm::vec3&, const float&, Node* );
+    void subdivision( int, Node* );
     void drawRecr( Node*, Shader& ) const;
+
 
     // static functions
     static void gui_interface();

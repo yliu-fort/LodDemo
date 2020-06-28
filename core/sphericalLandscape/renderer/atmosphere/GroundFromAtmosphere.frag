@@ -25,6 +25,7 @@ uniform vec3 v3LightDir;		// The direction vector to the light source
 
 uniform int level;
 uniform int hash;
+uniform int renderType;
 
 vec2 getRello(int code)
 {
@@ -43,9 +44,20 @@ void main ()
                 texture( s2Tex2, getRello(hash)+TexCoords/(1.0f + float(level > 0)) ).rgb,
                 blendNearFar);
 
+    if(renderType == 1)
+    {
+        albedo = vec3(blendNearFar);
+        if(blendNearFar == 0.0)
+            albedo = vec3(0,1,0);
+        if(blendNearFar == 1.0)
+            albedo = vec3(0,0,1);
+    }
+
     //color.rgb = v3FrontColor + vec3(0,0,0.04)*v3FrontSecondaryColor;
     //color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse;
     color.rgb = v3FrontColor + albedo * v3FrontSecondaryColor * diffuse;
+
+
 
     color.a = 1.0f;
 }
