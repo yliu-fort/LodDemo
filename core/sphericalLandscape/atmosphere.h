@@ -30,8 +30,8 @@ public:
     void init();
     Geocube& getGroundHandle() {return m_tEarth;}
     Geocube& getSkyHandle() {return m_tSky;}
-    void drawGround();
-    void drawSky();
+    void drawGround(Camera& camera);
+    void drawSky(Camera& camera);
     void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float fRayleighScaleHeight, float fMieScaleHeight);
     void MakePhaseBuffer(float ESun, float Kr, float Km, float g);
     void update();

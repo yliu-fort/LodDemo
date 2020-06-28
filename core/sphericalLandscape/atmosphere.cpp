@@ -46,7 +46,7 @@ Shader& Atmosphere::getSkyShader(const glm::vec3& pos)
     }
 }
 
-void Atmosphere::drawGround()
+void Atmosphere::drawGround(Camera& camera)
 {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -90,10 +90,10 @@ void Atmosphere::drawGround()
     glActiveTexture(GL_TEXTURE4);
     glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
 
-    m_tEarth.draw(pGroundShader, m_3DCamera);
+    m_tEarth.draw(pGroundShader, camera);
 }
 
-void Atmosphere::drawSky()
+void Atmosphere::drawSky(Camera& camera)
 {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -137,7 +137,7 @@ void Atmosphere::drawSky()
         glFrontFace(GL_CW);
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE);
-        m_tSky.draw(pSkyShader, m_3DCamera);
+        m_tSky.draw(pSkyShader, camera);
         glDisable(GL_BLEND);
         glFrontFace(GL_CCW);
     }

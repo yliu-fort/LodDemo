@@ -122,7 +122,7 @@ int main()
 
     // gen geocube
     //Geocube mesh;
-    Atmosphere mesh(refcam);
+    Atmosphere mesh(camera);
     mesh.init();
 
     // HDR
@@ -186,21 +186,32 @@ int main()
         // update geomesh
         mesh.getGroundHandle().update(refcam);
 
+        // Draw scene
+        if(drawWireframe)
+            glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+
+        // Draw near ground
         glDepthRange(0,0.4);
         camera.Near = 0.002e-4;
         camera.Far = camera.Near*1e4;
         refcam.sync_frustrum();
-        mesh.drawGround();
+        mesh.drawGround(refcam);
 
+        // Draw far ground
         glDepthRange(0.4,0.8);
         camera.Near = 0.001;
         camera.Far = camera.Near*1e4;
         refcam.sync_frustrum();
-        mesh.drawGround();
-        mesh.drawSky();
+        mesh.drawGround(refcam);
 
+        // Draw sky
+        mesh.drawSky(refcam);
+
+        // Restore options
+        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+        // Draw screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         hdrShader.use();
         glActiveTexture(GL_TEXTURE0);
@@ -208,96 +219,6 @@ int main()
         mesh.setHDR(hdrShader);
         renderQuad();
 
-#if 0
-        // pass matrixes in global coordinate system
-        lightingShader.use();
-        lightingShader.setVec3("v3CameraPos", camera.Position);
-
-        // Colormap
-        Colormap::Bind();
-        lightingShader.setInt("colormap", 10);
-
-        glActiveTexture(GL_TEXTURE11);
-        glBindTexture(GL_TEXTURE_2D, debug_tex);
-        lightingShader.setInt("debugmap", 11);
-
-        // lighting
-        dirlight.setParam(lightingShader);
-
-        // render type
-        lightingShader.setInt("render_type", Geomesh::RENDER_MODE);
-
-        // todo: remap z buffer to increase valid bit
-        // "near" terrains
-        glDepthRange(0,0.4);
-        camera.Near = 0.002e-4;
-        camera.Far = camera.Near*1e4;
-        //refcam.sync_frustrum();
-        lightingShader.setMat4("m4ModelViewProjectionMatrix", camera.GetFrustumMatrix());
-        glEnable(GL_CULL_FACE);
-        mesh.draw(lightingShader, refcam);
-        glDisable(GL_CULL_FACE);
-
-
-        // "far" terrains
-        glDepthRange(0.4,0.8);
-        camera.Near = 100.0e-5;
-        camera.Far = camera.Near*1e5;
-        //refcam.sync_frustrum();
-        lightingShader.setMat4("m4ModelViewProjectionMatrix", camera.GetFrustumMatrix());
-        glEnable(GL_CULL_FACE);
-        mesh.draw(lightingShader, refcam);
-        glDisable(GL_CULL_FACE);
-
-        // "distant" objects
-        glDepthRange(0.8,1.0);
-
-
-        if(drawWireframe)
-        {
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-            // todo: remap z buffer to increase valid bit
-            // "near" terrains
-            glDepthRange(0,0.4);
-            camera.Near = 0.002e-4;
-            camera.Far = camera.Near*1e4;
-            //refcam.sync_frustrum();
-            lightingShader.setMat4("m4ModelViewProjectionMatrix", camera.GetFrustumMatrix());
-            glEnable(GL_CULL_FACE);
-            mesh.draw(lightingShader, refcam);
-            glDisable(GL_CULL_FACE);
-
-
-            // "far" terrains
-            glDepthRange(0.4,0.8);
-            camera.Near = 100.0e-5;
-            camera.Far = camera.Near*1e5;
-            //refcam.sync_frustrum();
-            lightingShader.setMat4("m4ModelViewProjectionMatrix", camera.GetFrustumMatrix());
-            glEnable(GL_CULL_FACE);
-            mesh.draw(lightingShader, refcam);
-            glDisable(GL_CULL_FACE);
-
-            // "distant" objects
-            glDepthRange(0.8,1.0);
-
-            glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-        }
-
-        if(drawNormalArrows)
-        {
-            normalShader.use();
-            normalShader.setMat4("m4ModelViewProjectionMatrix", camera.GetFrustumMatrix());
-            normalShader.setVec3("v3CameraPos", refcam.Position);
-            normalShader.setInt("heightmap", 0);
-            normalShader.setVec3("color", glm::vec3(1,1,0));
-            mesh.draw(normalShader, refcam);
-        }
-#else
-
-#endif
         // gui
         GuiInterface::Begin();
         mesh.gui_interface();
