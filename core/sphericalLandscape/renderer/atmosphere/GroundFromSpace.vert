@@ -143,6 +143,7 @@ void main()
     fFar -= fNear;
     float fCameraAngle = dot(-v3Ray, v3CameraPos) / fCameraHeight;
     float fStartOffset = getRayleigh(fCameraAngle, fOuterRadius).y;
+    float fHeight = length(v3Pos);
 
     // Initialize the scattering loop variables
     float fSampleLength = fFar / fSamples;
@@ -172,7 +173,13 @@ void main()
     }
 
     v3FrontColor = v3FrontColor * (v3InvWavelength * fKrESun + fKmESun);
-    v3FrontSecondaryColor = v3Attenuate * fESun / PI;
+
+    // Compute transmittence
+    float fCosAlpha = clamp(dot(v3LightDir, Normal), 0.0, 1.0);
+    float fCosBeta = clamp(0.1 + dot(v3Pos, Normal) / fHeight, 0.0, 1.0);
+    vec3 skyTransmittence = exp(-(getRayleigh(fCameraAngle, fHeight).y - fStartOffset) * (v3InvWavelength * fKr4PI + fKm4PI));
+
+    v3FrontSecondaryColor = fCosAlpha * v3Attenuate * fESun / PI + vec3(0.01,0.1,0.4)*fCosBeta*skyTransmittence;
 
     gl_Position = m4ModelViewProjectionMatrix * vec4(v3Pos,1.0);
     FragPos = v3Pos;

@@ -9,8 +9,8 @@
 
 out vec4 color;
 
-in vec3 v3FrontColor; // Scattered by atmosphere
-in vec3 v3FrontSecondaryColor; // Attenuation
+in vec3 v3FrontColor; // InScatter
+in vec3 v3FrontSecondaryColor; // Transmittence
 in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
@@ -36,10 +36,6 @@ vec2 getRello(int code)
 
 void main ()
 {
-    float diffuse = clamp(0.1 + dot(v3LightDir, Normal), 0.0, 1.0);
-
-    //vec3 viewDir = normalize(v3CameraPos - FragPos);
-
     vec3 albedo = 0.1*mix(texture( s2Tex1, TexCoords ).rgb,
                 texture( s2Tex2, getRello(hash)+TexCoords/(1.0f + float(level > 0)) ).rgb,
                 blendNearFar);
@@ -53,11 +49,7 @@ void main ()
             albedo = vec3(0,0,1);
     }
 
-    //color.rgb = v3FrontColor + vec3(0,0,0.04)*v3FrontSecondaryColor;
-    //color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse;
-    color.rgb = v3FrontColor + albedo * v3FrontSecondaryColor * diffuse;
-
-
+    color.rgb = v3FrontColor + albedo * v3FrontSecondaryColor;
 
     color.a = 1.0f;
 }
