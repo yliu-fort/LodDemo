@@ -119,6 +119,18 @@ int main()
 
     // read debug texture
     //unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
+    std::vector<std::string> faces
+    {
+        FP("../../resources/textures/earth/se/surface_diff_pos_x.jpg"),
+        FP("../../resources/textures/earth/se/surface_diff_neg_x.jpg"),
+        FP("../../resources/textures/earth/se/surface_diff_pos_y.jpg"),
+        FP("../../resources/textures/earth/se/surface_diff_neg_y.jpg"),
+        FP("../../resources/textures/earth/se/surface_diff_pos_z.jpg"),
+        FP("../../resources/textures/earth/se/surface_diff_neg_z.jpg")
+    };
+    uint test_img1 = loadCubemap(faces);
+    glActiveTexture(GL_TEXTURE10);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, test_img1);
 
     // gen geocube
     //Geocube mesh;

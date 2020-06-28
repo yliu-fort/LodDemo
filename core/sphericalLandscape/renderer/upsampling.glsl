@@ -57,7 +57,7 @@ float ridgenoise(vec2 t, int freq) {
 }
 
 #define EFFECTIVE_HEIGHT_SYNTHETIC (0.001)
-#define EFFECTIVE_HEIGHT (0.001)
+#define EFFECTIVE_HEIGHT (0.003)
 
 vec3 convertToDeformed(vec2 t)
 {
@@ -75,15 +75,36 @@ vec2 convertToRadial(vec3 coord)
     return vec2(atan(coord.y,coord.x),acos(coord.z));
 }
 
+// Turbulence-like pattern
+//float ridgenoises3(vec2 t, int freq) {
+//    vec3 v = convertToSphere(t);
+//  return  2.0*(0.5 - abs( 0.5 - snoise( vec2(snoise( v.xy*(1<<freq)*16 ), v.z ) )));
+//}
+
+// S3 noise
+float ridgenoises3(vec2 t, int freq) {
+    vec3 v = convertToSphere(t);
+
+    return  2.0*(0.5 - abs( 0.5 -
+                            mix(
+                                mix(
+                                    snoise( vec2(snoise( v.xy*(1<<freq)*16.0f ), v.z ) )
+                                    ,snoise( vec2(snoise( v.xz*(1<<freq)*16.0f ), v.y ) )
+                                    ,abs(v.y))
+                                ,snoise( vec2(snoise( v.yz*(1<<freq)*16.0f ), v.x ) )
+                                ,abs(v.x)) ));
+
+}
+
 float calc_height(vec2 pixel)
 {
 
     // Noise sampler1D
-    float density = ridgenoise( pixel,0 );
+    float density = ridgenoises3( pixel,0 );
 
     for(int i = 1; i < 8; i++)
     {
-        density += ridgenoise( pixel,i ) * density / float(1<<i);
+        density += ridgenoises3( pixel,i ) * density / float(1<<i);
     }
 
     density /= 2.0;
@@ -96,7 +117,7 @@ float calc_height(vec2 pixel)
     //vec2 offset = 0.5/vec2(ELEVATION_MAP_RESOLUTION);
     //vec2 cpixel = offset + pixel*(1.0f - 2.0f*offset);
 
-    density += texture( elevationmap,  vec3(convertToDeformed(pixel)) ).r;
+    density += EFFECTIVE_HEIGHT*(texture( elevationmap,  vec3(convertToDeformed(pixel)) ).r);
 
     // Bound height
     density = clamp(density,0.0,EFFECTIVE_HEIGHT);

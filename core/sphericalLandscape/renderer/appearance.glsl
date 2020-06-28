@@ -2,6 +2,7 @@
 #define ALBEDO_MAP_X (127)
 #define ALBEDO_MAP_Y (127)
 #define ELEVATION_MAP_RESOLUTION (256)
+#define PI (3.141592654)
 // Kernel
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
@@ -24,7 +25,7 @@ uniform mat4 globalMatrix;
 uniform int level;
 uniform int hash;
 
-vec2 dpos(int code)
+vec2 computeUVfromMorton(int code)
 {
     vec2 o = vec2(-1);
     for(int i = 0; i < 15; i++)
@@ -37,7 +38,7 @@ vec2 dpos(int code)
 
 vec2 getCurrentUV()
 {
-    return dpos(hash)
+    return computeUVfromMorton(hash)
             + 2.0*ivec2(gl_GlobalInvocationID.xy)
             /vec2(ALBEDO_MAP_X-1, ALBEDO_MAP_Y-1)
             /float(1<<level);
@@ -54,12 +55,11 @@ vec2 getCurrentUV()
 float snoise(vec2 v);
 
 float ridgenoise(vec2 t, int freq) {
-  return  2.0*(0.5 - abs( 0.5 - snoise( t*(1<<freq)*16.0 ) ));
+    return  2.0*(0.5 - abs( 0.5 - snoise( t*(1<<freq)*16.0 ) ));
 }
 
 #define EFFECTIVE_HEIGHT_SYNTHETIC (0.001)
-#define EFFECTIVE_HEIGHT (0.001)
-float calc_height(vec2 pixel);
+#define EFFECTIVE_HEIGHT (0.003)
 
 vec3 convertToDeformed(vec2 t)
 {
@@ -77,16 +77,31 @@ vec2 convertToRadial(vec3 coord)
     return vec2(atan(coord.y,coord.x),acos(coord.z));
 }
 
+// S3 noise
+float ridgenoises3(vec2 t, int freq) {
+    vec3 v = convertToSphere(t);
+
+    return  2.0*(0.5 - abs( 0.5 -
+                            mix(
+                                mix(
+                                    snoise( vec2(snoise( v.xy*(1<<freq)*16.0f ), v.z ) )
+                                    ,snoise( vec2(snoise( v.xz*(1<<freq)*16.0f ), v.y ) )
+                                    ,abs(v.y))
+                                ,snoise( vec2(snoise( v.yz*(1<<freq)*16.0f ), v.x ) )
+                                ,abs(v.x)) ));
+
+}
+
 
 float calc_height(vec2 pixel)
 {
 
     // Noise sampler1D
-    float density = ridgenoise( pixel,0 );
+    float density = ridgenoises3( pixel,0 );
 
     for(int i = 1; i < 8; i++)
     {
-        density += ridgenoise( pixel,i ) * density / float(1<<i);
+        density += ridgenoises3( pixel,i ) * density / float(1<<i);
     }
 
     density /= 2.0;
@@ -99,13 +114,14 @@ float calc_height(vec2 pixel)
     //vec2 offset = 0.5/vec2(ELEVATION_MAP_RESOLUTION);
     //vec2 cpixel = offset + pixel*(1.0f - 2.0f*offset);
 
-    density += texture( elevationmap,  vec3(convertToDeformed(pixel)) ).r;
+    density += EFFECTIVE_HEIGHT*(texture( elevationmap,  vec3(convertToDeformed(pixel)) ).r);
 
     // Bound height
     density = clamp(density,0.0,EFFECTIVE_HEIGHT);
 
     return density;
 }
+
 
 
 
@@ -127,8 +143,8 @@ void main()
     float height = calc_height(pixel);
 
     vec3 color = mix(textureLod( material,
-                     vec3(pixel*(1<<15), 6.45f*height/EFFECTIVE_HEIGHT), 15-level ).rgb,
-                vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(50*height+5e-5f))-0.1f,0,1));
+                                 vec3(pixel*(1<<15), 12.45f*height/EFFECTIVE_HEIGHT), 15-level ).rgb,
+                     vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(height/EFFECTIVE_HEIGHT+5e-5f))-0.1f,0,1));
 
     imageStore(albedo, p, vec4(color,1.0f));
 
@@ -146,62 +162,62 @@ void main()
 //
 
 vec3 mod289(vec3 x) {
-  return x - floor(x * (1.0 / 289.0)) * 289.0;
+    return x - floor(x * (1.0 / 289.0)) * 289.0;
 }
 
 vec2 mod289(vec2 x) {
-  return x - floor(x * (1.0 / 289.0)) * 289.0;
+    return x - floor(x * (1.0 / 289.0)) * 289.0;
 }
 
 vec3 permute(vec3 x) {
-  return mod289(((x*34.0)+1.0)*x);
+    return mod289(((x*34.0)+1.0)*x);
 }
 
 float snoise(vec2 v)
-  {
-  const vec4 C = vec4(0.211324865405187,  // (3.0-sqrt(3.0))/6.0
-                      0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
-                     -0.577350269189626,  // -1.0 + 2.0 * C.x
-                      0.024390243902439); // 1.0 / 41.0
-// First corner
-  vec2 i  = floor(v + dot(v, C.yy) );
-  vec2 x0 = v -   i + dot(i, C.xx);
+{
+    const vec4 C = vec4(0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                        0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                        -0.577350269189626,  // -1.0 + 2.0 * C.x
+                        0.024390243902439); // 1.0 / 41.0
+    // First corner
+    vec2 i  = floor(v + dot(v, C.yy) );
+    vec2 x0 = v -   i + dot(i, C.xx);
 
-// Other corners
-  vec2 i1;
-  //i1.x = step( x0.y, x0.x ); // x0.x > x0.y ? 1.0 : 0.0
-  //i1.y = 1.0 - i1.x;
-  i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-  // x0 = x0 - 0.0 + 0.0 * C.xx ;
-  // x1 = x0 - i1 + 1.0 * C.xx ;
-  // x2 = x0 - 1.0 + 2.0 * C.xx ;
-  vec4 x12 = x0.xyxy + C.xxzz;
-  x12.xy -= i1;
+    // Other corners
+    vec2 i1;
+    //i1.x = step( x0.y, x0.x ); // x0.x > x0.y ? 1.0 : 0.0
+    //i1.y = 1.0 - i1.x;
+    i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+    // x0 = x0 - 0.0 + 0.0 * C.xx ;
+    // x1 = x0 - i1 + 1.0 * C.xx ;
+    // x2 = x0 - 1.0 + 2.0 * C.xx ;
+    vec4 x12 = x0.xyxy + C.xxzz;
+    x12.xy -= i1;
 
-// Permutations
-  i = mod289(i); // Avoid truncation effects in permutation
-  vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
-                + i.x + vec3(0.0, i1.x, 1.0 ));
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+                      + i.x + vec3(0.0, i1.x, 1.0 ));
 
-  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
-  m = m*m ;
-  m = m*m ;
+    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+    m = m*m ;
+    m = m*m ;
 
-// Gradients: 41 points uniformly over a line, mapped onto a diamond.
-// The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
 
-  vec3 x = 2.0 * fract(p * C.www) - 1.0;
-  vec3 h = abs(x) - 0.5;
-  vec3 ox = floor(x + 0.5);
-  vec3 a0 = x - ox;
+    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+    vec3 h = abs(x) - 0.5;
+    vec3 ox = floor(x + 0.5);
+    vec3 a0 = x - ox;
 
-// Normalise gradients implicitly by scaling m
-// Approximation of: m *= inversesqrt( a0*a0 + h*h );
-  m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+    // Normalise gradients implicitly by scaling m
+    // Approximation of: m *= inversesqrt( a0*a0 + h*h );
+    m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
 
-// Compute final noise value at P
-  vec3 g;
-  g.x  = a0.x  * x0.x  + h.x  * x0.y;
-  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-  return 130.0 * dot(m, g);
+    // Compute final noise value at P
+    vec3 g;
+    g.x  = a0.x  * x0.x  + h.x  * x0.y;
+    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+    return 130.0 * dot(m, g);
 }

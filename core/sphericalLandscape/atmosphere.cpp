@@ -82,6 +82,8 @@ void Atmosphere::drawGround(Camera& camera)
     pGroundShader.setInt("s2Tex1", 2);
     pGroundShader.setInt("s2Tex2", 3);
     pGroundShader.setInt("opticalTex", 4);
+    pGroundShader.setInt("s2TexTest", 10);
+
 
 
     pGroundShader.setMat4("m4ModelViewProjectionMatrix",

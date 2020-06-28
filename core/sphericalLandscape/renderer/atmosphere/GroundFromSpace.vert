@@ -179,7 +179,7 @@ void main()
     float fCosBeta = clamp(0.1 + dot(v3Pos, Normal) / fHeight, 0.0, 1.0);
     vec3 skyTransmittence = exp(-(getRayleigh(fCameraAngle, fHeight).y - fStartOffset) * (v3InvWavelength * fKr4PI + fKm4PI));
 
-    v3FrontSecondaryColor = fCosAlpha * v3Attenuate * fESun / PI + vec3(0.01,0.1,0.4)*fCosBeta*skyTransmittence;
+    v3FrontSecondaryColor = fCosAlpha * v3Attenuate * fESun / PI + vec3(0.0,0.05,0.2)*fCosBeta*skyTransmittence;
 
     gl_Position = m4ModelViewProjectionMatrix * vec4(v3Pos,1.0);
     FragPos = v3Pos;

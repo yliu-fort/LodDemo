@@ -27,7 +27,7 @@ void main ()
 
     //color.rgb = v3FrontColor;
     //color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse;
-    color.rgb = v3FrontColor + texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse;
+    color.rgb = v3FrontColor + 0.3*texture(s2Tex1, TexCoords).rgb * v3FrontSecondaryColor * diffuse;
 
     color.a = 1.0f;
 }

@@ -19,6 +19,7 @@ in float blendNearFar;
 
 uniform sampler2D s2Tex1;               // diffusive - 2
 uniform sampler2D s2Tex2;               // specular - 3
+uniform samplerCube s2TexTest;
 
 uniform vec3 v3CameraPos;		// The camera's current position
 uniform vec3 v3LightDir;		// The direction vector to the light source
@@ -36,7 +37,7 @@ vec2 getRello(int code)
 
 void main ()
 {
-    vec3 albedo = 0.1*mix(texture( s2Tex1, TexCoords ).rgb,
+    vec3 albedo = 0.2*mix(texture( s2Tex1, TexCoords ).rgb,
                 texture( s2Tex2, getRello(hash)+TexCoords/(1.0f + float(level > 0)) ).rgb,
                 blendNearFar);
 
@@ -47,6 +48,10 @@ void main ()
             albedo = vec3(0,1,0);
         if(blendNearFar == 1.0)
             albedo = vec3(0,0,1);
+    }
+    if(renderType == 3)
+    {
+        albedo = 0.2*texture( s2TexTest, FragPos ).rgb;
     }
 
     color.rgb = v3FrontColor + albedo * v3FrontSecondaryColor;
