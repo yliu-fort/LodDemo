@@ -121,14 +121,15 @@ int main()
     //unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
     std::vector<std::string> faces
     {
-        FP("../../resources/textures/earth/se/surface_diff_pos_x.jpg"),
-        FP("../../resources/textures/earth/se/surface_diff_neg_x.jpg"),
-        FP("../../resources/textures/earth/se/surface_diff_pos_y.jpg"),
-        FP("../../resources/textures/earth/se/surface_diff_neg_y.jpg"),
-        FP("../../resources/textures/earth/se/surface_diff_pos_z.jpg"),
-        FP("../../resources/textures/earth/se/surface_diff_neg_z.jpg")
+        FP("../../resources/Earth/Surface/pos_x/0_0_0_c.jpg"),
+        FP("../../resources/Earth/Surface/neg_x/0_0_0_c.jpg"),
+        FP("../../resources/Earth/Surface/pos_y/0_0_0_c.jpg"),
+        FP("../../resources/Earth/Surface/neg_y/0_0_0_c.jpg"),
+        FP("../../resources/Earth/Surface/pos_z/0_0_0_c.jpg"),
+        FP("../../resources/Earth/Surface/neg_z/0_0_0_c.jpg")
     };
-    uint test_img1 = loadCubemap(faces);
+    //uint test_img1 = loadCubemap(faces);
+    uint test_img1 = loadCubemapLarge(FP("../../resources/Earth/Surface/"),"_c.jpg",1);
     glActiveTexture(GL_TEXTURE10);
     glBindTexture(GL_TEXTURE_CUBE_MAP, test_img1);
 
@@ -203,16 +204,16 @@ int main()
             glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 
         // Draw near ground
-        glDepthRange(0,0.4);
-        camera.Near = 0.002e-4;
-        camera.Far = camera.Near*1e4;
+        glDepthRange(0,0.1);
+        camera.Near = 0.004e-4;
+        camera.Far = camera.Near*1e3;
         refcam.sync_frustrum();
         mesh.drawGround(refcam);
 
         // Draw far ground
-        glDepthRange(0.4,0.8);
-        camera.Near = 0.001;
-        camera.Far = camera.Near*1e4;
+        glDepthRange(0.1,0.9);
+        camera.Near = 0.0002;
+        camera.Far = camera.Near*1e5;
         refcam.sync_frustrum();
         mesh.drawGround(refcam);
 

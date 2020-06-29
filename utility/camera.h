@@ -121,7 +121,7 @@ public:
     // gui interface
     void gui_interface(void(*forwarder)(void*) = NULL, void* object = 0);
 
-private:
+
     glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest){
         start = normalize(start);
         dest = normalize(dest);
@@ -155,6 +155,7 @@ private:
 
     }
 
+    private:
 };
 
 #endif

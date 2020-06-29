@@ -240,6 +240,12 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, node->parent->appearance);
 
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, node->normal);
+
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_2D, node->parent->normal);
+
         // Render grid (inline function call renderGrid())
         Node::draw();
 

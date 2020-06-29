@@ -1,6 +1,6 @@
 #include "texture_utility.h"
 #include <glad/glad.h>
-
+#include <string>
 #include "stb_image.h"
 
 /*
@@ -257,6 +257,85 @@ unsigned int loadCubemap(std::vector<std::string> faces, GLenum texType, GLenum 
         {
             std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
             stbi_image_free(data);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return textureID;
+}
+
+unsigned int loadCubemapLarge(std::string path, std::string extension, unsigned int lodLevel, int baseResolution, GLenum texType, GLenum dataType)
+{
+    std::vector<std::string> faces
+    {
+        path + "pos_x/",
+        path + "neg_x/",
+        path + "pos_y/",
+        path + "neg_y/",
+        path + "pos_z/",
+        path + "neg_z/"
+    };
+
+    unsigned int numTilesX = (1<<lodLevel);
+    unsigned int numTilesY = (1<<lodLevel);
+    unsigned int numTiles = numTilesX * numTilesY;
+    unsigned int resolutionX = baseResolution * numTilesX;
+    unsigned int resolutionY = baseResolution * numTilesY;
+
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    int width, height, nrChannels;
+    for (unsigned int k = 0; k < faces.size(); k++)
+    {
+        for(unsigned int t = 0; t < numTiles; t++)
+        {
+            // compute offset
+            int i = t % numTilesX; // 0 1 0 1
+            int j = t / numTilesX; // 0 0 1 0
+
+            char ss[255];
+            snprintf(ss, 255, "%d_%d_%d", lodLevel, j, i);
+
+            std::string inTile = faces[k] + std::string(ss) + extension;
+
+            unsigned char *data = stbi_load(inTile.c_str(), &width, &height, &nrChannels, 0);
+
+            GLenum format, internalformat;
+            if (nrChannels == 1)
+            {
+                format = GL_RED;
+                internalformat = GL_R8;
+            }
+            else if (nrChannels == 3)
+            {
+                format = GL_RGB;
+                internalformat = GL_RGB8;
+            }
+            else if (nrChannels == 4)
+            {
+                format = GL_RGBA;
+                internalformat = GL_RGBA8;
+            }
+
+            if(t == 0)
+                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + k, 0, internalformat, resolutionX, resolutionY, 0, format, GL_UNSIGNED_BYTE, NULL);
+
+            if (data)
+            {
+                glTexSubImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + k, 0, i*baseResolution, j*baseResolution, baseResolution, baseResolution, format, GL_UNSIGNED_BYTE, data);
+                stbi_image_free(data);
+            }
+            else
+            {
+                std::cout << "Cubemap texture failed to load at path: " << faces[k] << std::endl;
+                stbi_image_free(data);
+            }
         }
     }
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

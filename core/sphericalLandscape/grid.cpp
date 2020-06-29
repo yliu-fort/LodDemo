@@ -12,6 +12,7 @@
 
 #define HEIGHT_MAP_INTERNAL_FORMAT GL_RGBA32F
 #define HEIGHT_MAP_FORMAT GL_RGBA
+#define APPEARANCE_MAP_INTERNAL_FORMAT GL_RGBA16F
 
 static Shader upsampling, crackfixing, appearance_baking;
 static unsigned int noiseTex, elevationTex, materialTex;
@@ -22,7 +23,7 @@ uint Node::INTERFACE_NODE_COUNT = 0;
 bool Node::USE_CACHE = true;
 
 #define MAX_CACHE_CAPACITY (1524)
-std::vector<std::tuple<uint,uint>> Node::CACHE;
+std::vector<std::tuple<uint,uint,uint>> Node::CACHE;
 
 
 void renderGrid();
@@ -83,10 +84,16 @@ void cubeAssetInit()
     elevationTex = loadCubemap(faces);
 }
 
+void cubeAssetTilesInit()
+{
+    elevationTex = loadCubemapLarge(FP("../../resources/Earth/Bump/"),".png",1);
+}
+
 void Node::init()
 {
-    cubeSeedInit();
+    //cubeSeedInit();
     //cubeAssetInit();
+    cubeAssetTilesInit();
 
     materialTex = loadLayeredTexture("Y42lf.png",FP("../../resources/textures"), false);
 
@@ -108,6 +115,7 @@ void Node::finalize()
         {
             glDeleteTextures(1,&std::get<0>(i));
             glDeleteTextures(1,&std::get<1>(i));
+            glDeleteTextures(1,&std::get<2>(i));
         }
     }
     CACHE.clear();
@@ -143,12 +151,27 @@ void Node::queryTextureHandle()
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
             //Generate a distance field to the center of the cube
-            glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
+            glTexImage2D( GL_TEXTURE_2D, 0, APPEARANCE_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, GL_RGBA, GL_FLOAT, NULL);
+
+            glGenTextures(1, &normal);
+
+            glActiveTexture(GL_TEXTURE0);
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, normal);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            //Generate a distance field to the center of the cube
+            glTexImage2D( GL_TEXTURE_2D, 0, APPEARANCE_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, GL_RGBA, GL_FLOAT, NULL);
+
         }
         else
         {
             heightmap = std::get<0>(Node::CACHE.back());
             appearance = std::get<1>(Node::CACHE.back());
+            normal = std::get<2>(Node::CACHE.back());
             Node::CACHE.pop_back();
         }
     }
@@ -164,10 +187,11 @@ void Node::releaseTextureHandle()
         {
             glDeleteTextures(1, &heightmap);
             glDeleteTextures(1, &appearance);
+            glDeleteTextures(1, &normal);
         }
         else
         {
-            Node::CACHE.push_back(std::make_tuple(heightmap,appearance));
+            Node::CACHE.push_back(std::make_tuple(heightmap,appearance, normal));
         }
     }
 
@@ -217,22 +241,23 @@ void Node::bake_appearance_map(glm::mat4 arg)
     appearance_baking.setInt("hash", this->morton);
 
     // bind height map
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, appearance);
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, appearance);
 
     // bind noisemap (deprecated)
     //glActiveTexture(GL_TEXTURE1);
     //glBindTexture(GL_TEXTURE_2D, noiseTex);
 
-    glActiveTexture(GL_TEXTURE1);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
 
-    glActiveTexture(GL_TEXTURE2);
+    glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D_ARRAY, materialTex);
 
 
     // write to heightmap ? buggy
-    glBindImageTexture(0, appearance, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
+    glBindImageTexture(0, appearance, 0, GL_FALSE, 0, GL_WRITE_ONLY, APPEARANCE_MAP_INTERNAL_FORMAT);
+    glBindImageTexture(1, normal, 0, GL_FALSE, 0, GL_WRITE_ONLY, APPEARANCE_MAP_INTERNAL_FORMAT);
 
     // Deploy kernel
     glDispatchCompute((ALBEDO_MAP_X/16)+1,(ALBEDO_MAP_Y/16)+1,1);

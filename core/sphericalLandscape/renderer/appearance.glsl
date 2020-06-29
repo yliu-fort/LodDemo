@@ -1,21 +1,21 @@
 #version 430
 #define ALBEDO_MAP_X (127)
 #define ALBEDO_MAP_Y (127)
-#define ELEVATION_MAP_RESOLUTION (256)
 #define PI (3.141592654)
 // Kernel
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 // Child heightmaP
-layout(rgba32f, binding = 0) uniform image2D albedo;
+layout(rgba16f, binding = 0) uniform image2D albedo;
+layout(rgba16f, binding = 1) uniform image2D normal;
 
 // Parent heightmap
 //layout(binding = 0) uniform sampler2D heightmap_parent;
 
 // noisemap
 //layout(binding = 1) uniform sampler2D noise;
-layout(binding = 1) uniform samplerCube elevationmap;
-layout(binding = 2) uniform sampler2DArray material;
+layout(binding = 0) uniform samplerCube elevationmap;
+layout(binding = 1) uniform sampler2DArray material;
 
 //uniform vec2 lo;
 //uniform vec2 hi;
@@ -58,8 +58,8 @@ float ridgenoise(vec2 t, int freq) {
     return  2.0*(0.5 - abs( 0.5 - snoise( t*(1<<freq)*16.0 ) ));
 }
 
-#define EFFECTIVE_HEIGHT_SYNTHETIC (0.001)
-#define EFFECTIVE_HEIGHT (0.001)
+#define EFFECTIVE_HEIGHT_SYNTHETIC (0.0005)
+#define EFFECTIVE_HEIGHT (0.002)
 
 vec3 convertToDeformed(vec2 t)
 {
@@ -101,7 +101,7 @@ float calc_height(vec2 pixel)
 
     for(int i = 1; i < 8; i++)
     {
-        density += ridgenoises3( pixel,i ) * density / float(1<<i);
+        density += ridgenoises3( pixel,i + 2 ) * density / float(1<<i);
     }
 
     density /= 2.0;
@@ -114,16 +114,13 @@ float calc_height(vec2 pixel)
     //vec2 offset = 0.5/vec2(ELEVATION_MAP_RESOLUTION);
     //vec2 cpixel = offset + pixel*(1.0f - 2.0f*offset);
 
-    density += EFFECTIVE_HEIGHT*(texture( elevationmap,  vec3(convertToDeformed(pixel)) ).r);
+    density += 2.0f*EFFECTIVE_HEIGHT*(texture( elevationmap,  vec3(convertToSphere(pixel)) ).r - 0.5f);
 
     // Bound height
-    density = clamp(density,0.0,EFFECTIVE_HEIGHT);
+    density = clamp(density,-EFFECTIVE_HEIGHT,EFFECTIVE_HEIGHT);
 
     return density;
 }
-
-
-
 
 
 void main()
@@ -139,14 +136,30 @@ void main()
     //pixel = lo + ( pixel )*(hi-lo); // [lo, hi]
     //pixel = dpos(hash) + 2.0*pixel/double(1<<level);
 
-    // Procedure
+    // compute color
     float height = calc_height(pixel);
 
     vec3 color = mix(textureLod( material,
-                                 vec3(pixel*(1<<15), 12.45f*height/EFFECTIVE_HEIGHT), 15-level ).rgb,
-                     vec3(0.2,0.2,0.7), clamp(tanh(5e-4f/(height/EFFECTIVE_HEIGHT+5e-5f))-0.1f,0,1));
+                                 vec3(pixel*(1<<15), 16.45f*height/EFFECTIVE_HEIGHT), 15-level ).rgb,
+                     vec3(0.2,0.2,0.7), clamp(tanh(-10.0/(height/EFFECTIVE_HEIGHT))-0.1f,0,1));
 
-    imageStore(albedo, p, vec4(color,1.0f));
+    // compute normal
+    // may convert to non-euclidian space before computing the actual value
+    vec2 s = (2.0/(1<<level))/vec2(ALBEDO_MAP_X, ALBEDO_MAP_Y);
+    vec2 t1 = vec2(pixel) + vec2(0.5f,0.0f)*s;
+    vec2 t2 = vec2(pixel) - vec2(0.5f,0.0f)*s;
+    vec2 t3 = vec2(pixel) + vec2(0.0f,0.5f)*s;
+    vec2 t4 = vec2(pixel) - vec2(0.0f,0.5f)*s;
+
+    // care must be taken to avoid gradient explosion
+    vec3 e1 = vec3(1.0f, (calc_height(t1) - calc_height(t2))/s.x, 0);
+    vec3 e2 = vec3(0, (calc_height(t3) - calc_height(t4))/s.y, 1.0f);
+
+    vec3 n = normalize(-cross(e1,e2));
+
+    // output
+    imageStore(albedo, p, vec4(color, 1.0f));
+    imageStore(normal, p, vec4(n, 1.0f));
 
 }
 

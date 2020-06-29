@@ -81,7 +81,9 @@ void Atmosphere::drawGround(Camera& camera)
     pGroundShader.setInt("heightmapParent", 1);
     pGroundShader.setInt("s2Tex1", 2);
     pGroundShader.setInt("s2Tex2", 3);
-    pGroundShader.setInt("opticalTex", 4);
+    pGroundShader.setInt("normalmap", 4);
+    pGroundShader.setInt("normalmapParent", 5);
+    pGroundShader.setInt("opticalTex", 6);
     pGroundShader.setInt("s2TexTest", 10);
 
 
@@ -89,7 +91,7 @@ void Atmosphere::drawGround(Camera& camera)
     pGroundShader.setMat4("m4ModelViewProjectionMatrix",
                            m_3DCamera.GetFrustumMatrix() );
 
-    glActiveTexture(GL_TEXTURE4);
+    glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
 
     m_tEarth.draw(pGroundShader, camera);
@@ -126,13 +128,13 @@ void Atmosphere::drawSky(Camera& camera)
         pSkyShader.setFloat("fScaleOverScaleDepth", (1.0f / (m_fOuterRadius - m_fInnerRadius)) / m_fRayleighScaleDepth);
         pSkyShader.setFloat("g", m_g);
         pSkyShader.setFloat("g2", m_g*m_g);
-        pSkyShader.setInt("opticalTex", 4);
+        pSkyShader.setInt("opticalTex", 6);
 
 
         pSkyShader.setMat4("m4ModelViewProjectionMatrix",
                             m_3DCamera.GetFrustumMatrix() );
 
-        glActiveTexture(GL_TEXTURE4);
+        glActiveTexture(GL_TEXTURE6);
         glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
 
 

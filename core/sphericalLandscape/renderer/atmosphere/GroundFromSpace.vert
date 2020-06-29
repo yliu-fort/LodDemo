@@ -14,8 +14,9 @@ layout (location = 2) in vec2 aTexCoords;
 
 out vec3 v3FrontColor;
 out vec3 v3FrontSecondaryColor;
+out vec3 skyTransmittence;
 out vec3 FragPos;
-out vec3 Normal;
+//out vec3 Normal;
 out vec2 TexCoords;
 
 out float blendNearFar;
@@ -81,7 +82,7 @@ vec2 computeSharedPixel(ivec2 texel, int code)
 }
 
 
-void getNormalAndHeightData(out float h, out vec3 n)
+float getNormalAndHeightData()
 {
     ivec2 texel = ivec2(floor(aTexCoords*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)));
 
@@ -91,19 +92,23 @@ void getNormalAndHeightData(out float h, out vec3 n)
     //float d = max(abs(gPos.x - v3CameraProjectedPos.x),abs(gPos.y - v3CameraProjectedPos.z));
     //float l = 0.5f*dot(hi-lo, vec2(1));
     float d_l = max(abs(gPos.x),abs(gPos.y))*(1<<level)/2;
-    blendNearFar = clamp((d_l-K-1)/(K-1),0,1);
+    blendNearFar = clamp((d_l-K-1.0f)/(K-1.0f),0.0f,1.0f);
 
     // get values
     vec4 data = mix( texelFetch(heightmap, texel, 0), texture(heightmapParent, computeSharedPixel(texel, hash)), blendNearFar );
 
-    h = data.r;
-    n = normalize(vec3(m4ModelMatrix*vec4(data.gba,0.0f)));
+    return data.r;
+    //n = normalize(vec3(m4ModelMatrix*vec4(data.gba,0.0f)));
+}
+
+vec3 projectToS3()
+{
+    return normalize(vec3(m4CubeProjMatrix*vec4(aPos,1.0f)));
 }
 
 vec3 projectVertexOntoSphere(float h)
 {
-    vec3 q = vec3(m4CubeProjMatrix*vec4(aPos,1.0f));
-    return vec3( m4ModelMatrix*vec4( (1.0+h)*normalize(q),1.0f ) );
+    return vec3( m4ModelMatrix*vec4( (1.0+h)*projectToS3(),1.0f ) );
 }
 
 float scale(float fCos)
@@ -123,8 +128,9 @@ vec2 getRayleigh(float fCos, float fHeight)
 void main()
 {
     // Retrieve elevation and normal from texture
-    float elevation = 0;
-    getNormalAndHeightData(elevation, Normal);
+    FragPos = projectToS3();
+    float elevation = getNormalAndHeightData();
+
 
     // Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
     vec3 v3Pos = projectVertexOntoSphere(elevation);
@@ -175,14 +181,13 @@ void main()
     v3FrontColor = v3FrontColor * (v3InvWavelength * fKrESun + fKmESun);
 
     // Compute transmittence
-    float fCosAlpha = clamp(dot(v3LightDir, Normal), 0.0, 1.0);
-    float fCosBeta = clamp(0.1 + dot(v3Pos, Normal) / fHeight, 0.0, 1.0);
-    vec3 skyTransmittence = exp(-(getRayleigh(fCameraAngle, fHeight).y - fStartOffset) * (v3InvWavelength * fKr4PI + fKm4PI));
+    //float fCosAlpha = clamp(dot(v3LightDir, Normal), 0.0, 1.0);
+    //float fCosBeta = clamp(0.1 + dot(v3Pos, Normal) / fHeight, 0.0, 1.0);
+    skyTransmittence = vec3(0.0,0.05,0.2)*exp(-(getRayleigh(fCameraAngle, fHeight).y - fStartOffset) * (v3InvWavelength * fKr4PI + fKm4PI));
 
-    v3FrontSecondaryColor = fCosAlpha * v3Attenuate * fESun / PI + vec3(0.0,0.05,0.2)*fCosBeta*skyTransmittence;
+    v3FrontSecondaryColor = v3Attenuate * fESun / PI;
 
     gl_Position = m4ModelViewProjectionMatrix * vec4(v3Pos,1.0);
-    FragPos = v3Pos;
     TexCoords = aTexCoords;
 
 }

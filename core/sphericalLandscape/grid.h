@@ -27,7 +27,7 @@ public:
     Node* child[4];
     Node* parent;
     uint heightmap;
-    uint appearance;
+    uint appearance, normal;
 
     int morton = 0;
 
@@ -111,7 +111,7 @@ public:
     static uint NODE_COUNT;
     static uint INTERFACE_NODE_COUNT;
     static bool USE_CACHE;
-    static std::vector<std::tuple<uint,uint>> CACHE;
+    static std::vector<std::tuple<uint,uint,uint>> CACHE;
 };
 
 #endif
