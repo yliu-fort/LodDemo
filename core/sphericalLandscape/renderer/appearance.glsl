@@ -2,6 +2,11 @@
 #define ALBEDO_MAP_X (127)
 #define ALBEDO_MAP_Y (127)
 #define PI (3.141592654)
+#define FLT_MAX (3.402823466e+38)
+#define FLT_MIN (1.175494351e-38)
+#define DBL_MAX (1.7976931348623158e+308)
+#define DBL_MIN (2.2250738585072014e-308)
+
 // Kernel
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
@@ -139,12 +144,13 @@ void main()
     // compute color
     float height = calc_height(pixel);
 
-    vec3 color = mix(textureLod( material,
-                                 vec3(pixel*(1<<15), 16.45f*height/EFFECTIVE_HEIGHT), 15-level ).rgb,
-                     vec3(0.2,0.2,0.7), clamp(tanh(-10.0/(height/EFFECTIVE_HEIGHT))-0.1f,0,1));
+    vec4 color = mix(vec4(textureLod( material,
+                                 vec3(pixel*(1<<15), 16.45f*height/EFFECTIVE_HEIGHT), 15-level ).rgb, 0.0f),
+                     vec4(0.0,0.21,0.47,1.0), clamp(tanh(-10.0/(height/EFFECTIVE_HEIGHT))-0.1f,0,1));
 
     // compute normal
     // may convert to non-euclidian space before computing the actual value
+    // Claim: slope between 2 pixels won't exceed 45 degree.
     vec2 s = (2.0/(1<<level))/vec2(ALBEDO_MAP_X, ALBEDO_MAP_Y);
     vec2 t1 = vec2(pixel) + vec2(0.5f,0.0f)*s;
     vec2 t2 = vec2(pixel) - vec2(0.5f,0.0f)*s;
@@ -158,7 +164,7 @@ void main()
     vec3 n = normalize(-cross(e1,e2));
 
     // output
-    imageStore(albedo, p, vec4(color, 1.0f));
+    imageStore(albedo, p, color);
     imageStore(normal, p, vec4(n, 1.0f));
 
 }

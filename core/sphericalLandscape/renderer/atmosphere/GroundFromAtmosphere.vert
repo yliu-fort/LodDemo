@@ -16,7 +16,7 @@ out vec3 v3FrontColor;
 out vec3 v3FrontSecondaryColor;
 out vec3 skyTransmittence;
 out vec3 FragPos;
-//out vec3 Normal;
+out vec3 sampleCubeDir;
 out vec2 TexCoords;
 
 out float blendNearFar;
@@ -131,7 +131,6 @@ vec2 getRayleigh(float fCos, float fHeight)
 void main()
 {
     // Retrieve elevation and normal from texture
-    FragPos = projectToS3();
     float elevation = getNormalAndHeightData();
     //rotateVectorByQuat(Normal, RotationBetweenVectors(vec3(0,1,0), FragPos));
 
@@ -193,5 +192,7 @@ void main()
 
     gl_Position = m4ModelViewProjectionMatrix * vec4(v3Pos,1.0);
     TexCoords = aTexCoords;
+    FragPos = v3Pos;
+    sampleCubeDir = projectToS3();
 
 }

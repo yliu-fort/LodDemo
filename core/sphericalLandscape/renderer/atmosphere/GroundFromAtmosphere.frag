@@ -13,7 +13,7 @@ in vec3 v3FrontColor; // InScatter
 in vec3 v3FrontSecondaryColor; // Transmittence
 in vec3 skyTransmittence;
 in vec3 FragPos;
-//in vec3 Normal;
+in vec3 sampleCubeDir;
 in vec2 TexCoords;
 
 in float blendNearFar;
@@ -31,7 +31,7 @@ uniform int level;
 uniform int hash;
 uniform int renderType;
 
-vec2 getRello(int code)
+vec2 getSharedLower(int code)
 {
 
     code >>= (2*(level-1));
@@ -43,18 +43,24 @@ void rotateVectorByQuat(inout vec3 v, in vec4 q);
 
 void main ()
 {
-    vec2 shTexcoord = getRello(hash)+TexCoords/(1.0f + float(level > 0));
+    vec2 shTexcoord = getSharedLower(hash)+TexCoords/(1.0f + float(level > 0));
 
-    // compute radiance
+    // compute lighting
     vec3 normal = mix(texture(normalmap, TexCoords).xyz, texture(normalmapParent, shTexcoord).xyz, blendNearFar);
     float fCosBeta = clamp(0.1 + dot(vec3(0,1,0), normal), 0.0, 1.0);
+    rotateVectorByQuat(normal, RotationBetweenVectors(vec3(0,0,1), vec3(FragPos.x,0,FragPos.z)));
     rotateVectorByQuat(normal, RotationBetweenVectors(vec3(0,1,0), FragPos));
     float fCosAlpha = clamp(dot(v3LightDir, normal), 0.0, 1.0);
 
+    vec3 reflectDir = reflect(-v3LightDir, normal);
+    float spec = 0.2f*mix(texture( s2Tex1, TexCoords ).a,
+                     texture( s2Tex2, shTexcoord ).a,
+                     blendNearFar) * pow(max(dot(normalize(v3CameraPos - FragPos), reflectDir), 0.0), 128.0);
+
     // Compute albedo
-    vec3 albedo = 0.2*mix(texture( s2Tex1, TexCoords ).rgb,
-                texture( s2Tex2, shTexcoord ).rgb,
-                blendNearFar);
+    vec3 albedo = 0.2f*mix(texture( s2Tex1, TexCoords ).rgb,
+                           texture( s2Tex2, shTexcoord ).rgb,
+                           blendNearFar);
 
     if(renderType == 1)
     {
@@ -66,15 +72,17 @@ void main ()
     }
     else if(renderType == 2)
     {
-        albedo = normal;
+        albedo = clamp(normal,0.0,1.0);
     }
     else if(renderType == 3)
     {
-        albedo = 0.2*texture( s2TexTest, FragPos ).rgb;
+        albedo = 0.2*texture( s2TexTest, sampleCubeDir ).rgb;
     }
 
     // Sum color
-    color.rgb = v3FrontColor + albedo * (fCosAlpha * v3FrontSecondaryColor + fCosBeta*skyTransmittence);
+    color.rgb = v3FrontColor
+            + albedo * (fCosAlpha * v3FrontSecondaryColor + fCosBeta*skyTransmittence)
+            + spec * v3FrontSecondaryColor;
 
     color.a = 1.0f;
 }
@@ -88,8 +96,8 @@ void rotateVectorByQuat(inout vec3 v, in vec4 q)
 
 // Inputs have to be normalized vector
 vec4 RotationBetweenVectors(vec3 start, vec3 dest){
-    //start = normalize(start);
-    //dest = normalize(dest);
+    start = normalize(start);
+    dest = normalize(dest);
 
     float cosTheta = dot(start, dest);
     vec3 rotationAxis;
