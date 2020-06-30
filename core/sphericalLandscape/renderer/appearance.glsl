@@ -158,8 +158,12 @@ void main()
     vec2 t4 = vec2(pixel) - vec2(0.0f,0.5f)*s;
 
     // care must be taken to avoid gradient explosion
-    vec3 e1 = vec3(1.0f, (calc_height(t1) - calc_height(t2))/s.x, 0);
-    vec3 e2 = vec3(0, (calc_height(t3) - calc_height(t4))/s.y, 1.0f);
+    // need gradient reconstruction
+    //vec3 e1 = vec3(1.0f, (calc_height(t1) - calc_height(t2))/s.x, 0);
+    //vec3 e2 = vec3(0, (calc_height(t3) - calc_height(t4))/s.y, 1.0f);
+
+    vec3 e1 = (1.0 + calc_height(t1))*convertToSphere(t1) - (1.0 + calc_height(t2))*convertToSphere(t2);
+    vec3 e2 = (1.0 + calc_height(t3))*convertToSphere(t3) - (1.0 + calc_height(t4))*convertToSphere(t4);
 
     vec3 n = normalize(-cross(e1,e2));
 

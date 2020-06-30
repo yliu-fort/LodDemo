@@ -86,7 +86,7 @@ void cubeAssetInit()
 
 void cubeAssetTilesInit()
 {
-    elevationTex = loadCubemapLarge(FP("../../resources/Earth/Bump/"),".png",2);
+    elevationTex = loadCubemapLarge(FP("../../resources/Earth/Bump/"),".png", 1);
 }
 
 void Node::init()

@@ -18,6 +18,7 @@ out vec3 skyTransmittence;
 out vec3 FragPos;
 out vec3 sampleCubeDir;
 out vec2 TexCoords;
+out vec3 sampleTangentDir;
 
 out float blendNearFar;
 

@@ -18,6 +18,7 @@ out vec3 skyTransmittence;
 out vec3 FragPos;
 out vec3 sampleCubeDir;
 out vec2 TexCoords;
+out vec3 sampleTangentDir;
 
 out float blendNearFar;
 
@@ -111,6 +112,16 @@ vec3 projectVertexOntoSphere(float h)
     return vec3( m4ModelMatrix*vec4( (1.0+h)*projectToS3(),1.0f ) );
 }
 
+vec3 projectToS3v(vec3 v)
+{
+    return normalize(vec3(m4CubeProjMatrix*vec4(v,0.0f)));
+}
+
+vec3 projectVertexOntoSpherev(vec3 v)
+{
+    return normalize(vec3( m4ModelMatrix*vec4( projectToS3v(v),0.0f ) ));
+}
+
 float scale(float fCos)
 {
     float x = 1.0 - fCos;
@@ -191,4 +202,6 @@ void main()
     FragPos = v3Pos;
     sampleCubeDir = projectToS3();
 
+    vec2 gpos = dpos(hash) + 2*aPos.xz/(1<<level);
+    sampleTangentDir = (vec3(gpos.x,1.0,gpos.y));
 }

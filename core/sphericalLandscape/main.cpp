@@ -129,7 +129,7 @@ int main()
         FP("../../resources/Earth/Surface/neg_z/0_0_0_c.jpg")
     };
     //uint test_img1 = loadCubemap(faces);
-    uint test_img1 = loadCubemapLarge(FP("../../resources/Earth/Surface/"),"_c.jpg",1);
+    uint test_img1 = loadCubemapLarge(FP("../../resources/Earth/Surface/"),"_c.jpg", 1);
     glActiveTexture(GL_TEXTURE10);
     glBindTexture(GL_TEXTURE_CUBE_MAP, test_img1);
 

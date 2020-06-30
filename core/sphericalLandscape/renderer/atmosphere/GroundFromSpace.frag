@@ -18,6 +18,8 @@ in vec2 TexCoords;
 
 in float blendNearFar;
 
+uniform mat4 m4CubeProjMatrix;
+uniform mat4 m4ModelMatrix;
 uniform sampler2D s2Tex1;               // diffusive - 2
 uniform sampler2D s2Tex2;               // specular - 3
 uniform sampler2D normalmap;               // normal
@@ -38,18 +40,36 @@ vec2 getSharedLower(int code)
     return 0.5f*vec2((code>>1)&1, (code)&1);
 }
 
+vec3 projectToS3v(vec3 v)
+{
+    return normalize(vec3(m4CubeProjMatrix*vec4(v,0.0f)));
+}
+
+vec3 projectVertexOntoSpherev(vec3 v)
+{
+    return normalize(vec3( m4ModelMatrix*vec4( projectToS3v(v),0.0f ) ));
+}
+
 vec4 RotationBetweenVectors(vec3 start, vec3 dest);
-void rotateVectorByQuat(inout vec3 v, in vec4 q);
+vec3 rotateVectorByQuat(vec3 v, in vec4 q);
 
 void main ()
 {
     vec2 shTexcoord = getSharedLower(hash)+TexCoords/(1.0f + float(level > 0));
 
-    // compute lighting
+    // compute lighting (bug: normal correction is incorrect)
     vec3 normal = mix(texture(normalmap, TexCoords).xyz, texture(normalmapParent, shTexcoord).xyz, blendNearFar);
     float fCosBeta = clamp(0.1 + dot(vec3(0,1,0), normal), 0.0, 1.0);
-    rotateVectorByQuat(normal, RotationBetweenVectors(vec3(0,0,1), vec3(FragPos.x,0,FragPos.z)));
-    rotateVectorByQuat(normal, RotationBetweenVectors(vec3(0,1,0), FragPos));
+
+    //vec3 up = rotateVectorByQuat(vec3(0,1,0), RotationBetweenVectors(vec3(0,1,0), FragPos));
+    //vec3 right = rotateVectorByQuat(vec3(1,0,0), RotationBetweenVectors(vec3(0,1,0), FragPos));
+    //vec3 tangent = projectVertexOntoSpherev(vec3(1,0,0)); // problematic
+    //vec3 bitangent = cross(tangent, up);
+    //vec3 desiredTangent = cross(bitangent, up);
+
+    //normal = rotateVectorByQuat(normal, RotationBetweenVectors(vec3(0,1,0), FragPos));
+    normal = normalize(vec3( m4ModelMatrix*vec4( normal,0.0f ) ));
+
     float fCosAlpha = clamp(dot(v3LightDir, normal), 0.0, 1.0);
 
     vec3 reflectDir = reflect(-v3LightDir, normal);
@@ -64,11 +84,7 @@ void main ()
 
     if(renderType == 1)
     {
-        albedo = vec3(blendNearFar);
-        if(blendNearFar == 0.0)
-            albedo = vec3(0,1,0);
-        if(blendNearFar == 1.0)
-            albedo = vec3(0,0,1);
+        albedo = vec3(fCosAlpha);
     }
     else if(renderType == 2)
     {
@@ -88,10 +104,10 @@ void main ()
 }
 
 // rotate vector v by quaternion q; see info [1]
-void rotateVectorByQuat(inout vec3 v, in vec4 q)
+vec3 rotateVectorByQuat(vec3 v, vec4 q)
 {
     vec3 t = 2 * cross(q.xyz, v);
-    v = v + q.w * t + cross(q.xyz, t);
+    return v + q.w * t + cross(q.xyz, t);
 }
 
 // Inputs have to be normalized vector
