@@ -172,19 +172,22 @@ void main()
     vec2 t4 = vec2(pixel) + vec2(0.0f,1.0f)*s;
 
 
-    vec3 e1 = vec3(-2.0f*s.x, calc_height(t1) - calc_height(t2), 0);
-    vec3 e2 = vec3(0, calc_height(t3) - calc_height(t4), -2.0f*s.y);
+    //vec3 e1 = vec3(-2.0f*s.x, calc_height(t1) - calc_height(t2), 0);
+    //vec3 e2 = vec3(0, calc_height(t3) - calc_height(t4), -2.0f*s.y);
 
     //vec3 e1 = (1.0 + calc_height(t1))*convertToSphere(t1) - (1.0 + calc_height(t2))*convertToSphere(t2);
     //vec3 e2 = (1.0 + calc_height(t3))*convertToSphere(t3) - (1.0 + calc_height(t4))*convertToSphere(t4);
 
-    vec3 normal = normalize(-cross(e1,e2));
+    //vec3 normal = normalize(-cross(e1,e2));
     //normal = normalize(vec3(globalMatrix*vec4(normal,1.0f)));
+
+    // Compute tangent
+    vec3 tangent = normalize( -convertToSphere(t1) + convertToSphere(t2));
 
     //debug
     //float height = EFFECTIVE_HEIGHT*texture(noise,  pixel ).r;
 
-    imageStore(heightmap, p, vec4(height,normal));
+    imageStore(heightmap, p, vec4(height,tangent));
 
 }
 

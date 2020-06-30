@@ -83,7 +83,7 @@ vec2 computeSharedPixel(ivec2 texel, int code)
 }
 
 
-float getNormalAndHeightData()
+float getNormalAndHeightData(out vec3 tangent)
 {
     ivec2 texel = ivec2(floor(aTexCoords*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)));
 
@@ -99,7 +99,7 @@ float getNormalAndHeightData()
     vec4 data = mix( texelFetch(heightmap, texel, 0), texture(heightmapParent, computeSharedPixel(texel, hash)), blendNearFar );
 
     return data.r;
-    //n = normalize(vec3(m4ModelMatrix*vec4(data.gba,0.0f)));
+    tangent = normalize(vec3(m4ModelMatrix*vec4(data.gba,0.0f)));
 }
 
 vec3 projectToS3()
@@ -139,7 +139,7 @@ vec2 getRayleigh(float fCos, float fHeight)
 void main()
 {
     // Retrieve elevation and normal from texture
-    float elevation = getNormalAndHeightData();
+    float elevation = getNormalAndHeightData(sampleTangentDir);
 
 
     // Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
@@ -202,6 +202,4 @@ void main()
     FragPos = v3Pos;
     sampleCubeDir = projectToS3();
 
-    vec2 gpos = dpos(hash) + 2*aPos.xz/(1<<level);
-    sampleTangentDir = (vec3(gpos.x,1.0,gpos.y));
 }
