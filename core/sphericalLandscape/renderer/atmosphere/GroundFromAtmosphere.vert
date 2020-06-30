@@ -99,8 +99,9 @@ float getNormalAndHeightData(out vec3 tangent)
     // get values
     vec4 data = mix( texelFetch(heightmap, texel, 0), texture(heightmapParent, computeSharedPixel(texel, hash)), blendNearFar );
 
-    return data.r;
     tangent = normalize(vec3(m4ModelMatrix*vec4(data.gba,0.0f)));
+
+    return data.r;
 }
 
 vec3 projectToS3()

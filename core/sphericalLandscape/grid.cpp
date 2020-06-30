@@ -52,7 +52,7 @@ void cubeSeedInit()
             //else
             //    dataField.push_back(0);
             glm::vec3 data( 2400.0*tanh(0.0005*(10*((i - width/2.0)*(i - width/2.0) + (j- height/2.0)*(j - height/2.0))
-                                             /(float)width/(float)height-1.7)) );
+                                                /(float)width/(float)height-1.7)) );
             dataField.push_back( data );
         }
     }
@@ -75,11 +75,11 @@ void cubeAssetInit()
     std::vector<std::string> faces
     {
         FP("../../resources/textures/earth/se/surface_bump_pos_x.jpg"),
-        FP("../../resources/textures/earth/se/surface_bump_neg_x.jpg"),
-        FP("../../resources/textures/earth/se/surface_bump_pos_y.jpg"),
-        FP("../../resources/textures/earth/se/surface_bump_neg_y.jpg"),
-        FP("../../resources/textures/earth/se/surface_bump_pos_z.jpg"),
-        FP("../../resources/textures/earth/se/surface_bump_neg_z.jpg")
+                FP("../../resources/textures/earth/se/surface_bump_neg_x.jpg"),
+                FP("../../resources/textures/earth/se/surface_bump_pos_y.jpg"),
+                FP("../../resources/textures/earth/se/surface_bump_neg_y.jpg"),
+                FP("../../resources/textures/earth/se/surface_bump_pos_z.jpg"),
+                FP("../../resources/textures/earth/se/surface_bump_neg_z.jpg")
     };
     elevationTex = loadCubemap(faces);
 }
@@ -455,6 +455,7 @@ int Node::search(glm::vec2 p) const
 }
 float Node::min_elevation() const
 {
+#if 1
     std::vector<float> heightData(HEIGHT_MAP_X*HEIGHT_MAP_Y);
 
     // read texture
@@ -462,9 +463,13 @@ float Node::min_elevation() const
 
     auto min = std::min_element(heightData.begin(),heightData.end());
     return *min;
+#else
+    return 0;
+#endif
 }
 float Node::get_elevation(const glm::vec2& pos) const
 {
+#if 1
     // pos must located inside this grid
     // use queryGrid() before call this function
     // Caution: getTextureImage is SUPER HEAVY
@@ -480,6 +485,9 @@ float Node::get_elevation(const glm::vec2& pos) const
                          0,xoffset,yoffset,0,1,1,1,GL_RED,GL_FLOAT,HEIGHT_MAP_X*HEIGHT_MAP_Y*sizeof(float),&height);
 
     return height;
+#else
+    return 0;
+#endif
 }
 void Node::set_elevation()
 {

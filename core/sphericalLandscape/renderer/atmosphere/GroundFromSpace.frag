@@ -7,7 +7,6 @@
 // Copyright (c) 2004 Sean O'Neil
 //
 
-#define quat vec4
 out vec4 color;
 
 in vec3 v3FrontColor; // InScatter
@@ -42,9 +41,9 @@ vec2 getSharedLower(int code)
     return 0.5f*vec2((code>>1)&1, (code)&1);
 }
 
-quat RotationBetweenVectors(vec3 start, vec3 dest);
-quat RotationBetweenVectorsAxis(vec3 start, vec3 dest, vec3 hintAxis);
-vec3 rotateVectorByQuat(vec3 v, in quat q);
+vec4 RotationBetweenVectors(vec3 start, vec3 dest);
+vec4 RotationBetweenVectorsAxis(vec3 start, vec3 dest, vec3 hintAxis);
+void rotateVectorByQuat(inout vec3 v, in vec4 q);
 
 void main ()
 {
@@ -54,11 +53,12 @@ void main ()
     vec3 normal = mix(texture(normalmap, TexCoords).xyz, texture(normalmapParent, shTexcoord).xyz, blendNearFar);
     float fCosBeta = clamp(0.1 + dot(vec3(0,1,0), normal), 0.0, 1.0);
 
-    quat rotToFragPos = RotationBetweenVectors(vec3(0,1,0), FragPos);
-    vec3 tangent = rotateVectorByQuat(vec3(1,0,0), rotToFragPos);
+    vec4 rotToFragPos = RotationBetweenVectors(vec3(0,1,0), FragPos);
+    vec3 tangent = vec3(1,0,0);
+    rotateVectorByQuat(tangent, rotToFragPos);
 
-    normal = rotateVectorByQuat(normal, rotToFragPos);
-    normal = rotateVectorByQuat(normal, RotationBetweenVectorsAxis( tangent, sampleTangentDir, FragPos ));
+    rotateVectorByQuat(normal, rotToFragPos);
+    rotateVectorByQuat(normal, RotationBetweenVectorsAxis( tangent, sampleTangentDir, FragPos ));
 
     float fCosAlpha = clamp(dot(v3LightDir, normal), 0.0, 1.0);
 
@@ -78,7 +78,7 @@ void main ()
     }
     else if(renderType == 2)
     {
-        albedo = clamp(normal,0.0,1.0);
+        albedo = clamp(sampleTangentDir,0.0,1.0);
     }
     else if(renderType == 3)
     {
@@ -94,14 +94,14 @@ void main ()
 }
 
 // rotate vector v by quaternion q; see info [1]
-vec3 rotateVectorByQuat(vec3 v, quat q)
+void rotateVectorByQuat(inout vec3 v, in vec4 q)
 {
     vec3 t = 2 * cross(q.xyz, v);
-    return v + q.w * t + cross(q.xyz, t);
+    v = v + q.w * t + cross(q.xyz, t);
 }
 
 // Inputs have to be normalized vector
-quat RotationBetweenVectors(vec3 start, vec3 dest){
+vec4 RotationBetweenVectors(vec3 start, vec3 dest){
     start = normalize(start);
     dest = normalize(dest);
 
@@ -117,7 +117,7 @@ quat RotationBetweenVectors(vec3 start, vec3 dest){
             rotationAxis = cross(vec3(1.0f, 0.0f, 0.0f), start);
 
         rotationAxis = normalize(rotationAxis);
-        return quat(
+        return vec4(
                     rotationAxis.x,
                     rotationAxis.y,
                     rotationAxis.z,
@@ -130,7 +130,7 @@ quat RotationBetweenVectors(vec3 start, vec3 dest){
     float s = sqrt( (1+cosTheta)*2 );
     float invs = 1 / s;
 
-    return quat(
+    return vec4(
                 rotationAxis.x * invs,
                 rotationAxis.y * invs,
                 rotationAxis.z * invs,
@@ -140,7 +140,7 @@ quat RotationBetweenVectors(vec3 start, vec3 dest){
 }
 
 // Inputs have to be normalized vector
-quat RotationBetweenVectorsAxis(vec3 start, vec3 dest, vec3 hintAxis){
+vec4 RotationBetweenVectorsAxis(vec3 start, vec3 dest, vec3 hintAxis){
     start = normalize(start);
     dest = normalize(dest);
 
@@ -154,7 +154,7 @@ quat RotationBetweenVectorsAxis(vec3 start, vec3 dest, vec3 hintAxis){
         rotationAxis = hintAxis;
 
         rotationAxis = normalize(rotationAxis);
-        return quat(
+        return vec4(
                     rotationAxis.x,
                     rotationAxis.y,
                     rotationAxis.z,
