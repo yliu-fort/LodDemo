@@ -12,7 +12,7 @@
 
 #define HEIGHT_MAP_INTERNAL_FORMAT GL_RGBA32F
 #define HEIGHT_MAP_FORMAT GL_RGBA
-#define APPEARANCE_MAP_INTERNAL_FORMAT GL_RGBA16F
+#define APPEARANCE_MAP_INTERNAL_FORMAT GL_RGBA8
 
 static Shader upsampling, crackfixing, appearance_baking;
 static unsigned int noiseTex, elevationTex, materialTex;

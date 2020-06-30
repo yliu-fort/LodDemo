@@ -11,8 +11,8 @@
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 // Child heightmaP
-layout(rgba16f, binding = 0) uniform image2D albedo;
-layout(rgba16f, binding = 1) uniform image2D normal;
+layout(rgba8, binding = 0) uniform image2D albedo;
+layout(rgba8, binding = 1) uniform image2D normal;
 
 // Parent heightmap
 //layout(binding = 0) uniform sampler2D heightmap_parent;
@@ -162,7 +162,7 @@ void main()
     vec3 e1 = vec3(1.0f, (calc_height(t1) - calc_height(t2))/s.x, 0);
     vec3 e2 = vec3(0, (calc_height(t3) - calc_height(t4))/s.y, 1.0f);
 
-    vec3 n = normalize(-cross(e1,e2));
+    vec3 n = (1.0f + normalize(-cross(e1,e2)))*0.5f;
 
     // output
     imageStore(albedo, p, color);

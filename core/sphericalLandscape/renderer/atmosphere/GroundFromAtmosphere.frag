@@ -6,7 +6,6 @@
 //
 // Copyright (c) 2004 Sean O'Neil
 //
-
 #define quat vec4
 out vec4 color;
 
@@ -42,30 +41,26 @@ vec2 getSharedLower(int code)
     return 0.5f*vec2((code>>1)&1, (code)&1);
 }
 
-quat RotationBetweenVectors(vec3 start, vec3 dest);
-quat RotationBetweenVectorsAxis(vec3 start, vec3 dest, vec3 hintAxis);
-vec3 rotateVectorByQuat(vec3 v, in quat q);
+quat rotationBetweenVectors(vec3 start, vec3 dest);
+quat rotationBetweenVectorsHintAxis(vec3 start, vec3 dest, vec3 hintAxis);
+void rotateVectorByQuat(inout vec3 v, quat q);
+void tangentToViewSpace(inout vec3 v);
 
 void main ()
 {
     vec2 shTexcoord = getSharedLower(hash)+TexCoords/(1.0f + float(level > 0));
 
     // compute lighting (bug: normal correction is incorrect)
-    vec3 normal = mix(texture(normalmap, TexCoords).xyz, texture(normalmapParent, shTexcoord).xyz, blendNearFar);
-    float fCosBeta = clamp(0.1 + dot(vec3(0,1,0), normal), 0.0, 1.0);
+    vec3 normal = 2.0f * mix(texture(normalmap, TexCoords).xyz, texture(normalmapParent, shTexcoord).xyz, blendNearFar) - 1.0f;
+    float fCosBeta = clamp(0.1f + dot(vec3(0,1,0), normal), 0.0f, 1.0f);
 
-    quat rotToFragPos = RotationBetweenVectors(vec3(0,1,0), FragPos);
-    vec3 tangent = rotateVectorByQuat(vec3(1,0,0), rotToFragPos);
-
-    normal = rotateVectorByQuat(normal, rotToFragPos);
-    normal = rotateVectorByQuat(normal, RotationBetweenVectorsAxis( tangent, sampleTangentDir, FragPos ));
-
-    float fCosAlpha = clamp(dot(v3LightDir, normal), 0.0, 1.0);
+    tangentToViewSpace(normal);
+    float fCosAlpha = clamp(dot(v3LightDir, normal), 0.0f, 1.0f);
 
     vec3 reflectDir = reflect(-v3LightDir, normal);
     float spec = 0.2f*mix(texture( s2Tex1, TexCoords ).a,
                      texture( s2Tex2, shTexcoord ).a,
-                     blendNearFar) * pow(max(dot(normalize(v3CameraPos - FragPos), reflectDir), 0.0), 128.0);
+                     blendNearFar) * pow(max(dot(normalize(v3CameraPos - FragPos), reflectDir), 0.0f), 128.0f);
 
     // Compute albedo
     vec3 albedo = 0.2f*mix(texture( s2Tex1, TexCoords ).rgb,
@@ -93,15 +88,25 @@ void main ()
     color.a = 1.0f;
 }
 
+void tangentToViewSpace(inout vec3 v)
+{
+    vec3 tangent = vec3(1,0,0);
+    quat rotToFragPos = rotationBetweenVectors(vec3(0,1,0), FragPos);
+
+    rotateVectorByQuat(tangent, rotToFragPos);
+    rotateVectorByQuat(v, rotToFragPos);
+    rotateVectorByQuat(v, rotationBetweenVectorsHintAxis( tangent, sampleTangentDir, FragPos ));
+}
+
 // rotate vector v by quaternion q; see info [1]
-vec3 rotateVectorByQuat(vec3 v, quat q)
+void rotateVectorByQuat(inout vec3 v, quat q)
 {
     vec3 t = 2 * cross(q.xyz, v);
-    return v + q.w * t + cross(q.xyz, t);
+    v = v + q.w * t + cross(q.xyz, t);
 }
 
 // Inputs have to be normalized vector
-quat RotationBetweenVectors(vec3 start, vec3 dest){
+quat rotationBetweenVectors(vec3 start, vec3 dest){
     start = normalize(start);
     dest = normalize(dest);
 
@@ -140,7 +145,7 @@ quat RotationBetweenVectors(vec3 start, vec3 dest){
 }
 
 // Inputs have to be normalized vector
-quat RotationBetweenVectorsAxis(vec3 start, vec3 dest, vec3 hintAxis){
+quat rotationBetweenVectorsHintAxis(vec3 start, vec3 dest, vec3 hintAxis){
     start = normalize(start);
     dest = normalize(dest);
 
@@ -162,6 +167,6 @@ quat RotationBetweenVectorsAxis(vec3 start, vec3 dest, vec3 hintAxis){
                     );
     }
 
-    return RotationBetweenVectors(start, dest);
+    return rotationBetweenVectors(start, dest);
 
 }

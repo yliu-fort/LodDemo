@@ -119,15 +119,15 @@ int main()
 
     // read debug texture
     //unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
-    std::vector<std::string> faces
-    {
-        FP("../../resources/Earth/Surface/pos_x/0_0_0_c.jpg"),
-        FP("../../resources/Earth/Surface/neg_x/0_0_0_c.jpg"),
-        FP("../../resources/Earth/Surface/pos_y/0_0_0_c.jpg"),
-        FP("../../resources/Earth/Surface/neg_y/0_0_0_c.jpg"),
-        FP("../../resources/Earth/Surface/pos_z/0_0_0_c.jpg"),
-        FP("../../resources/Earth/Surface/neg_z/0_0_0_c.jpg")
-    };
+    //std::vector<std::string> faces
+    //{
+    //    FP("../../resources/Earth/Surface/pos_x/0_0_0_c.jpg"),
+    //    FP("../../resources/Earth/Surface/neg_x/0_0_0_c.jpg"),
+    //    FP("../../resources/Earth/Surface/pos_y/0_0_0_c.jpg"),
+    //    FP("../../resources/Earth/Surface/neg_y/0_0_0_c.jpg"),
+    //    FP("../../resources/Earth/Surface/pos_z/0_0_0_c.jpg"),
+    //    FP("../../resources/Earth/Surface/neg_z/0_0_0_c.jpg")
+    //};
     //uint test_img1 = loadCubemap(faces);
     uint test_img1 = loadCubemapLarge(FP("../../resources/Earth/Surface/"),"_c.jpg", 1);
     glActiveTexture(GL_TEXTURE10);
