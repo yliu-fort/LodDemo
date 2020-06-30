@@ -137,6 +137,14 @@ vec2 getRayleigh(float fCos, float fHeight)
     return texture(opticalTex, vec2(y,x)).xy;
 }
 
+void logarithmicDepthMapping(float far)
+{
+    // logarithmic depth mapping
+    float c = 1;
+    gl_Position.z = 2.0*log(gl_Position.w*c + 1)/log(far*c + 1) - 1;
+    gl_Position.z *= gl_Position.w;
+}
+
 void main()
 {
     // Retrieve elevation and normal from texture
@@ -203,4 +211,7 @@ void main()
     FragPos = v3Pos;
     sampleCubeDir = projectToS3();
 
+    // logarithmic depth mapping
+    // https://outerra.blogspot.com/2012/11/maximizing-depth-buffer-range-and.html
+    logarithmicDepthMapping(1000);
 }

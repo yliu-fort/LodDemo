@@ -63,6 +63,14 @@ vec2 getRayleigh(float fCos, float fHeight)
     return texture(opticalTex, vec2(y,x)).xy;
 }
 
+void logarithmicDepthMapping(float far)
+{
+    // logarithmic depth mapping
+    float c = 1;
+    gl_Position.z = 2.0*log(gl_Position.w*c + 1)/log(far*c + 1) - 1;
+    gl_Position.z *= gl_Position.w;
+}
+
 void main()
 {
 	// Get the ray from the camera to the vertex, and its length (which is the far point of the ray passing through the atmosphere)
@@ -112,4 +120,7 @@ void main()
         gl_Position = m4ModelViewProjectionMatrix * vec4(v3Pos,1.0);
         v3Direction = v3CameraPos - v3Pos;
 
+        // logarithmic depth mapping
+        // https://outerra.blogspot.com/2012/11/maximizing-depth-buffer-range-and.html
+        logarithmicDepthMapping(1000);
 }

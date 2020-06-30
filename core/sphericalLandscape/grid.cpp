@@ -28,9 +28,35 @@ std::vector<std::tuple<uint,uint,uint>> Node::CACHE;
 
 void renderGrid();
 void planeSeedInit();
-void cubeSeedInit();
 
-void cubeSeedInit()
+void cubeSeedInitZero()
+{
+    // prescribed elevation map
+    glGenTextures(1, &elevationTex);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    //Generate a distance field to the center of the cube
+    int width=256, height=256, nrChannels=3;
+
+    for(GLuint i = 0; i < 6; i++)
+    {
+        //data = stbi_load(textures_faces[i].c_str(), &width, &height, &nrChannels, 0);
+        glTexImage2D(
+                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, NULL
+                );
+    }
+
+    return;
+}
+
+void cubeSeedInitTanh()
 {
     // prescribed elevation map
     glGenTextures(1, &elevationTex);
@@ -91,7 +117,7 @@ void cubeAssetTilesInit()
 
 void Node::init()
 {
-    //cubeSeedInit();
+    //cubeSeedInitZero();
     //cubeAssetInit();
     cubeAssetTilesInit();
 
@@ -232,21 +258,11 @@ void Node::bake_appearance_map(glm::mat4 arg)
     glEnable(GL_TEXTURE_2D);
 
     appearance_baking.use();
-    //appearance_baking.setVec2("lo", this->lo);
-    //appearance_baking.setVec2("hi", this->hi);
 
     appearance_baking.setMat4("globalMatrix", arg);
 
     appearance_baking.setInt("level", this->level);
     appearance_baking.setInt("hash", this->morton);
-
-    // bind height map
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, appearance);
-
-    // bind noisemap (deprecated)
-    //glActiveTexture(GL_TEXTURE1);
-    //glBindTexture(GL_TEXTURE_2D, noiseTex);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
@@ -273,8 +289,6 @@ void Node::bake_height_map(glm::mat4 arg)
     glEnable(GL_TEXTURE_2D);
 
     upsampling.use();
-    //upsampling.setVec2("lo", lo);
-    //upsampling.setVec2("hi", hi);
 
     upsampling.setMat4("globalMatrix", arg);
 
@@ -284,10 +298,6 @@ void Node::bake_height_map(glm::mat4 arg)
     // bind height map
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, heightmap);
-
-    // bind noisemap (deprecated)
-    //glActiveTexture(GL_TEXTURE1);
-    //glBindTexture(GL_TEXTURE_2D, noiseTex);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);

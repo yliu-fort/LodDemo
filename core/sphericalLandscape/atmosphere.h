@@ -30,22 +30,33 @@ public:
     void init();
     Geocube& getGroundHandle() {return m_tEarth;}
     Geocube& getSkyHandle() {return m_tSky;}
+    Geocube& getOceanHandle() {return m_tOcean;}
     void drawGround(Camera& camera);
     void drawSky(Camera& camera);
+    void drawOcean(Camera& camera);
     void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float fRayleighScaleHeight, float fMieScaleHeight);
     void MakePhaseBuffer(float ESun, float Kr, float Km, float g);
     void update();
     void reset();
     void gui_interface();
-    void setHDR(Shader& hdrShader)
+    inline void setHDR(Shader& hdrShader)
     {
         hdrShader.setInt("hdr", m_fHdr);
         hdrShader.setFloat("exposure", m_fExposure);
+    }
+    inline float getInnerRadius() const { return this->m_fInnerRadius; }
+    inline float getOuterRadius() const { return this->m_fOuterRadius; }
+    inline bool inAtmosphere(const glm::vec3& pos) const
+    {
+        if(glm::length(pos) >= this->getOuterRadius())
+            return false;
+        return true;
     }
 
 protected:
     Shader& getGroundShader(const glm::vec3& pos);
     Shader& getSkyShader(const glm::vec3& pos);
+    Shader& getOceanShader(const glm::vec3& pos);
 
 private:
     Camera& m_3DCamera;
@@ -93,8 +104,10 @@ private:
     Shader m_shGroundFromAtmosphere ;
     Shader m_shSpaceFromSpace       ;
     Shader m_shSpaceFromAtmosphere  ;
+    Shader m_shOceanFromSpace       ;
+    Shader m_shOceanFromAtmosphere  ;
 
-    Geocube m_tEarth, m_tSky;
+    Geocube m_tEarth, m_tSky, m_tOcean;
 };
 
 #endif

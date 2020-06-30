@@ -133,6 +133,10 @@ int main()
     glActiveTexture(GL_TEXTURE10);
     glBindTexture(GL_TEXTURE_CUBE_MAP, test_img1);
 
+    //uint test_img2 = loadCubemapLarge(FP("../../resources/Earth/Surface/"),"_a.jpg", 1);
+    //glActiveTexture(GL_TEXTURE11);
+    //glBindTexture(GL_TEXTURE_CUBE_MAP, test_img2);
+
     // gen geocube
     //Geocube mesh;
     Atmosphere mesh(camera);
@@ -204,23 +208,18 @@ int main()
             glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 
         // Draw near ground
-        glDepthRange(0,0.1);
-        camera.Near = 0.004e-4;
-        camera.Far = camera.Near*1e3;
+        //glEnable(GL_DEPTH_CLAMP);
+        camera.Near = 0;
+        camera.Far = 1000;
         refcam.sync_frustrum();
-        mesh.drawGround(refcam);
 
-        // Draw far ground
-        glDepthRange(0.1,0.9);
-        camera.Near = 0.0002;
-        camera.Far = camera.Near*1e5;
-        refcam.sync_frustrum();
+        //mesh.drawOcean(refcam);
         mesh.drawGround(refcam);
-
         // Draw sky
         mesh.drawSky(refcam);
 
         // Restore options
+        //glDisable(GL_DEPTH_CLAMP);
         glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -240,7 +239,7 @@ int main()
         Geomesh::gui_interface();
         refcam.gui_interface();
         //dirlight.gui_interface(camera);
-        gui_interface(mesh.getGroundHandle().currentGlobalHeight(refcam.Position)*6371000);
+        gui_interface(mesh.getGroundHandle().currentGlobalHeight(refcam.Position)*6371.0);
         ImGui::ShowDemoWindow();
         GuiInterface::End();
 

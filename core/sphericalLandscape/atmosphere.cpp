@@ -12,6 +12,9 @@ void Atmosphere::init()
     m_shGroundFromAtmosphere .reload_shader_program_from_files(FP("renderer/atmosphere/GroundFromAtmosphere.vert"  ),FP("renderer/atmosphere/GroundFromAtmosphere.frag" ));
     //m_shSpaceFromSpace       .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromSpace.vert"        ),FP("renderer/atmosphere/SpaceFromSpace.frag"       ));
     //m_shSpaceFromAtmosphere  .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromAtmosphere.vert"   ),FP("renderer/atmosphere/SpaceFromAtmosphere.frag"  ));
+    m_shOceanFromSpace       .reload_shader_program_from_files(FP("renderer/atmosphere/OceanFromSpace.vert"        ),FP("renderer/atmosphere/OceanFromSpace.frag"       ));
+    m_shOceanFromAtmosphere  .reload_shader_program_from_files(FP("renderer/atmosphere/OceanFromAtmosphere.vert"   ),FP("renderer/atmosphere/OceanFromAtmosphere.frag"  ));
+
 
     m_tEarth = Geocube();
 
@@ -19,31 +22,35 @@ void Atmosphere::init()
     m_tSky.subdivision(3);
     m_tSky.releaseAllTextureHandles();
 
+    m_tOcean = Geocube();
+    m_tOcean.subdivision(3);
+    m_tOcean.releaseAllTextureHandles();
+
     update();
 }
 
 Shader& Atmosphere::getGroundShader(const glm::vec3& pos)
 {
-    if(glm::length(pos) >= m_fOuterRadius)
-    {
-        return m_shGroundFromSpace;
-    }
-    else
-    {
+    if(this->inAtmosphere(pos))
         return m_shGroundFromAtmosphere;
-    }
+    else
+        return m_shGroundFromSpace;
 }
 
 Shader& Atmosphere::getSkyShader(const glm::vec3& pos)
 {
-    if(glm::length(pos) >= m_fOuterRadius)
-    {
-        return m_shSkyFromSpace;
-    }
-    else
-    {
+    if(this->inAtmosphere(pos))
         return m_shSkyFromAtmosphere;
-    }
+    else
+        return m_shSkyFromSpace;
+}
+
+Shader& Atmosphere::getOceanShader(const glm::vec3& pos)
+{
+    if(this->inAtmosphere(pos))
+        return m_shOceanFromAtmosphere;
+    else
+        return m_shOceanFromSpace;
 }
 
 void Atmosphere::drawGround(Camera& camera)
@@ -89,7 +96,7 @@ void Atmosphere::drawGround(Camera& camera)
 
 
     pGroundShader.setMat4("m4ModelViewProjectionMatrix",
-                           m_3DCamera.GetFrustumMatrix() );
+                          m_3DCamera.GetFrustumMatrix() );
 
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
@@ -132,7 +139,7 @@ void Atmosphere::drawSky(Camera& camera)
 
 
         pSkyShader.setMat4("m4ModelViewProjectionMatrix",
-                            m_3DCamera.GetFrustumMatrix() );
+                           m_3DCamera.GetFrustumMatrix() );
 
         glActiveTexture(GL_TEXTURE6);
         glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
@@ -145,6 +152,51 @@ void Atmosphere::drawSky(Camera& camera)
         glDisable(GL_BLEND);
         glFrontFace(GL_CCW);
     }
+}
+
+void Atmosphere::drawOcean(Camera& camera)
+{
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_CULL_FACE);
+
+    // get reference
+    const auto& vCamera = m_3DCamera.Position;
+    Shader& pOceanShader = getOceanShader(vCamera);
+
+    // Draw ground
+    pOceanShader.use();
+    pOceanShader.setVec3("v3CameraPos", vCamera.x, vCamera.y, vCamera.z);
+    pOceanShader.setVec3("v3LightDir", m_vLightDirection);
+    pOceanShader.setVec3("v3InvWavelength", 1.0/m_fWavelength4[0], 1.0/m_fWavelength4[1], 1.0/m_fWavelength4[2]);
+    pOceanShader.setFloat("fCameraHeight", glm::length(vCamera));
+    pOceanShader.setFloat("fCameraHeight2", glm::length2(vCamera));
+    pOceanShader.setFloat("fInnerRadius", m_fInnerRadius);
+    pOceanShader.setFloat("fInnerRadius2", m_fInnerRadius*m_fInnerRadius);
+    pOceanShader.setFloat("fOuterRadius", m_fOuterRadius);
+    pOceanShader.setFloat("fOuterRadius2", m_fOuterRadius*m_fOuterRadius);
+    pOceanShader.setFloat("fKrESun", m_Kr*m_ESun);
+    pOceanShader.setFloat("fKmESun", m_Km*m_ESun);
+    pOceanShader.setFloat("fKr4PI", m_Kr4PI);
+    pOceanShader.setFloat("fKm4PI", m_Km4PI);
+    pOceanShader.setFloat("fScale", 1.0f / (m_fOuterRadius - m_fInnerRadius));
+    pOceanShader.setFloat("fScaleDepth", m_fRayleighScaleDepth);
+    pOceanShader.setFloat("fScaleOverScaleDepth", (1.0f / (m_fOuterRadius - m_fInnerRadius)) / m_fRayleighScaleDepth);
+    pOceanShader.setFloat("g", m_g);
+    pOceanShader.setFloat("g2", m_g*m_g);
+    pOceanShader.setFloat("fESun",m_ESun);
+    pOceanShader.setInt("opticalTex", 6);
+    pOceanShader.setInt("s2TexTest", 11);
+
+
+
+    pOceanShader.setMat4("m4ModelViewProjectionMatrix",
+                         m_3DCamera.GetFrustumMatrix() );
+
+    glActiveTexture(GL_TEXTURE6);
+    glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
+
+    m_tOcean.draw(pOceanShader, camera);
 }
 
 void Atmosphere::MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float fRayleighScaleHeight, float fMieScaleHeight)
@@ -304,6 +356,7 @@ void Atmosphere::update()
 
     m_tEarth.setScale(m_fInnerRadius);
     m_tSky.setScale(m_fOuterRadius);
+    m_tOcean.setScale(m_fInnerRadius);
 
 }
 

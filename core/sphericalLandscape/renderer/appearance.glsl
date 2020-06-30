@@ -63,7 +63,7 @@ float ridgenoise(vec2 t, int freq) {
     return  2.0*(0.5 - abs( 0.5 - snoise( t*(1<<freq)*16.0 ) ));
 }
 
-#define EFFECTIVE_HEIGHT_SYNTHETIC (0.0005)
+#define EFFECTIVE_HEIGHT_SYNTHETIC (0.001)
 #define EFFECTIVE_HEIGHT (0.002)
 
 vec3 convertToDeformed(vec2 t)
@@ -113,19 +113,23 @@ float calc_height(vec2 pixel)
     // Procedure
     density = EFFECTIVE_HEIGHT_SYNTHETIC*clamp(density,0.0,1.0);
 
+
     // Read elevation map
     // Caution: low-res elevation map causes bumpy ground-> truncation issue
     //density += -2.0*tanh(0.03f*abs(dot(pixel,pixel))-0.15);
     //vec2 offset = 0.5/vec2(ELEVATION_MAP_RESOLUTION);
     //vec2 cpixel = offset + pixel*(1.0f - 2.0f*offset);
 
-    density += 2.0f*EFFECTIVE_HEIGHT*(texture( elevationmap,  vec3(convertToSphere(pixel)) ).r - 0.5f);
+    float heightData = 2.0f*(texture( elevationmap,  vec3(convertToSphere(pixel)) ).r - 0.5f);
+    density = mix(0, density, heightData);
+    density += EFFECTIVE_HEIGHT*heightData;
 
     // Bound height
-    density = clamp(density,-EFFECTIVE_HEIGHT,EFFECTIVE_HEIGHT);
+    density = clamp(density,0.0,EFFECTIVE_HEIGHT);
 
     return density;
 }
+
 
 
 void main()
@@ -145,8 +149,8 @@ void main()
     float height = calc_height(pixel);
 
     vec4 color = mix(vec4(textureLod( material,
-                                 vec3(pixel*(1<<15), 16.45f*height/EFFECTIVE_HEIGHT), 15-level ).rgb, 0.0f),
-                     vec4(0.0,0.21,0.47,1.0), clamp(tanh(-10.0/(height/EFFECTIVE_HEIGHT))-0.1f,0,1));
+                                 vec3(pixel*(1<<15), 16.45f*(height/EFFECTIVE_HEIGHT)), 15-level ).rgb, 0.0f),
+                     vec4(0.0,0.021,0.047,1.0), clamp(tanh(-10.0/(height/EFFECTIVE_HEIGHT-0.1)),0,1));
 
     // compute normal
     // may convert to non-euclidian space before computing the actual value
