@@ -10,6 +10,11 @@ file(GLOB SOURCE
     )
 
 # then create a project file per tutorial
+# COUP architechture
+# C - system, low-level logic
+# O - object ( primitives, camera, complex object)
+# U - utility ( texture loader, wrapper etc)
+# P - parts ( transform, shader, material...)
 ###
-add_executable(architecture ${SOURCE})
-target_link_libraries(architecture ${LIBS})
+add_executable(COUPdemo ${SOURCE})
+target_link_libraries(COUPdemo ${LIBS})

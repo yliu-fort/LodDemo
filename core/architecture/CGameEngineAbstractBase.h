@@ -27,6 +27,8 @@ public:
     const float& GetDeltaTime() const { return this->m_fDeltaTime; }
     int GetFrameWidth() const { return this->m_nWidth; }
     int GetFrameHeight() const { return this->m_nHeight; }
+    int& GetFrameWidthRef() { return this->m_nWidth; }
+    int& GetFrameHeightRef() { return this->m_nHeight; }
     float GetFrameRatio() const { return float(this->m_nWidth)/float(this->m_nHeight); }
 
     void SetFrameWidthAndHeight(int w, int h)  { this->m_nWidth = w; this->m_nHeight = h; }

@@ -27,7 +27,7 @@
 
 #include "geocube.h"
 #include "atmosphere.h"
-
+#include "UFramebuffer.h"
 
 // Shortcut
 static bool bindCam = true;
@@ -36,12 +36,9 @@ static bool drawNormalArrows = false;
 
 Shader hdrShader;
 std::unique_ptr<refCamera> refcam;
-unsigned int hdrFBO;
-unsigned int colorBuffer;
-unsigned int rboDepth;
-unsigned int hdrWidth,hdrHeight;
-
 std::unique_ptr<Atmosphere> mesh;
+
+UFrameBufferAutoAdjusted hdr;
 
 void gui_interface(float h)
 {
@@ -105,29 +102,8 @@ CGameEngine::CGameEngine() :
     mesh.reset(new Atmosphere(GetCurrentCamera()));
     mesh->init();
 
-    // HDR
-    // configure floating point framebuffer
-    // ------------------------------------
-    hdrWidth = GetFrameWidth();
-    hdrHeight = GetFrameHeight();
-    glGenFramebuffers(1, &hdrFBO);
-    // create floating point color buffer
-    glGenTextures(1, &colorBuffer);
-    glBindTexture(GL_TEXTURE_2D, colorBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, hdrWidth, hdrHeight, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // create depth buffer (renderbuffer)
-    glGenRenderbuffers(1, &rboDepth);
-    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, hdrWidth, hdrHeight);
-    // attach buffers
-    glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "Framebuffer not complete!" << std::endl;
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // config hdr fbo
+    hdr.BindSizeReferences(&GetFrameWidthRef(), &GetFrameHeightRef());
 
     hdrShader.use();
     hdrShader.setInt("hdrBuffer", 0);
@@ -158,13 +134,11 @@ void CGameEngine::RenderUpdate()
         refcam->sync_rotation();
     }
 
-    // Draw points
+    // Resize frame
     glViewport(0,0,GetFrameWidth(), GetFrameHeight());
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glViewport(0,0,hdrWidth, hdrHeight);
+    hdr.BindAndClear();
 
     // update geomesh
     mesh->getGroundHandle().update(refcam.get());
@@ -190,11 +164,10 @@ void CGameEngine::RenderUpdate()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // Draw screen
-
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     hdrShader.use();
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, colorBuffer);
+    glBindTexture(GL_TEXTURE_2D, hdr.GetCBO());
     mesh->setHDR(hdrShader);
     renderQuad();
 
