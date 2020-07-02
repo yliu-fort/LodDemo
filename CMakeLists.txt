@@ -20,17 +20,19 @@ message(STATUS "CONFIGURE_SRC_PATH_TEMPLATE at ${CMAKE_CURRENT_SOURCE_DIR}/cmake
 # find the required packages
 
 # external libraries
-include_directories("external")
-#link_directories(${CMAKE_SOURCE_DIR}/lib)
+INCLUDE_DIRECTORIES("external")
+
+FIND_PACKAGE(GLFW REQUIRED)
+INCLUDE_DIRECTORIES(${GLFW_INCLUDE_DIR})
+MESSAGE(STATUS "GLFW LIBRARY FOUND in ${GLFW_LIBRARY}")
 
 if(WIN32)
-  set(LIBS glfw3 opengl32) # glfw3 if use binary libs
+  set(LIBS ${GLFW_LIBRARY} opengl32) # glfw3 if use binary libs
 elseif(UNIX AND NOT APPLE)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
-  find_package(OpenGL REQUIRED)
-  add_definitions(${OPENGL_DEFINITIONS})
-  find_package(X11 REQUIRED)
-  find_package(GLFW REQUIRED)
+  FIND_PACKAGE(OpenGL REQUIRED)
+  ADD_DEFINITIONS(${OPENGL_DEFINITIONS})
+  FIND_PACKAGE(X11 REQUIRED)
   # note that the order is important for setting the libs
   # use pkg-config --libs $(pkg-config --print-requires --print-requires-private glfw3) in a terminal to confirm
   set(LIBS ${GLFW_LIBRARY} X11 Xrandr Xinerama Xi Xxf86vm Xcursor GL dl pthread)

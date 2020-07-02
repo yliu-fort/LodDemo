@@ -34,8 +34,8 @@ if (WIN32)
         NAMES
             GLFW/glfw3.h
         PATHS
-            ${PROJECT_SOURCE_DIR}/shared_external/glfw/include
-            ${PROJECT_SOURCE_DIR}/../shared_external/glfw/include
+            ${PROJECT_SOURCE_DIR}/external
+            ${PROJECT_SOURCE_DIR}/../external
             ${GLFW_LOCATION}/include
             $ENV{GLFW_LOCATION}/include
             $ENV{PROGRAMFILES}/GLFW/include
@@ -47,8 +47,8 @@ if (WIN32)
           NAMES
               glfw3
           PATHS
+			  ${PROJECT_SOURCE_DIR}/lib/x86
               ${GLFW_LOCATION}/lib
-	      ${GLFW_LOCATION}/lib/x86
               $ENV{GLFW_LOCATION}/lib
               $ENV{PROGRAMFILES}/GLFW/lib
               DOC "The GLFW library")
@@ -57,8 +57,8 @@ if (WIN32)
           NAMES
               glfw3
           PATHS
+			  ${PROJECT_SOURCE_DIR}/lib/x64
               ${GLFW_LOCATION}/lib
-	      ${GLFW_LOCATION}/lib/x64
               $ENV{GLFW_LOCATION}/lib
               $ENV{PROGRAMFILES}/GLFW/lib
               DOC "The GLFW library")
@@ -70,6 +70,8 @@ if (${CMAKE_HOST_UNIX})
         NAMES
             GLFW/glfw3.h
         PATHS
+			${PROJECT_SOURCE_DIR}/external
+            ${PROJECT_SOURCE_DIR}/../external
             ${GLFW_LOCATION}/include
             $ENV{GLFW_LOCATION}/include
             /usr/include
@@ -83,6 +85,7 @@ if (${CMAKE_HOST_UNIX})
         NAMES
             glfw3 glfw
         PATHS
+			${PROJECT_SOURCE_DIR}/lib
             ${GLFW_LOCATION}/lib
             $ENV{GLFW_LOCATION}/lib
             /usr/lib64
