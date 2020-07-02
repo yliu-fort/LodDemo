@@ -90,5 +90,6 @@ add_subdirectory("core/sphericalLandscape")
 add_subdirectory("core/textureFetch")
 #add_subdirectory("core/mipmap")
 add_subdirectory("core/atmosphere")
+add_subdirectory("core/architecture")
 ### TESTS&DEMOS
 #add_subdirectory("test")
