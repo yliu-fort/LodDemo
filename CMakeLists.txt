@@ -5,7 +5,6 @@ project (LODDemo)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/modules")
 
-link_directories(${CMAKE_SOURCE_DIR}/lib)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,11 +19,12 @@ message(STATUS "CONFIGURE_SRC_PATH_TEMPLATE at ${CMAKE_CURRENT_SOURCE_DIR}/cmake
 #and then get the required packages: Using root (sudo) and type apt-get install libsoil-dev libglm-dev libassimp-dev libglew-dev libglfw3-dev libxinerama-dev libxcursor-dev libxi-dev
 # find the required packages
 
-add_subdirectory(external/glfw)
-include_directories("external/glfw/include")
+# external libraries
+include_directories("external")
+link_directories(${CMAKE_SOURCE_DIR}/lib)
 
 if(WIN32)
-  set(LIBS glfw opengl32) # glfw3 if use binary libs
+  set(LIBS glfw3 opengl32) # glfw3 if use binary libs
 elseif(UNIX AND NOT APPLE)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
   find_package(OpenGL REQUIRED)
@@ -48,17 +48,9 @@ else()
   set(LIBS )
 endif(WIN32)
 
-# external libraries
-include_directories("external")
-
 # GLAD LIB
 add_library(GLAD "external/glad.c")
 set(LIBS ${LIBS} GLAD)
-
-# TIFF LIB
-#add_subdirectory(external/tiff-4.1.0)
-#include_directories("external/tiff-4.1.0/libtiff")
-#set(LIBS ${LIBS} tiff)
 
 # IMAGE_IO LIB
 include_directories("external/stb")
