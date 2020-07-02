@@ -109,7 +109,7 @@ int main()
 
     // reference camera
     refCamera::shader.reload_shader_program_from_files(FP("renderer/box.vert"),FP("renderer/box.frag"));
-    refCamera refcam(camera);
+    refCamera refcam(&camera);
 
     // lighting
     //Lighting dirlight;

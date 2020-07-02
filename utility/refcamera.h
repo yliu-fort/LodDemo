@@ -8,37 +8,37 @@ class refCamera : public Camera
 {
 public:
 
-    Camera& reference;
-    refCamera(Camera& ref_cam) : Camera(ref_cam), reference(ref_cam) {}
+    Camera* reference;
+    refCamera(Camera* ref_cam) : Camera(*ref_cam), reference(ref_cam) {}
     ~refCamera(){}
 
     // sync to reference camera's status
-    Camera& get_reference() const
+    Camera* get_reference() const
     {
         return this->reference;
     }
-    void set_reference(Camera& cam)
+    void set_reference(Camera* cam)
     {
         reference = cam;
     }
     void sync_rotation()
     {
-        Front = reference.Front;
-        Up = reference.Up;
-        Right = reference.Right;
-        rotation = reference.rotation;
+        Front = reference->Front;
+        Up = reference->Up;
+        Right = reference->Right;
+        rotation = reference->rotation;
     }
     void sync_position()
     {
-        Position = reference.Position;
+        Position = reference->Position;
     }
     void sync_frustrum()
     {
-        Aspect = reference.Aspect;
-        Near = reference.Near;
-        Far = reference.Far;
+        Aspect = reference->Aspect;
+        Near = reference->Near;
+        Far = reference->Far;
 
-        Zoom = reference.Zoom;
+        Zoom = reference->Zoom;
     }
     void render_frustrum() const;
     void draw_frustrum() const;

@@ -8,7 +8,7 @@ class CGameApp
 {
 // Attributes
 protected:
-    GLFWwindow* m_pWindow;
+    GLFWwindow *m_pWindow;
     bool m_bActive;
     int m_nWidth, m_nHeight;
     double m_fCurrentTime;
@@ -19,7 +19,7 @@ protected:
 protected:
     int OnCreate();
     void OnDestroy();
-    void OnSize(GLFWwindow* window, int nWidth, int nHeight);
+    void OnSize(GLFWwindow *window, int nWidth, int nHeight);
 
 public:
     CGameApp() : m_bActive(false) {}

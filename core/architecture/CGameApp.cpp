@@ -5,6 +5,7 @@
 #include <functional>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include "gui_interface.h"
 
 int main(void)
 {
@@ -35,7 +36,7 @@ bool CGameApp::InitInstance()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    return InitMode(false,800,600);
+    return InitMode(false,1600,900);
 }
 
 bool CGameApp::InitMode(bool bFullScreen, int nWidth, int nHeight)
@@ -117,10 +118,11 @@ bool CGameApp::OnIdle()
 {
     if(m_bActive)
         return false;
-
+    auto deltaT = glfwGetTime() - m_fCurrentTime;
     glfwGetFramebufferSize(m_pWindow, &m_nWidth, &m_nHeight);
     m_pGameEngine->ProcessInput(m_pWindow);
-    m_pGameEngine->Tick(glfwGetTime() - m_fCurrentTime);
+    m_pGameEngine->Tick(deltaT);
+    m_fCurrentTime += deltaT;
     glfwSwapBuffers(m_pWindow);
     glfwPollEvents();
 
@@ -133,7 +135,7 @@ int CGameApp::OnCreate()
         glfwDestroyWindow(m_pWindow);
 
     // Open a window and create its OpenGL context
-    m_pWindow = glfwCreateWindow( m_nWidth, m_nHeight, "", nullptr, nullptr);
+    m_pWindow = glfwCreateWindow( m_nWidth, m_nHeight, "Infinite World", nullptr, nullptr);
     if( m_pWindow == nullptr ){
         fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n" );
         getchar();
@@ -151,7 +153,9 @@ int CGameApp::OnCreate()
 
     // Mouse input mode
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glfwSwapInterval(1); // 60 fps constraint
+    glfwSwapInterval(0); // 60 fps constraint
+
+    GuiInterface::Init(m_pWindow);
 
     return 0;
 }

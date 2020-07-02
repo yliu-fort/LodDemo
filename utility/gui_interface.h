@@ -5,9 +5,10 @@
 // which are built from the interpolated edge vertices
 // Isosurface require: GLwindow, Camera initialized
 // can produce texture with 1-4 channels
-struct GLFWwindow;
+//class GLFWwindow; // cause undefined external symbol.. probably linker issue
+
 namespace GuiInterface {
-void Init(GLFWwindow* window);
+void Init(void* window);
 void Demo();
 void ReloadShader();
 void Finalize();

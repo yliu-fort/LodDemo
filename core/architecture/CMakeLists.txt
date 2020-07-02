@@ -6,7 +6,7 @@ file(GLOB SOURCE
     "*.h"
     "*.cpp"
     "renderer/*"
-    "atmosphereRender/*"
+    "renderer/atmosphere/*"
     )
 
 # then create a project file per tutorial

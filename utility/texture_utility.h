@@ -4,12 +4,12 @@
 #include <glad/glad.h>
 
 //Using Sam Leffler's libtiff library
-unsigned int loadTiffTexture(const char *path, const std::string &directory, bool gamma);
+unsigned int loadTiffTexture(const char *path, const std::string &directory, bool gamma = false);
 
 
-unsigned int loadTexture(const char *path, const std::string &directory, bool gamma);
+unsigned int loadTexture(const char *path, const std::string &directory, bool gamma = false);
 
-unsigned int loadLayeredTexture(const char *path, const std::string &directory, bool gamma);
+unsigned int loadLayeredTexture(const char *path, const std::string &directory, bool gamma = false);
 
 unsigned int loadCubemap(std::vector<std::string> faces, GLenum texType=GL_RGB, GLenum dataType=GL_UNSIGNED_BYTE);
 

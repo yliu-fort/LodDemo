@@ -11,13 +11,12 @@ class Camera;
 class CGameEngine : public CGameEngineAbstractBase
 {
 public:
-    CGameEngine() :
-    CGameEngineAbstractBase()
-    {}
-    virtual ~CGameEngine(){}
+    CGameEngine();
+    virtual ~CGameEngine();
     virtual void Update();
     virtual void RenderUpdate();
     //virtual Camera* GetCurrentCamera();
+
 };
 
 #endif // CGAMEENGINE_H

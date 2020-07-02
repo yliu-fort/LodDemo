@@ -98,7 +98,7 @@ void refCamera::draw_frustrum() const
 
     // Draw frustrum
     shader.use();
-    shader.setMat4("projection_view", reference.GetFrustumMatrix());
+    shader.setMat4("projection_view", reference->GetFrustumMatrix());
     shader.setMat4("model", model );
     render_frustrum();
 }

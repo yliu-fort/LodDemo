@@ -18,7 +18,7 @@ CGameEngineAbstractBase::CGameEngineAbstractBase():
     m_bMouseButtonRight(false),
     m_pControllerCamera(NULL)
 {
-    m_pControllerCamera = new Camera(0,0,0,0,1,0,GetFrameRatio());
+    m_pControllerCamera = new Camera(0,0,2,0,1,0,GetFrameRatio());
 }
 
 CGameEngineAbstractBase::~CGameEngineAbstractBase()
@@ -68,6 +68,7 @@ void CGameEngineAbstractBase::FramebufferSizeCallback(GLFWwindow* window, int w,
     SetFrameWidthAndHeight(w,h);
     GetCurrentCamera()->updateAspect(GetFrameRatio());
     // if hdr, go and update size of texture
+    std::cout << m_nWidth << "," << m_nHeight << std::endl;
 }
 
 void CGameEngineAbstractBase::MouseCallback(GLFWwindow* window, double xpos, double ypos)
