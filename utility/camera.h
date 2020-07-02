@@ -51,6 +51,7 @@ public:
     Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float aspect, float yaw = -90.0f, float pitch = 0.0f);
 
     // Returns the view matrix calculated using Euler Angles and the LookAt Matrix
+    const glm::mat4 GetViewMatrixOriginBased() const;
     const glm::mat4 GetViewMatrix() const;
     const glm::mat4 GetPerspectiveMatrix() const;
     const glm::mat4 GetPerspectiveMatrix(float,float) const;
@@ -120,7 +121,7 @@ public:
     // gui interface
     void gui_interface(void(*forwarder)(void*) = NULL, void* object = 0);
 
-private:
+
     glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest){
         start = normalize(start);
         dest = normalize(dest);
@@ -154,6 +155,7 @@ private:
 
     }
 
+    private:
 };
 
 #endif

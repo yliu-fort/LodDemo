@@ -5,7 +5,6 @@ project (LODDemo)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/modules")
 
-link_directories(${CMAKE_SOURCE_DIR}/lib)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,19 +19,23 @@ message(STATUS "CONFIGURE_SRC_PATH_TEMPLATE at ${CMAKE_CURRENT_SOURCE_DIR}/cmake
 #and then get the required packages: Using root (sudo) and type apt-get install libsoil-dev libglm-dev libassimp-dev libglew-dev libglfw3-dev libxinerama-dev libxcursor-dev libxi-dev
 # find the required packages
 
-add_subdirectory(external/glfw)
-include_directories("external/glfw/include")
+# external libraries
+INCLUDE_DIRECTORIES("external")
+
+FIND_PACKAGE(GLFW REQUIRED)
+INCLUDE_DIRECTORIES(${GLFW_INCLUDE_DIR})
+MESSAGE(STATUS "GLFW LIBRARY FOUND in ${GLFW_LIBRARY}")
 
 if(WIN32)
-  set(LIBS glfw opengl32) # glfw3 if use binary libs
+  set(LIBS ${GLFW_LIBRARY} opengl32) # glfw3 if use binary libs
 elseif(UNIX AND NOT APPLE)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
-  find_package(OpenGL REQUIRED)
-  add_definitions(${OPENGL_DEFINITIONS})
-  find_package(X11 REQUIRED)
+  FIND_PACKAGE(OpenGL REQUIRED)
+  ADD_DEFINITIONS(${OPENGL_DEFINITIONS})
+  FIND_PACKAGE(X11 REQUIRED)
   # note that the order is important for setting the libs
   # use pkg-config --libs $(pkg-config --print-requires --print-requires-private glfw3) in a terminal to confirm
-  set(LIBS ${GLFW3_LIBRARY} X11 Xrandr Xinerama Xi Xxf86vm Xcursor GL dl pthread)
+  set(LIBS ${GLFW_LIBRARY} X11 Xrandr Xinerama Xi Xxf86vm Xcursor GL dl pthread)
   set (CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -ldl")
 elseif(APPLE)
   INCLUDE_DIRECTORIES(/System/Library/Frameworks)
@@ -48,16 +51,9 @@ else()
   set(LIBS )
 endif(WIN32)
 
-# external libraries
-include_directories("external")
-
 # GLAD LIB
 add_library(GLAD "external/glad.c")
 set(LIBS ${LIBS} GLAD)
-
-# TIFF LIB
-#include_directories("external/tiff")
-#set(LIBS ${LIBS} tiff)
 
 # IMAGE_IO LIB
 include_directories("external/stb")
@@ -90,7 +86,9 @@ add_subdirectory("utility") # Provide absolute path for shaders
 #add_subdirectory("core/quaternion")
 #add_subdirectory("core/quadtree")
 add_subdirectory("core/quadtreeManaged")
-#add_subdirectory("core/textureFetch")
+add_subdirectory("core/sphericalLandscape")
+add_subdirectory("core/textureFetch")
 #add_subdirectory("core/mipmap")
+add_subdirectory("core/atmosphere")
 ### TESTS&DEMOS
 #add_subdirectory("test")

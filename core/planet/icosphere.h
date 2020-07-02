@@ -5,9 +5,8 @@
 #include <map>
 #include <vector>
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+//GLAD
+#include <glad/glad.h>
 
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -15,6 +14,7 @@
 
 #include "mesh.h"
 
+typedef unsigned int uint;
 // Primitive classes
 // sets of polygons
 // VAO, VBO, EBO

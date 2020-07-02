@@ -40,7 +40,7 @@ void Geomesh::refresh_heightmap(Node* node)
         // Refresh old height map for interface cells
         if(node->crackfixed)
         {
-            node->bake_height_map();
+            //node->bake_height_map();
         }
     }
 }
@@ -116,35 +116,38 @@ void Geomesh::fixcrack(Node* node)
     }
 }
 
-void Geomesh::subdivision(const glm::vec3& viewPos, const glm::vec3& viewFront, Node* node)
+void Geomesh::subdivision(const glm::vec3& viewPos, const float& viewY, Node* node)
 {
 
     // distance between nodepos and viewpos
-    float d = glm::distance(viewPos, node->get_center3());
+    //auto d = node->get_center3() - viewPos;
+    float dx = fminf(fabsf(viewPos.x - node->lo.x),fabsf(viewPos.x - node->hi.x));
+    float dy = fminf(fabsf(viewPos.z - node->lo.y),fabsf(viewPos.z - node->hi.y));
+    //float dz = abs(viewPos.z - viewZ);
+    float d = fmaxf(fmaxf(dx, dy), fabsf(viewPos.y - viewY));
 
     // frustrum culling
     float K = CUTIN_FACTOR*node->size();
-    if(FRUSTRUM_CULLING)
-    {
-        K = glm::dot(viewFront, node->get_center3() - viewPos) > 0.0f || d < node->size() ? K:0.0f;
-    }
+    //if(FRUSTRUM_CULLING)
+    //{
+    //    K *= glm::dot(viewFront, d) > 0.0f ? 1.0f:0.5f;
+    //}
 
     // Subdivision
-    if( d < K && node->level < MAX_DEPTH )
+    if( node->level < MIN_DEPTH || (node->level < MAX_DEPTH && d < K)   )
     {
-
         // split and bake heightmap
-        node->split();
+        node->split(model);
 
-        subdivision(viewPos, viewFront, node->child[0]);
-        subdivision(viewPos, viewFront, node->child[1]);
-        subdivision(viewPos, viewFront, node->child[2]);
-        subdivision(viewPos, viewFront, node->child[3]);
+        subdivision(viewPos, viewY, node->child[0]);
+        subdivision(viewPos, viewY, node->child[1]);
+        subdivision(viewPos, viewY, node->child[2]);
+        subdivision(viewPos, viewY, node->child[3]);
 
     }
     else
     {
-        if( (node->level >= MAX_DEPTH || d > (CUTOUT_FACTOR * K)) && node->subdivided )
+        if( node->subdivided && d >= CUTOUT_FACTOR * K )
         {
             delete node->child[0];
             delete node->child[1];
@@ -168,32 +171,48 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
     else
     {
         // Transfer local grid model
-        //glm::mat4 model(1);
-
-        glm::mat4 _model = glm::translate(glm::mat4(1), node->get_shift());
-        _model = glm::scale(_model, node->get_scale());
-        shader.setMat4("model", _model);
+        shader.setMat4("sphereProjection", node->model);
 
         // Transfer lo and hi
+        shader.setInt("level",node->level);
+        shader.setInt("hash",node->morton);
+
         //shader.setVec2("lo", node->lo);
         //shader.setVec2("hi", node->hi);
+
+        //shader.setVec2("shlo", node->rlo);
+        //shader.setVec2("shhi", node->rhi);
+
+        //std::cout << "current drawing node" << node->level << " - " << node->parent->level << std::endl;
 
         // Active textures
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, node->heightmap);
 
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, node->parent->heightmap);
+
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, node->appearance);
+
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, node->parent->appearance);
+
         // Render grid (inline function call renderGrid())
         Node::draw();
+
+        //std::cout << "ok" << std::endl;
     }
     return;
 }
 
 // static variables
-uint Geomesh::MAX_DEPTH = 9;
-float Geomesh::CUTIN_FACTOR = 2.8f; // 2.8 -> see function definition
-float Geomesh::CUTOUT_FACTOR = 1.15f; // >= 1
-bool Geomesh::FRUSTRUM_CULLING = true;
-bool Geomesh::CRACK_FILLING = true;
+uint Geomesh::MIN_DEPTH = 0;
+uint Geomesh::MAX_DEPTH = 15;
+float Geomesh::CUTIN_FACTOR = 2.0f; // 2.8 -> see function definition
+float Geomesh::CUTOUT_FACTOR = 1.0f; // >= 1
+bool Geomesh::FRUSTRUM_CULLING = false;
+bool Geomesh::CRACK_FILLING = false;
 RenderMode Geomesh::RENDER_MODE = REAL;
 
 #include "imgui.h"
@@ -202,12 +221,13 @@ void Geomesh::gui_interface()
 {
     static int counter = 0;
 
-    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode("Geomesh::Control Panel"))
     {
         ImGui::Text("Controllable parameters for Geomesh class.");
-        ImGui::SliderInt("max depth", (int*)&MAX_DEPTH, 0, 11);
-        ImGui::SliderFloat("cutout factor", &CUTOUT_FACTOR, 1.01f, 3.0f);
+        ImGui::SliderInt("min depth", (int*)&MIN_DEPTH, 0, 5);
+        ImGui::SliderInt("max depth", (int*)&MAX_DEPTH, 6, 15);
+        ImGui::SliderFloat("cutout factor", &CUTOUT_FACTOR, 1.0f, 3.0f);
 
         // render mode
         const char* RENDER_TYPE_NAMES[ELEMENT_COUNT] = { "REAL", "CONTOUR", "NORMAL", "PCOLOR" };

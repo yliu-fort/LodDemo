@@ -25,6 +25,11 @@ Camera::Camera(float posX, float posY, float posZ, float upX, float upY, float u
     updateCameraVectors();
 }
 
+const glm::mat4 Camera::GetViewMatrixOriginBased() const
+{
+    return glm::lookAt(glm::vec3(0), Front, Up);
+}
+
 // Returns the view matrix calculated using Euler Angles and the LookAt Matrix
 const glm::mat4 Camera::GetViewMatrix() const
 {
@@ -175,7 +180,7 @@ void Camera::updateNearFar(float n, float f)
 #include "imgui.h"
 void Camera::gui_interface(void(*forwarder)(void*), void* object)
 {
-    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode("Camera::Control Panel"))
     {
         ImGui::Text("Controllable parameters for Camera class.");

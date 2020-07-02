@@ -6,78 +6,159 @@
 #include <algorithm>
 #include "shader.h"
 #include "cmake_source_dir.h"
+#include "texture_utility.h"
 
 #include <stdint.h>
 
-static Shader upsampling, crackfixing;
-static unsigned int noiseTex, elevationTex;
+#define HEIGHT_MAP_INTERNAL_FORMAT GL_RGBA32F
+#define HEIGHT_MAP_FORMAT GL_RGBA
+
+static Shader upsampling, crackfixing, appearance_baking;
+static unsigned int noiseTex, elevationTex, materialTex;
+
 
 uint Node::NODE_COUNT = 0;
 uint Node::INTERFACE_NODE_COUNT = 0;
+bool Node::USE_CACHE = true;
+
+#define MAX_CACHE_CAPACITY (1524)
+std::vector<std::tuple<uint,uint>> Node::CACHE;
+
 
 void renderGrid();
+void planeSeedInit();
+void cubeSeedInit();
 
-void Node::init()
+void cubeSeedInit()
 {
-    //Store the volume data to polygonise
-    glGenTextures(1, &noiseTex);
-    glActiveTexture(GL_TEXTURE0);
-    //glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, noiseTex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-
-    //Generate a distance field to the center of the cube
-    std::vector<glm::vec3> dataField;
-    uint res = 256;
-    for(uint j=0; j<res; j++){
-        for(uint i=0; i<res; i++){
-            dataField.push_back( glm::vec3(rand() / double(RAND_MAX)) );
-        }
-    }
-
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
-
     // prescribed elevation map
     glGenTextures(1, &elevationTex);
     glActiveTexture(GL_TEXTURE0);
-    //glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, elevationTex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
+    glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     //Generate a distance field to the center of the cube
-    dataField.clear();
-    res = 256;
-    for(uint j=0; j<res; j++){
-        for(uint i=0; i<res; i++){
+    std::vector<glm::vec3> dataField;
+    int width=256, height=256, nrChannels=3;
+    for(uint j=0; j<height; j++){
+        for(uint i=0; i<width; i++){
             //if(i > res/3)
             //    dataField.push_back( 0.5*(tanh(0.02f*(i - res/3)-1)) );
             //else
             //    dataField.push_back(0);
-            glm::vec3 data(0.5f*(tanh(-0.02f*sqrt((i - res/2)*(i - res/2) + (j- res/2)*(j - res/2))+1)));
+            glm::vec3 data( 6.0*tanh(0.0005*(10*((i - width/2.0)*(i - width/2.0) + (j- height/2.0)*(j - height/2.0))
+                                             /(float)width/(float)height-1.7)) );
             dataField.push_back( data );
         }
     }
 
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
-
-    // Geo mesh, careful: need a noise texture and shader before intialized
-    upsampling.reload_shader_program_from_files(FP("renderer/upsampling.glsl"));
-    crackfixing.reload_shader_program_from_files(FP("renderer/crackfixing.glsl"));
+    for(GLuint i = 0; i < 6; i++)
+    {
+        //data = stbi_load(textures_faces[i].c_str(), &width, &height, &nrChannels, 0);
+        glTexImage2D(
+            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+            0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, &dataField[0]
+        );
+    }
 
     return;
 }
 
+void Node::init()
+{
+    cubeSeedInit();
+
+    materialTex = loadLayeredTexture("Y42lf.png",FP("../../resources/textures"), false);
+
+    // Geo mesh, careful: need a noise texture and shader before intialized
+    upsampling.reload_shader_program_from_files(FP("renderer/upsampling.glsl"));
+    appearance_baking.reload_shader_program_from_files(FP("renderer/appearance.glsl"));
+    crackfixing.reload_shader_program_from_files(FP("renderer/crackfixing.glsl"));
+}
+
 void Node::finalize()
 {
-    glDeleteTextures(1,&noiseTex);
+    //glDeleteTextures(1,&noiseTex);
     glDeleteTextures(1,&elevationTex);
+    if(!CACHE.empty())
+    {
+        for(auto i: CACHE)
+        {
+            glDeleteTextures(1,&std::get<0>(i));
+            glDeleteTextures(1,&std::get<1>(i));
+        }
+    }
+    CACHE.clear();
+}
+
+Node::Node() : lo(-1), hi(1), rlo(0), rhi(1), subdivided(false), crackfixed(false), level(0), offset_type(0),elevation(0)
+{
+    if(Node::CACHE.empty() || !Node::USE_CACHE)
+    {
+        glGenTextures(1, &heightmap);
+
+        glActiveTexture(GL_TEXTURE0);
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, heightmap);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        //Generate a distance field to the center of the cube
+        glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
+
+        glGenTextures(1, &appearance);
+
+        glActiveTexture(GL_TEXTURE0);
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, appearance);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        //Generate a distance field to the center of the cube
+        glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
+    }
+    else
+    {
+        heightmap = std::get<0>(Node::CACHE.back());
+        appearance = std::get<1>(Node::CACHE.back());
+        Node::CACHE.pop_back();
+    }
+
+    //glGenTextures(1, &appearance);
+    Node::NODE_COUNT++;
+
+}
+
+Node::~Node()
+{
+    if(subdivided)
+    {
+        delete child[0];
+        delete child[1];
+        delete child[2];
+        delete child[3];
+    }
+
+    if(Node::CACHE.size() > MAX_CACHE_CAPACITY || !Node::USE_CACHE)
+    {
+        glDeleteTextures(1, &heightmap);
+        glDeleteTextures(1, &appearance);
+    }
+    else
+    {
+        Node::CACHE.push_back(std::make_tuple(heightmap,appearance));
+    }
+
+    //glDeleteTextures(1, &appearance);
+    Node::NODE_COUNT--;
 }
 
 void Node::draw()
@@ -86,42 +167,81 @@ void Node::draw()
     renderGrid();
 }
 
-void Node::bake_height_map()
+void Node::bake_appearance_map(glm::mat4 arg)
+{
+
+    //Datafield//
+    //Store the volume data to polygonise
+    glEnable(GL_TEXTURE_2D);
+
+    appearance_baking.use();
+    //appearance_baking.setVec2("lo", this->lo);
+    //appearance_baking.setVec2("hi", this->hi);
+
+    appearance_baking.setMat4("globalMatrix", arg);
+
+    appearance_baking.setInt("level", this->level);
+    appearance_baking.setInt("hash", this->morton);
+
+    // bind height map
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, appearance);
+
+    // bind noisemap (deprecated)
+    //glActiveTexture(GL_TEXTURE1);
+    //glBindTexture(GL_TEXTURE_2D, noiseTex);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, materialTex);
+
+
+    // write to heightmap ? buggy
+    glBindImageTexture(0, appearance, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
+
+    // Deploy kernel
+    glDispatchCompute((ALBEDO_MAP_X/16)+1,(ALBEDO_MAP_Y/16)+1,1);
+
+}
+
+void Node::bake_height_map(glm::mat4 arg)
 {
     // Initialize 2d heightmap texture
 
     //Datafield//
     //Store the volume data to polygonise
-    glActiveTexture(GL_TEXTURE0);
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, heightmap);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    //Generate a distance field to the center of the cube
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, GL_RED, GL_FLOAT, NULL);
 
     upsampling.use();
-    upsampling.setVec2("lo", lo);
-    upsampling.setVec2("hi", hi);
+    //upsampling.setVec2("lo", lo);
+    //upsampling.setVec2("hi", hi);
 
-    // bind noisemap
+    upsampling.setMat4("globalMatrix", arg);
+
+    upsampling.setInt("level", this->level);
+    upsampling.setInt("hash", this->morton);
+
+    // bind height map
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, heightmap);
+
+    // bind noisemap (deprecated)
+    //glActiveTexture(GL_TEXTURE1);
+    //glBindTexture(GL_TEXTURE_2D, noiseTex);
+
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, noiseTex);
-
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, elevationTex);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
 
     // write to heightmap ? buggy
-    glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+    glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
 
     // Deploy kernel
-    glDispatchCompute(1,1,1);
+    glDispatchCompute((HEIGHT_MAP_X/16)+1,(HEIGHT_MAP_Y/16)+1,1);
 
     // make sure writing to image has finished before read
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     // Write flag
     crackfixed = false;
@@ -202,7 +322,7 @@ void Node::fix_heightmap(Node* neighbour, int edgedir)
     glBindTexture(GL_TEXTURE_2D, neighbour->heightmap);
 
     // write to heightmap
-    glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+    glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
 
     // Deploy kernel
     glDispatchCompute(1,1,1);
@@ -213,29 +333,41 @@ void Node::fix_heightmap(Node* neighbour, int edgedir)
     // Write flag
     crackfixed = true;
 }
-void Node::split()
+void Node::split(glm::mat4 arg = glm::mat4(1))
 {
     if(!this->subdivided)
     {
         child[0] = new Node;
         child[0]->setconnectivity<0>(this);
-        child[0]->bake_height_map();
+        child[0]->set_model_matrix(arg);
+        child[0]->bake_height_map(arg);
+        child[0]->bake_appearance_map(arg);
         child[0]->set_elevation();
+
 
         child[1] = new Node;
         child[1]->setconnectivity<1>(this);
-        child[1]->bake_height_map();
+        child[1]->set_model_matrix(arg);
+        child[1]->bake_height_map(arg);
+        child[1]->bake_appearance_map(arg);
         child[1]->set_elevation();
+
 
         child[2] = new Node;
         child[2]->setconnectivity<2>(this);
-        child[2]->bake_height_map();
+        child[2]->set_model_matrix(arg);
+        child[2]->bake_height_map(arg);
+        child[2]->bake_appearance_map(arg);
         child[2]->set_elevation();
+
 
         child[3] = new Node;
         child[3]->setconnectivity<3>(this);
-        child[3]->bake_height_map();
+        child[3]->set_model_matrix(arg);
+        child[3]->bake_height_map(arg);
+        child[3]->bake_appearance_map(arg);
         child[3]->set_elevation();
+
 
         this->subdivided = true;
     }
@@ -257,9 +389,9 @@ int Node::search(glm::vec2 p) const
     }else
     {
         if(p.y < center.y)
-            return 3; // bottom-right
+            return 2; // bottom-right
         else
-            return 2; //top-right
+            return 3; //top-right
     }
 
 }
@@ -302,6 +434,8 @@ void Node::setconnectivity(Node* leaf)
     static_assert (TYPE < 4, "Only 4 child index" );
     offset_type = TYPE;
     glm::vec2 center = glm::vec2(0.5f)*(leaf->lo + leaf->hi);
+    this->morton = leaf->morton | ( TYPE << (2*(leaf->level)) ) ; // bin = xy: 00, 01, 10, 11
+
     if(TYPE == 0) // bottom-left
     {
         lo = leaf->lo;
@@ -312,21 +446,76 @@ void Node::setconnectivity(Node* leaf)
         lo = glm::vec2(leaf->lo.x, center.y);
         hi = glm::vec2(center.x, leaf->hi.y);
     }else
-    if(TYPE == 2) // top-right
-    {
-        lo = center;
-        hi = leaf->hi;
-    }else
-    if(TYPE == 3) // bottom-right
+    if(TYPE == 2) // bottom-right
     {
         lo = glm::vec2(center.x, leaf->lo.y);
         hi = glm::vec2(leaf->hi.x, center.y);
+    }else
+    if(TYPE == 3) // top-right
+    {
+        lo = center;
+        hi = leaf->hi;
     }
 
     parent = leaf;
 
     level = parent->level+1;
 
+    rlo = (lo - parent->lo)/(parent->hi - parent->lo);
+    rhi = (hi - parent->lo)/(parent->hi - parent->lo);
+}
+
+void planeSeedInit()
+{
+    //Store the volume data to polygonise
+    glGenTextures(1, &noiseTex);
+    glActiveTexture(GL_TEXTURE0);
+    //glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, noiseTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+
+    //Generate a distance field to the center of the cube
+    std::vector<glm::vec3> dataField;
+    uint res = 256;
+    for(uint j=0; j<res; j++){
+        for(uint i=0; i<res; i++){
+            dataField.push_back( glm::vec3(rand() / double(RAND_MAX)) );
+        }
+    }
+
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
+
+    // prescribed elevation map
+    glGenTextures(1, &elevationTex);
+    glActiveTexture(GL_TEXTURE0);
+    //glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, elevationTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+
+    //Generate a distance field to the center of the cube
+    dataField.clear();
+    res = 256;
+    for(uint j=0; j<res; j++){
+        for(uint i=0; i<res; i++){
+            //if(i > res/3)
+            //    dataField.push_back( 0.5*(tanh(0.02f*(i - res/3)-1)) );
+            //else
+            //    dataField.push_back(0);
+            glm::vec3 data( -6.0*tanh(0.005*(10*((i - res/2.0)*(i - res/2.0) + (j- res/2.0)*(j - res/2.0))/(float)res/(float)res-1.7)) );
+            dataField.push_back( data );
+        }
+    }
+
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
+
+    return;
 }
 
 // renderGrid() renders a 16x16 2d grid in NDC.
@@ -351,8 +540,10 @@ void renderGrid()
         for(int j = 0; j < GRIDY; j++)
             for(int i = 0; i < GRIDX; i++)
             {
-                glm::vec2 lo(    i/float(GRIDX),    j/float(GRIDY));
-                glm::vec2 hi((i+1)/float(GRIDX),(j+1)/float(GRIDY));
+                glm::vec2 lo((i)/float(GRIDX), (j)/float(GRIDY));
+                glm::vec2 hi((i+1)/float(GRIDX), (j+1)/float(GRIDY));
+                glm::vec2 tlo((i + 0.5)/float(HEIGHT_MAP_X), (j + 0.5)/float(HEIGHT_MAP_Y));
+                glm::vec2 thi((i + 1.5)/float(HEIGHT_MAP_X), (j + 1.5)/float(HEIGHT_MAP_Y));
 
                 vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, lo.x, lo.y)); // bottom-left
                 vertices.push_back(float8( lo.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, lo.x, hi.y)); // top-left
@@ -393,13 +584,18 @@ void renderGrid()
 void Node::gui_interface()
 {                       // Create a window called "Hello, world!" and append into it.
 
-    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode("Node::Control Panel"))
     {
         ImGui::Text("Controllable parameters for Node class.");               // Display some text (you can use a format strings too)
 
-        ImGui::Text("Number of nodes generated %d", NODE_COUNT);
-        ImGui::Text("Number of interface nodes generated %d", INTERFACE_NODE_COUNT);
+        ImGui::Checkbox("Use cache", &Node::USE_CACHE);
+        if(Node::USE_CACHE)
+        {
+            ImGui::Text("cache load %d", Node::CACHE.size());
+        }
+        ImGui::Text("Number of nodes generated %d", Node::NODE_COUNT);
+        ImGui::Text("Number of interface nodes generated %d", Node::INTERFACE_NODE_COUNT);
 
         if (ImGui::TreeNode("Noise map"))
         {

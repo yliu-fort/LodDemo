@@ -23,13 +23,14 @@
 #include "grid.h"
 #include "geomesh.h"
 #include "refcamera.h"
+#include "lighting.h"
 
 // settings
 static int SCR_WIDTH  = 800;
 static int SCR_HEIGHT = 600;
 
 // camera
-static Camera camera = Camera(glm::vec3(0.5f, 0.5f, 0.5f), float(SCR_WIDTH)/SCR_HEIGHT);
+static Camera camera = Camera(glm::vec3(-1.0f, 0.0f, 2.0f), float(SCR_WIDTH)/SCR_HEIGHT);
 
 static float lastX = SCR_WIDTH / 2.0f;
 static float lastY = SCR_HEIGHT / 2.0f;
@@ -55,20 +56,6 @@ void processInput(GLFWwindow *window);
 void renderBox();
 void renderPlane();
 
-// which mesh I am standing
-float currentElevation(std::vector<Geomesh>& mesh, const glm::vec3& pos)
-{
-    for(auto& land: mesh)
-    {
-        // Caution: query in 2d grid on (x,z) plane
-        if(land.root->lo.x < pos.x && land.root->lo.y < pos.z
-                && land.root->hi.x >= pos.x && land.root->hi.y >= pos.z)
-        {
-            return land.queryElevation(pos);
-        }
-    }
-    return 0.0f;
-}
 
 void gui_interface(float h)
 {
@@ -82,6 +69,106 @@ void gui_interface(float h)
         ImGui::TreePop();
     }
 }
+
+class Geoplane
+{
+    Geomesh top;
+
+    glm::vec3 position,rotation;
+    float scale;
+    bool spinning = false;
+    float spin_vel = 0.1f;
+
+public:
+    Geoplane():position(0),rotation(0),scale(1)
+        ,top(Geomesh())
+
+    {}
+    void update(Camera& camera)
+    {
+        self_spin();
+
+        auto localPos = convertToLocal(camera.Position);
+        top.subdivision(    localPos );
+    }
+    void draw(Shader& shader, Camera& camera)
+    {
+        auto localPos = convertToLocal(camera.Position);
+        shader.setMat4("model",this->getModelMatrix());
+        top.draw(shader,    localPos );
+    }
+    float currentElevation(const glm::vec3& pos) const
+    {
+        auto localPos = convertToLocal(pos);
+        if(top.isGroundReference(localPos))
+            return top.queryElevation(localPos);
+        return 0.0f;
+    }
+    float currentLocalHeight(const glm::vec3& pos) const
+    {
+        // h < e indicates that we are underground
+        float e = currentElevation(pos);
+        float h = (convertToLocal(pos).y);
+        return (h-e);
+    }
+    float currentGlobalHeight(const glm::vec3& pos) const
+    {
+        return currentLocalHeight(pos)*scale;
+    }
+    glm::vec3 currentGroundPos(const glm::vec3& pos, float bias) const
+    {
+        return glm::vec3(getModelMatrix()*glm::vec4(convertToLocal(pos)*(1.0f-currentLocalHeight(pos)+bias),1.0f));
+    }
+    void self_spin()
+    {
+        if(spinning)
+            rotation.y += spin_vel*0.02f;
+    }
+    void gui_interface()
+    {
+        //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        if (ImGui::TreeNode("Geocube::Control Panel"))
+        {
+            ImGui::Text("Controllable parameters for Geocube class.");
+
+            // Transform
+            ImGui::DragFloat3("Position",&(this->position)[0],0.1f);
+            ImGui::DragFloat3("Rotation",&(this->rotation)[0],1.0f);
+            ImGui::DragFloat("Scale",&(this->scale),0.01f,0.001f,1e6f);
+
+            ImGui::Checkbox("Self-spin",&spinning);
+            if(spinning)
+            {
+                ImGui::DragFloat("self-spin velocity",&spin_vel,0.001f,0.01f,0.3f);
+            }
+
+            // Global transformation
+            //ImGui::DragFloat4("rotation", (float*)&rotation,0.01f);
+            //ImGui::DragFloat4("refQuaternion", (float*)&refQuaternion,0.01f);
+
+            // Info
+            //ImGui::Text("Front  \t%02.6f, %02.6f, %02.6f"  , Front.x,Front.y,Front.z);
+            //ImGui::Text("Up     \t%02.6f, %02.6f, %02.6f"     , Up.x,Up.y,Up.z);
+            //ImGui::Text("Right  \t%02.6f, %02.6f, %02.6f"  , Right.x,Right.y,Right.z);
+            //ImGui::Text("WorldUp\t%02.6f, %02.6f, %02.6f", WorldUp.x,WorldUp.y,WorldUp.z);
+
+            ImGui::TreePop();
+        }
+
+    }
+protected:
+    glm::mat4 getModelMatrix() const
+    {
+        return glm::translate(glm::scale(glm::mat4(1),glm::vec3(scale)),position)
+                *glm::mat4(glm::quat(glm::radians(rotation)));
+    }
+    glm::vec3 convertToLocal(const glm::vec3& pos) const
+    {
+        return glm::vec3(glm::inverse(getModelMatrix())*glm::vec4(pos,1.0f));
+    }
+
+};
+
 
 int main()
 {
@@ -106,6 +193,9 @@ int main()
     // Initlize geogrid system
     Node::init();
 
+    // Initialize lighting system
+    Lighting::init();
+
     // For automatic file reloading
     //FileSystemMonitor::Init(SRC_PATH);
 
@@ -116,62 +206,51 @@ int main()
     refCamera::shader.reload_shader_program_from_files(FP("renderer/box.vert"),FP("renderer/box.frag"));
     refCamera refcam(camera);
 
+    // lighting
+    Lighting dirlight;
+
     // colormap
     Colormap::Rainbow();
 
-    // real material texture
-    unsigned int material = loadTexture("Y42lf.png",FP("../../resources/textures"), false);
+    // read debug texture
     unsigned int debug_tex = loadTexture("texture_debug.jpeg",FP("../../resources/textures"), false);
 
-    std::vector<Geomesh> mesh;
-    for(int i = -8; i < 8; i++)
-        for(int j = -8; j < 8; j++)
-        {
-            Geomesh land(glm::vec2(i,j),glm::vec2(i+1,j+1));
-            mesh.push_back(land);
-        }
-
-    // Adjust camera frustum
-    camera.Near = 100.0/6e6;
-    //camera.Far = 2.0;
-
-    std::cout << "here?5" << std::endl;
+    // gen geocube
+    Geoplane mesh;
 
     while( !glfwWindowShouldClose( window ) )
     {
         // per-frame time logic
         // --------------------
-        bool ticking = countAndDisplayFps(window);
-
+        countAndDisplayFps(window);
 
         // input
         glfwGetFramebufferSize(window, &SCR_WIDTH, &SCR_HEIGHT);
         processInput(window);
 
-        for(auto& land: mesh)
-        {
-            land.subdivision(refcam.Position, refcam.Front);
-        }
-
         if(bindCam)
         {
-            float min_height = currentElevation(mesh, camera.Position) + 10.0f*camera.Near;
-            camera.Position.y = fmaxf(camera.Position.y, min_height);
+            //float min_height = mesh.currentElevation(refcam.Position) + camera.Near;
+            if(mesh.currentLocalHeight(camera.Position) < 5e-7)
+                camera.Position = glm::mix(camera.Position, mesh.currentGroundPos(camera.Position, 5e-7), 0.5f);
+
             //camera.setReference(glm::vec3(0,1,0));
             refcam.sync_frustrum();
             refcam.sync_position();
             refcam.sync_rotation();
         }
 
+        // update geomesh
+        mesh.update(refcam);
+
         // Draw points
         glViewport(0,0,SCR_WIDTH, SCR_HEIGHT);
-        glClearColor(0.4f, 0.4f, 0.7f, 1.0f);
+        glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Render relative to eye
+        // pass matrixes in global coordinate system
         lightingShader.use();
-        lightingShader.setMat4("projection_view", camera.GetFrustumMatrix());
-        lightingShader.setVec3("viewPos", refcam.Position);
+        lightingShader.setVec3("viewPos", camera.Position);
 
         // Colormap
         Colormap::Bind();
@@ -181,34 +260,68 @@ int main()
         glBindTexture(GL_TEXTURE_2D, debug_tex);
         lightingShader.setInt("debugmap", 11);
 
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, material);
-        lightingShader.setInt("material", 2);
-
         // lighting
-        lightingShader.setVec3("dirLight.direction", glm::vec3(12.5f*sinf(0.1f*glfwGetTime()),-4.3f,12.5f*cosf(0.1f*glfwGetTime())));
-        lightingShader.setVec3("dirLight.ambient", glm::vec3( 0.05f, 0.05f, 0.05f));
-        lightingShader.setVec3("dirLight.diffuse", glm::vec3( 1.5f, 1.5f, 1.5f));
-        lightingShader.setVec3("dirLight.specular", glm::vec3( 0.10f, 0.15f, 0.10f));
+        dirlight.setParam(lightingShader);
 
         // render type
         lightingShader.setInt("render_type", Geomesh::RENDER_MODE);
 
-        for(const auto& land: mesh)
-        {
-            land.draw(lightingShader);
-        }
+        // todo: remap z buffer to increase valid bit
+        // "near" terrains
+        glDepthRange(0,0.4);
+        camera.Near = 0.002e-4;
+        camera.Far = camera.Near*1e4;
+        //refcam.sync_frustrum();
+        lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
+        glEnable(GL_CULL_FACE);
+        mesh.draw(lightingShader, refcam);
+        glDisable(GL_CULL_FACE);
+
+
+        // "far" terrains
+        glDepthRange(0.4,0.8);
+        camera.Near = 100.0e-5;
+        camera.Far = camera.Near*1e5;
+        //refcam.sync_frustrum();
+        lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
+        glEnable(GL_CULL_FACE);
+        mesh.draw(lightingShader, refcam);
+        glDisable(GL_CULL_FACE);
+
+        // "distant" objects
+        glDepthRange(0.8,1.0);
+
 
         if(drawWireframe)
         {
-            glClear(GL_COLOR_BUFFER_BIT);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            lodShader.use();
-            lodShader.setMat4("projection_view", camera.GetFrustumMatrix());
-            lodShader.setVec3("viewPos", refcam.Position);
-            lodShader.setInt("heightmap", 0);
             glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-            for(auto& land: mesh) { land.draw(lodShader); }
+            // todo: remap z buffer to increase valid bit
+            // "near" terrains
+            glDepthRange(0,0.4);
+            camera.Near = 0.002e-4;
+            camera.Far = camera.Near*1e4;
+            //refcam.sync_frustrum();
+            lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
+            glEnable(GL_CULL_FACE);
+            mesh.draw(lightingShader, refcam);
+            glDisable(GL_CULL_FACE);
+
+
+            // "far" terrains
+            glDepthRange(0.4,0.8);
+            camera.Near = 100.0e-5;
+            camera.Far = camera.Near*1e5;
+            //refcam.sync_frustrum();
+            lightingShader.setMat4("projection_view", camera.GetPerspectiveMatrix()*camera.GetViewMatrixOriginBased());
+            glEnable(GL_CULL_FACE);
+            mesh.draw(lightingShader, refcam);
+            glDisable(GL_CULL_FACE);
+
+            // "distant" objects
+            glDepthRange(0.8,1.0);
+
             glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
         }
 
@@ -219,15 +332,17 @@ int main()
             normalShader.setVec3("viewPos", refcam.Position);
             normalShader.setInt("heightmap", 0);
             normalShader.setVec3("color", glm::vec3(1,1,0));
-            for(auto& land: mesh) { land.draw(normalShader); }
+            mesh.draw(normalShader, refcam);
         }
 
         // gui
         GuiInterface::Begin();
+        mesh.gui_interface();
         Node::gui_interface();
         Geomesh::gui_interface();
         refcam.gui_interface();
-        gui_interface(currentElevation(mesh, refcam.Position));
+        dirlight.gui_interface(camera);
+        gui_interface(mesh.currentGlobalHeight(refcam.Position)*6371000);
         ImGui::ShowDemoWindow();
         GuiInterface::End();
 
@@ -425,7 +540,7 @@ GLFWwindow* initGL(int w, int h)
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
-    glfwSwapInterval(1); // 60 fps constraint
+    glfwSwapInterval(0); // 60 fps constraint
 
     return window;
 }

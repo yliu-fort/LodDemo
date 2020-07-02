@@ -92,3 +92,4 @@ namespace ImGui
     void MyFunction(const char* name, const MyMatrix44& v);
 }
 */
+#define IMGUI_IMPL_OPENGL_LOADER_GLAD

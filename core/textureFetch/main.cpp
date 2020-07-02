@@ -252,6 +252,7 @@ int main()
     //Shader shader(FP("renderer/terrain.vert"),FP("renderer/terrain.frag"));
     //Shader pColorShader(FP("renderer/box.vert"),FP("renderer/box.frag"));
     //Shader lodShader(FP("renderer/lod.vert"),FP("renderer/lod.frag"));
+    Shader tex_write(FP("renderer/tex_write.glsl"));
     Shader tex_interp(FP("renderer/tex_interp.glsl"));
 
     // For automatic file reloading
@@ -295,16 +296,10 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    //Generate a distance field to the center of the cube
-    std::vector<float>().swap(dataField);
-    for(uint j=0; j<HEIGHT_MAP_Y; j++){
-        for(uint i=0; i<HEIGHT_MAP_X; i++){
-            dataField.push_back(0);
-        }
-    }
 
     //glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, GL_RED, GL_FLOAT, &dataField[0]);
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, 16, 16, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, GL_RED, GL_FLOAT, &dataField[0]);
+
     glBindImageTexture(0, smallMap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
 
 
@@ -326,12 +321,12 @@ int main()
         printf("%.1f ", small[i]);
         if(i%HEIGHT_MAP_X == 15) {printf("\n");}
     }
-
-    printf("Pixel value in large map: \n");
-    for(uint i=0; i<HEIGHT_MAP_X*HEIGHT_MAP_Y; i++){
-        printf("%.1f ", large[i]);
-        if(i%HEIGHT_MAP_X == 15) {printf("\n");}
-    }
+    //
+    //printf("Pixel value in large map: \n");
+    //for(uint i=0; i<HEIGHT_MAP_X*HEIGHT_MAP_Y; i++){
+    //    printf("%.1f ", large[i]);
+    //    if(i%HEIGHT_MAP_X == 15) {printf("\n");}
+    //}
 
 
    // while( !glfwWindowShouldClose( window ) )
@@ -346,11 +341,11 @@ int main()
         processInput(window);
 
         // Compute
-        tex_interp.use();
+        tex_write.use();
 
         // bind noisemap
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, largeMap);
+        glBindTexture(GL_TEXTURE_2D, smallMap);
 
         // write to heightmap
         glBindImageTexture(0, smallMap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
@@ -363,10 +358,11 @@ int main()
 
 
         // read texture
+        for(auto i : small) { i = 0; }
         glGetTextureImage(smallMap, 0, GL_RED, GL_FLOAT,HEIGHT_MAP_X*HEIGHT_MAP_Y*sizeof(float),&small[0]);
 
         // read texture
-        glGetTextureImage(largeMap, 0, GL_RED, GL_FLOAT,HEIGHT_MAP_X*HEIGHT_MAP_Y*sizeof(float),&large[0]);
+        //glGetTextureImage(largeMap, 0, GL_RED, GL_FLOAT,HEIGHT_MAP_X*HEIGHT_MAP_Y*sizeof(float),&large[0]);
 
 
         printf("Pixel value in small map: \n");
@@ -375,11 +371,11 @@ int main()
             if(i%HEIGHT_MAP_X == 15) {printf("\n");}
         }
 
-        printf("Pixel value in large map: \n");
-        for(uint i=0; i<HEIGHT_MAP_X*HEIGHT_MAP_Y; i++){
-            printf("%.1f ", large[i]);
-            if(i%HEIGHT_MAP_X == 15) {printf("\n");}
-        }
+        //printf("Pixel value in large map: \n");
+        //for(uint i=0; i<HEIGHT_MAP_X*HEIGHT_MAP_Y; i++){
+        //    printf("%.1f ", large[i]);
+        //    if(i%HEIGHT_MAP_X == 15) {printf("\n");}
+        //}
 #endif
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)

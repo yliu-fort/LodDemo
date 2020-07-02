@@ -2,9 +2,8 @@
 #define MESH_H
 #include <vector>
 
-//GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
+//GLAD
+#include <glad/glad.h>
 
 // Abstruct base
 class Mesh
