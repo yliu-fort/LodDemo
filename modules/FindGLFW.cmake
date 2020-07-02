@@ -48,6 +48,7 @@ if (WIN32)
               glfw3
           PATHS
               ${GLFW_LOCATION}/lib
+	      ${GLFW_LOCATION}/lib/x86
               $ENV{GLFW_LOCATION}/lib
               $ENV{PROGRAMFILES}/GLFW/lib
               DOC "The GLFW library")
@@ -57,6 +58,7 @@ if (WIN32)
               glfw3
           PATHS
               ${GLFW_LOCATION}/lib
+	      ${GLFW_LOCATION}/lib/x64
               $ENV{GLFW_LOCATION}/lib
               $ENV{PROGRAMFILES}/GLFW/lib
               DOC "The GLFW library")
