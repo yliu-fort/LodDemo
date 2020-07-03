@@ -2,6 +2,7 @@
 #include <iostream>
 
 //GLFW
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
