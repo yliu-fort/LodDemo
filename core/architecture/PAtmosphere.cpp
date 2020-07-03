@@ -1,59 +1,59 @@
-#include "atmosphere.h"
+#include "PAtmosphere.h"
 
 #include <glad/glad.h>
 
 #include "cmake_source_dir.h"
 
-void Atmosphere::init()
+void PAtmosphere::Init()
 {
     m_shSkyFromSpace         .reload_shader_program_from_files(FP("renderer/atmosphere/SkyFromSpace.vert"          ),FP("renderer/atmosphere/SkyFromSpace.frag"         ));
-    m_shSkyFromAtmosphere    .reload_shader_program_from_files(FP("renderer/atmosphere/SkyFromAtmosphere.vert"     ),FP("renderer/atmosphere/SkyFromAtmosphere.frag"    ));
+    m_shSkyFromPAtmosphere    .reload_shader_program_from_files(FP("renderer/atmosphere/SkyFromAtmosphere.vert"     ),FP("renderer/atmosphere/SkyFromAtmosphere.frag"    ));
     m_shGroundFromSpace      .reload_shader_program_from_files(FP("renderer/atmosphere/GroundFromSpace.vert"       ),FP("renderer/atmosphere/GroundFromSpace.frag"      ));
-    m_shGroundFromAtmosphere .reload_shader_program_from_files(FP("renderer/atmosphere/GroundFromAtmosphere.vert"  ),FP("renderer/atmosphere/GroundFromAtmosphere.frag" ));
+    m_shGroundFromPAtmosphere .reload_shader_program_from_files(FP("renderer/atmosphere/GroundFromAtmosphere.vert"  ),FP("renderer/atmosphere/GroundFromAtmosphere.frag" ));
     //m_shSpaceFromSpace       .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromSpace.vert"        ),FP("renderer/atmosphere/SpaceFromSpace.frag"       ));
-    //m_shSpaceFromAtmosphere  .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromAtmosphere.vert"   ),FP("renderer/atmosphere/SpaceFromAtmosphere.frag"  ));
+    //m_shSpaceFromPAtmosphere  .reload_shader_program_from_files(FP("renderer/atmosphere/SpaceFromAtmosphere.vert"   ),FP("renderer/atmosphere/SpaceFromAtmosphere.frag"  ));
     m_shOceanFromSpace       .reload_shader_program_from_files(FP("renderer/atmosphere/OceanFromSpace.vert"        ),FP("renderer/atmosphere/OceanFromSpace.frag"       ));
-    m_shOceanFromAtmosphere  .reload_shader_program_from_files(FP("renderer/atmosphere/OceanFromAtmosphere.vert"   ),FP("renderer/atmosphere/OceanFromAtmosphere.frag"  ));
+    m_shOceanFromPAtmosphere  .reload_shader_program_from_files(FP("renderer/atmosphere/OceanFromAtmosphere.vert"   ),FP("renderer/atmosphere/OceanFromAtmosphere.frag"  ));
 
 
-    m_tEarth = Geocube();
+    m_tEarth = OGeocube();
 
-    m_tSky = Geocube();
-    m_tSky.subdivision(3);
-    m_tSky.releaseAllTextureHandles();
+    m_tSky = OGeocube();
+    m_tSky.Subdivision(3);
+    m_tSky.ReleaseAllTextureHandles();
 
-    m_tOcean = Geocube();
-    m_tOcean.subdivision(3);
-    m_tOcean.releaseAllTextureHandles();
+    m_tOcean = OGeocube();
+    m_tOcean.Subdivision(3);
+    m_tOcean.ReleaseAllTextureHandles();
 
-    update();
+    Update();
 }
 
-Shader& Atmosphere::getGroundShader(const glm::vec3& pos)
+Shader& PAtmosphere::GetGroundShader(const glm::vec3& pos)
 {
-    if(this->inAtmosphere(pos))
-        return m_shGroundFromAtmosphere;
+    if(this->InPAtmosphere(pos))
+        return m_shGroundFromPAtmosphere;
     else
         return m_shGroundFromSpace;
 }
 
-Shader& Atmosphere::getSkyShader(const glm::vec3& pos)
+Shader& PAtmosphere::GetSkyShader(const glm::vec3& pos)
 {
-    if(this->inAtmosphere(pos))
-        return m_shSkyFromAtmosphere;
+    if(this->InPAtmosphere(pos))
+        return m_shSkyFromPAtmosphere;
     else
         return m_shSkyFromSpace;
 }
 
-Shader& Atmosphere::getOceanShader(const glm::vec3& pos)
+Shader& PAtmosphere::GetOceanShader(const glm::vec3& pos)
 {
-    if(this->inAtmosphere(pos))
-        return m_shOceanFromAtmosphere;
+    if(this->InPAtmosphere(pos))
+        return m_shOceanFromPAtmosphere;
     else
         return m_shOceanFromSpace;
 }
 
-void Atmosphere::drawGround(Camera* camera)
+void PAtmosphere::DrawGround(Camera* camera)
 {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -61,7 +61,7 @@ void Atmosphere::drawGround(Camera* camera)
 
     // get reference
     const auto& vCamera = m_3DCamera->Position;
-    Shader& pGroundShader = getGroundShader(vCamera);
+    Shader& pGroundShader = GetGroundShader(vCamera);
 
     // Draw ground
     pGroundShader.use();
@@ -101,10 +101,10 @@ void Atmosphere::drawGround(Camera* camera)
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
 
-    m_tEarth.draw(pGroundShader, camera);
+    m_tEarth.Draw(pGroundShader, camera);
 }
 
-void Atmosphere::drawSky(Camera* camera)
+void PAtmosphere::DrawSky(Camera* camera)
 {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -112,7 +112,7 @@ void Atmosphere::drawSky(Camera* camera)
 
     // get reference
     const auto& vCamera = m_3DCamera->Position;
-    Shader& pSkyShader = getSkyShader(vCamera);
+    Shader& pSkyShader = GetSkyShader(vCamera);
 
     {
         // Draw sky
@@ -148,13 +148,13 @@ void Atmosphere::drawSky(Camera* camera)
         glFrontFace(GL_CW);
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE);
-        m_tSky.draw(pSkyShader, camera);
+        m_tSky.Draw(pSkyShader, camera);
         glDisable(GL_BLEND);
         glFrontFace(GL_CCW);
     }
 }
 
-void Atmosphere::drawOcean(Camera* camera)
+void PAtmosphere::DrawOcean(Camera* camera)
 {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -162,7 +162,7 @@ void Atmosphere::drawOcean(Camera* camera)
 
     // get reference
     const auto& vCamera = m_3DCamera->Position;
-    Shader& pOceanShader = getOceanShader(vCamera);
+    Shader& pOceanShader = GetOceanShader(vCamera);
 
     // Draw ground
     pOceanShader.use();
@@ -196,10 +196,10 @@ void Atmosphere::drawOcean(Camera* camera)
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D, m_tOpticalDepthBuffer);
 
-    m_tOcean.draw(pOceanShader, camera);
+    m_tOcean.Draw(pOceanShader, camera);
 }
 
-void Atmosphere::MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float fRayleighScaleHeight, float fMieScaleHeight)
+void PAtmosphere::MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float fRayleighScaleHeight, float fMieScaleHeight)
 {
     const float DELTA = 1e-6;
     const int m_nChannels = 4;
@@ -223,7 +223,7 @@ void Atmosphere::MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, 
         std::vector<float> rd;
         for(int nHeight=0; nHeight<nSize; nHeight++)
         {
-            // As the x tex coord goes from 0 to 1, the height goes from the bottom of the atmosphere to the top
+            // As the x tex coord goes from 0 to 1, the height goes from the bottom of the PAtmosphere to the top
             float fHeight = DELTA + fInnerRadius + ((fOuterRadius - fInnerRadius) * nHeight) / nSize;
             glm::vec3 vPos(0, fHeight, 0);				// The position of the camera
 
@@ -248,7 +248,7 @@ void Atmosphere::MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, 
                 fMieDensityRatio = (m_pBuffer)[nIndex+2 - nSize*m_nChannels] * 0.5f;
             }
 
-            // Determine where the ray intersects the outer radius (the top of the atmosphere)
+            // Determine where the ray intersects the outer radius (the top of the PAtmosphere)
             // This is the end of our ray for determining the optical depth (vPos is the start)
             C = Cpart - fOuterRadius*fOuterRadius;
             fDet = Bsq - 4.0f * C;
@@ -260,7 +260,7 @@ void Atmosphere::MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, 
             glm::vec3 vSampleRay = vRay * fSampleLength;
             vPos += vSampleRay * 0.5f;
 
-            // Iterate through the samples to sum up the optical depth for the distance the ray travels through the atmosphere
+            // Iterate through the samples to sum up the optical depth for the distance the ray travels through the PAtmosphere
             float fRayleighDepth = 0;
             float fMieDepth = 0;
             for(int i=0; i<nSamples; i++)
@@ -306,7 +306,7 @@ void Atmosphere::MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, 
 
 }
 
-void Atmosphere::MakePhaseBuffer(float ESun, float Kr, float Km, float g)
+void PAtmosphere::MakePhaseBuffer(float ESun, float Kr, float Km, float g)
 {
     const int m_nWidth = 64;
     std::vector<float> m_pBuffer(2*m_nWidth);
@@ -338,7 +338,7 @@ void Atmosphere::MakePhaseBuffer(float ESun, float Kr, float Km, float g)
 
 }
 
-void Atmosphere::update()
+void PAtmosphere::Update()
 {
     m_fWavelength4[0] = powf(m_fWavelength[0], 4.0f);
     m_fWavelength4[1] = powf(m_fWavelength[1], 4.0f);
@@ -354,13 +354,13 @@ void Atmosphere::update()
     MakePhaseBuffer(m_ESun, m_Kr, m_Km, m_g);
 
 
-    m_tEarth.setScale(m_fInnerRadius);
-    m_tSky.setScale(m_fOuterRadius);
-    m_tOcean.setScale(m_fInnerRadius);
+    m_tEarth.SetScale(m_fInnerRadius);
+    m_tSky.SetScale(m_fOuterRadius);
+    m_tOcean.SetScale(m_fInnerRadius);
 
 }
 
-void Atmosphere::reset()
+void PAtmosphere::Reset()
 {
     m_vLight = glm::vec3(0, 0, 1000);
 
@@ -382,16 +382,16 @@ void Atmosphere::reset()
     m_fMieScaleDepth = 0.1f;
     m_fHdr = true;
 
-    update();
+    Update();
 }
 
 #include "imgui.h"
-void Atmosphere::gui_interface()
+void PAtmosphere::GuiInterface()
 {
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-    if (ImGui::TreeNode("Atmosphere::Control Panel"))
+    if (ImGui::TreeNode("PAtmosphere::Control Panel"))
     {
-        ImGui::Text("Controllable parameters for Atmosphere class.");
+        ImGui::Text("Controllable parameters for PAtmosphere class.");
 
         // Transform
         ImGui::DragFloat3("Camera Position",&(m_3DCamera->Position)[0], 0.0001,1.0f,99.0f,"%.6f");
@@ -420,10 +420,10 @@ void Atmosphere::gui_interface()
         }
 
         if(ImGui::Button("Reset"))
-            reset();
+            Reset();
 
         if(ImGui::Button("Update Buffers"))
-            update();
+            Update();
 
         // Global transformation
         //ImGui::DragFloat4("rotation", (float*)&rotation,0.01f);
@@ -433,7 +433,7 @@ void Atmosphere::gui_interface()
         if(glm::length(m_3DCamera->Position) >= m_fOuterRadius)
             ImGui::Text("In vaccum.");
         else
-            ImGui::Text("In atmosphere.");
+            ImGui::Text("In PAtmosphere.");
         //ImGui::Text("Front  \t%02.6f, %02.6f, %02.6f"  , Front.x,Front.y,Front.z);
         //ImGui::Text("Up     \t%02.6f, %02.6f, %02.6f"     , Up.x,Up.y,Up.z);
         //ImGui::Text("Right  \t%02.6f, %02.6f, %02.6f"  , Right.x,Right.y,Right.z);

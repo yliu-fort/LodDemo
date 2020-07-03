@@ -1,4 +1,4 @@
-#include "grid.h"
+#include "PNode.h"
 
 #include <iostream>
 #include <cmath>
@@ -18,18 +18,18 @@ static Shader upsampling, crackfixing, appearance_baking;
 static unsigned int noiseTex, elevationTex, materialTex;
 
 
-uint Node::NODE_COUNT = 0;
-uint Node::INTERFACE_NODE_COUNT = 0;
-bool Node::USE_CACHE = true;
+uint PNode::NODE_COUNT = 0;
+uint PNode::INTERFACE_NODE_COUNT = 0;
+bool PNode::USE_CACHE = true;
 
 #define MAX_CACHE_CAPACITY (1524)
-std::vector<std::tuple<uint,uint,uint>> Node::CACHE;
+std::vector<std::tuple<uint,uint,uint>> PNode::CACHE;
 
 
-void renderGrid();
-void planeSeedInit();
+void RenderGrid();
+void PlaneSeedInit();
 
-void cubeSeedInitZero()
+void CubeSeedInitZero()
 {
     // prescribed elevation map
     glGenTextures(1, &elevationTex);
@@ -56,7 +56,7 @@ void cubeSeedInitZero()
     return;
 }
 
-void cubeSeedInitTanh()
+void CubeSeedInitTanh()
 {
     // prescribed elevation map
     glGenTextures(1, &elevationTex);
@@ -96,7 +96,7 @@ void cubeSeedInitTanh()
 }
 
 
-void cubeAssetInit()
+void CubeAssetInit()
 {
     std::vector<std::string> faces
     {
@@ -110,16 +110,16 @@ void cubeAssetInit()
     elevationTex = loadCubemap(faces);
 }
 
-void cubeAssetTilesInit()
+void CubeAssetTilesInit()
 {
     elevationTex = loadCubemapLarge(FP("../../resources/Earth/Bump/"),".png", 1);
 }
 
-void Node::init()
+void PNode::Init()
 {
     //cubeSeedInitZero();
     //cubeAssetInit();
-    cubeAssetTilesInit();
+    CubeAssetTilesInit();
 
     materialTex = loadLayeredTexture("Y42lf.png",FP("../../resources/textures"), false);
 
@@ -128,10 +128,10 @@ void Node::init()
     appearance_baking.reload_shader_program_from_files(FP("renderer/appearance.glsl"));
     crackfixing.reload_shader_program_from_files(FP("renderer/crackfixing.glsl"));
 
-    std::cout << "Node class initialized!" << std::endl;
+    std::cout << "PNode class initialized!" << std::endl;
 }
 
-void Node::finalize()
+void PNode::Finalize()
 {
     //glDeleteTextures(1,&noiseTex);
     glDeleteTextures(1,&elevationTex);
@@ -147,11 +147,11 @@ void Node::finalize()
     CACHE.clear();
 }
 
-void Node::queryTextureHandle()
+void PNode::QueryTextureHandle()
 {
     if(!textureHandleAllocated)
     {
-        if(Node::CACHE.empty() || !Node::USE_CACHE)
+        if(PNode::CACHE.empty() || !PNode::USE_CACHE)
         {
             glGenTextures(1, &heightmap);
 
@@ -195,21 +195,21 @@ void Node::queryTextureHandle()
         }
         else
         {
-            heightmap = std::get<0>(Node::CACHE.back());
-            appearance = std::get<1>(Node::CACHE.back());
-            normal = std::get<2>(Node::CACHE.back());
-            Node::CACHE.pop_back();
+            heightmap = std::get<0>(PNode::CACHE.back());
+            appearance = std::get<1>(PNode::CACHE.back());
+            normal = std::get<2>(PNode::CACHE.back());
+            PNode::CACHE.pop_back();
         }
     }
 
     textureHandleAllocated = true;
 
 }
-void Node::releaseTextureHandle()
+void PNode::ReleaseTextureHandle()
 {
     if(textureHandleAllocated)
     {
-        if(Node::CACHE.size() > MAX_CACHE_CAPACITY || !Node::USE_CACHE)
+        if(PNode::CACHE.size() > MAX_CACHE_CAPACITY || !PNode::USE_CACHE)
         {
             glDeleteTextures(1, &heightmap);
             glDeleteTextures(1, &appearance);
@@ -217,20 +217,20 @@ void Node::releaseTextureHandle()
         }
         else
         {
-            Node::CACHE.push_back(std::make_tuple(heightmap,appearance, normal));
+            PNode::CACHE.push_back(std::make_tuple(heightmap,appearance, normal));
         }
     }
 
     textureHandleAllocated = false;
 }
 
-Node::Node() : lo(-1), hi(1), rlo(0), rhi(1), subdivided(false), crackfixed(false), level(0), offset_type(0),elevation(0)
+PNode::PNode() : lo(-1), hi(1), rlo(0), rhi(1), subdivided(false), crackfixed(false), level(0), offset_type(0),elevation(0)
 {
-    queryTextureHandle();
-    Node::NODE_COUNT++;
+    QueryTextureHandle();
+    PNode::NODE_COUNT++;
 }
 
-Node::~Node()
+PNode::~PNode()
 {
     if(subdivided)
     {
@@ -240,17 +240,17 @@ Node::~Node()
         delete child[3];
     }
 
-    releaseTextureHandle();
-    Node::NODE_COUNT--;
+    ReleaseTextureHandle();
+    PNode::NODE_COUNT--;
 }
 
-void Node::draw()
+void PNode::Draw()
 {
     // Render grid
-    renderGrid();
+    RenderGrid();
 }
 
-void Node::bake_appearance_map(glm::mat4 arg)
+void PNode::BakeAppearanceMap(glm::mat4 arg)
 {
 
     //Datafield//
@@ -280,7 +280,7 @@ void Node::bake_appearance_map(glm::mat4 arg)
 
 }
 
-void Node::bake_height_map(glm::mat4 arg)
+void PNode::BakeHeightMap(glm::mat4 arg)
 {
     // Initialize 2d heightmap texture
 
@@ -315,7 +315,7 @@ void Node::bake_height_map(glm::mat4 arg)
     crackfixed = false;
 
 }
-void Node::fix_heightmap(Node* neighbour, int edgedir)
+void PNode::FixHeightmap(PNode* neighbour, int edgedir)
 {
     // edge direction
     // 0: left, 1: top, 2:right, 3:bottom
@@ -401,48 +401,48 @@ void Node::fix_heightmap(Node* neighbour, int edgedir)
     // Write flag
     crackfixed = true;
 }
-void Node::split(glm::mat4 arg = glm::mat4(1))
+void PNode::Split(glm::mat4 arg = glm::mat4(1))
 {
     if(!this->subdivided)
     {
-        child[0] = new Node;
-        child[0]->setconnectivity<0>(this);
-        child[0]->set_model_matrix(arg);
-        child[0]->bake_height_map(arg);
-        child[0]->bake_appearance_map(arg);
-        child[0]->set_elevation();
+        child[0] = new PNode;
+        child[0]->SetConnectivity<0>(this);
+        child[0]->SetModelMatrix(arg);
+        child[0]->BakeHeightMap(arg);
+        child[0]->BakeAppearanceMap(arg);
+        child[0]->SetElevation();
 
 
-        child[1] = new Node;
-        child[1]->setconnectivity<1>(this);
-        child[1]->set_model_matrix(arg);
-        child[1]->bake_height_map(arg);
-        child[1]->bake_appearance_map(arg);
-        child[1]->set_elevation();
+        child[1] = new PNode;
+        child[1]->SetConnectivity<1>(this);
+        child[1]->SetModelMatrix(arg);
+        child[1]->BakeHeightMap(arg);
+        child[1]->BakeAppearanceMap(arg);
+        child[1]->SetElevation();
 
 
-        child[2] = new Node;
-        child[2]->setconnectivity<2>(this);
-        child[2]->set_model_matrix(arg);
-        child[2]->bake_height_map(arg);
-        child[2]->bake_appearance_map(arg);
-        child[2]->set_elevation();
+        child[2] = new PNode;
+        child[2]->SetConnectivity<2>(this);
+        child[2]->SetModelMatrix(arg);
+        child[2]->BakeHeightMap(arg);
+        child[2]->BakeAppearanceMap(arg);
+        child[2]->SetElevation();
 
 
-        child[3] = new Node;
-        child[3]->setconnectivity<3>(this);
-        child[3]->set_model_matrix(arg);
-        child[3]->bake_height_map(arg);
-        child[3]->bake_appearance_map(arg);
-        child[3]->set_elevation();
+        child[3] = new PNode;
+        child[3]->SetConnectivity<3>(this);
+        child[3]->SetModelMatrix(arg);
+        child[3]->BakeHeightMap(arg);
+        child[3]->BakeAppearanceMap(arg);
+        child[3]->SetElevation();
 
 
         this->subdivided = true;
     }
 }
-int Node::search(glm::vec2 p) const
+int PNode::Search(glm::vec2 p) const
 {
-    glm::vec2 center = get_center();
+    glm::vec2 center = GetCenter();
 
     // not in box
     if(p.x < lo.x || p.y < lo.y || p.x > hi.x || p.y > hi.y) { return -1; }
@@ -463,7 +463,7 @@ int Node::search(glm::vec2 p) const
     }
 
 }
-float Node::min_elevation() const
+float PNode::MinElevation() const
 {
 #if 1
     std::vector<float> heightData(HEIGHT_MAP_X*HEIGHT_MAP_Y);
@@ -477,7 +477,7 @@ float Node::min_elevation() const
     return 0;
 #endif
 }
-float Node::get_elevation(const glm::vec2& pos) const
+float PNode::GetElevation(const glm::vec2& pos) const
 {
 #if 1
     // pos must located inside this grid
@@ -499,13 +499,13 @@ float Node::get_elevation(const glm::vec2& pos) const
     return 0;
 #endif
 }
-void Node::set_elevation()
+void PNode::SetElevation()
 {
-    elevation = get_elevation(get_center());
+    elevation = GetElevation(GetCenter());
 }
 
 template<uint TYPE>
-void Node::setconnectivity(Node* leaf)
+void PNode::SetConnectivity(PNode* leaf)
 {
     static_assert (TYPE < 4, "Only 4 child index" );
     offset_type = TYPE;
@@ -541,7 +541,7 @@ void Node::setconnectivity(Node* leaf)
     rhi = (hi - parent->lo)/(parent->hi - parent->lo);
 }
 
-void planeSeedInit()
+void PlaneSeedInit()
 {
     //Store the volume data to polygonise
     glGenTextures(1, &noiseTex);
@@ -599,7 +599,7 @@ void planeSeedInit()
 static unsigned int gridVAO = 0;
 static unsigned int gridVBO = 0;
 
-void renderGrid()
+void RenderGrid()
 {
 
     // initialize (if necessary)
@@ -657,21 +657,21 @@ void renderGrid()
 
 #include "imgui.h"
 
-void Node::gui_interface()
+void PNode::GuiInterface()
 {                       // Create a window called "Hello, world!" and append into it.
 
     //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-    if (ImGui::TreeNode("Node::Control Panel"))
+    if (ImGui::TreeNode("PNode::Control Panel"))
     {
-        ImGui::Text("Controllable parameters for Node class.");               // Display some text (you can use a format strings too)
+        ImGui::Text("Controllable parameters for PNode class.");               // Display some text (you can use a format strings too)
 
-        ImGui::Checkbox("Use cache", &Node::USE_CACHE);
-        if(Node::USE_CACHE)
+        ImGui::Checkbox("Use cache", &PNode::USE_CACHE);
+        if(PNode::USE_CACHE)
         {
-            ImGui::Text("cache load %d", Node::CACHE.size());
+            ImGui::Text("cache load %d", PNode::CACHE.size());
         }
-        ImGui::Text("Number of nodes generated %d", Node::NODE_COUNT);
-        ImGui::Text("Number of interface nodes generated %d", Node::INTERFACE_NODE_COUNT);
+        ImGui::Text("Number of PNodes generated %d", PNode::NODE_COUNT);
+        ImGui::Text("Number of interface PNodes generated %d", PNode::INTERFACE_NODE_COUNT);
 
         if (ImGui::TreeNode("Noise map"))
         {

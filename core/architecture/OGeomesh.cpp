@@ -1,59 +1,127 @@
-#include "geomesh.h"
+#include "OGeomesh.h"
 #include <glad/glad.h>
+
+
+
+glm::vec3 OGeomesh::ConvertToDeformed(const glm::vec3& v) const
+{
+    return glm::vec3(model*glm::vec4(v,1.0));
+}
+
+glm::vec3 OGeomesh::ConvertToNormal(const glm::vec3& v) const
+{
+    return glm::vec3(glm::inverse(model)*glm::vec4(v,1.0));
+}
+
+glm::vec3 OGeomesh::ConvertToUV(const glm::vec3& v) const
+{
+    auto nv = glm::normalize(v); // normalize to R=1
+    float d;
+    auto orig = ConvertToDeformed(glm::vec3(0));
+    auto dir = glm::normalize(ConvertToDeformed(glm::vec3(0,1,0)));
+    bool intersected = glm::intersectRayPlane	(	glm::vec3(0),
+                                                    -nv,
+                                                    orig,
+                                                    dir,
+                                                    d);
+
+    if(!intersected)
+        return glm::vec3(9999);
+
+    nv = ConvertToNormal(nv*fabsf(d)); // project to plane then transform to +y plane
+    nv.y = glm::length(v) - 1.0f;
+
+    return nv;
+}
+
+bool OGeomesh::IsGroundReference(const glm::vec3& pos) const
+{
+    auto tpos = ConvertToUV(pos);
+    if(abs(tpos.x)<= 1 && abs(tpos.z)<= 1)
+        return true;
+    return false;
+}
+
+float OGeomesh::QueryElevation(const glm::vec3& pos) const
+{
+    auto tpos = ConvertToUV(pos);
+    auto node = QueryNode(glm::vec2(tpos.x, tpos.z));
+    if(node)
+        return node->GetElevation(glm::vec2(tpos.x, tpos.z));
+    return this->GetElevation(glm::vec2(tpos.x, tpos.z));
+}
+
+void OGeomesh::ReleaseAllTextureHandles()
+{
+    ReleaseAllTextureHandles(this);
+}
+
+void OGeomesh::ReleaseAllTextureHandles( PNode* node )
+{
+    if(node->IsSubdivided())
+    {
+        ReleaseAllTextureHandles(node->child[0]);
+        ReleaseAllTextureHandles(node->child[1]);
+        ReleaseAllTextureHandles(node->child[2]);
+        ReleaseAllTextureHandles(node->child[3]);
+    }
+
+    node->ReleaseTextureHandle();
+}
 
 // Caution: only return subdivided grids.
 // write additional condition if you need root
-Node* Geomesh::queryNode( const glm::vec2& pos) const
+PNode* OGeomesh::QueryNode( const glm::vec2& pos) const
 {
-    //bool isTraversible = node->subdivided;
-        // find the node
-        Node* sh_node = root.get();
+    //bool isTraversible = PNode->subdivided;
+        // find the PNode
+        auto sh_PNode = GetHandle();
         int result = -1;
         while(true)
         {
             // start from root
-            result = sh_node->search(pos);
-            if(result != -1 && sh_node->subdivided)
+            result = sh_PNode->Search(pos);
+            if(result != -1 && sh_PNode->IsSubdivided())
             {
-                sh_node = sh_node->child[result];
+                sh_PNode = sh_PNode->child[result];
                 continue;
             }
             break;
         }
 
         if(result == -1) { return NULL; }
-        return sh_node;
+        return sh_PNode;
 }
 
-void Geomesh::refresh_heightmap(Node* node)
+void OGeomesh::RefreshHeightmap(PNode* PNode)
 {
-    //bool isTraversible = node->subdivided;
-    if(node->subdivided)
+    //bool isTraversible = PNode->subdivided;
+    if(PNode->IsSubdivided())
     {
-        refresh_heightmap(node->child[0]);
-        refresh_heightmap(node->child[1]);
-        refresh_heightmap(node->child[2]);
-        refresh_heightmap(node->child[3]);
+        RefreshHeightmap(PNode->child[0]);
+        RefreshHeightmap(PNode->child[1]);
+        RefreshHeightmap(PNode->child[2]);
+        RefreshHeightmap(PNode->child[3]);
     }
     else
     {
         // Refresh old height map for interface cells
-        if(node->crackfixed)
-        {
-            //node->bake_height_map();
-        }
+        //if(PNode->crackfixed)
+        //{
+        //    //PNode->bake_height_map();
+        //}
     }
 }
 
-void Geomesh::fixcrack(Node* node)
+void OGeomesh::Fixcrack(PNode* leaf)
 {
-    //bool isTraversible = node->subdivided;
-    if(node->subdivided)
+    //bool isTraversible = PNode->subdivided;
+    if(leaf->IsSubdivided())
     {
-        fixcrack(node->child[0]);
-        fixcrack(node->child[1]);
-        fixcrack(node->child[2]);
-        fixcrack(node->child[3]);
+        Fixcrack(leaf->child[0]);
+        Fixcrack(leaf->child[1]);
+        Fixcrack(leaf->child[2]);
+        Fixcrack(leaf->child[3]);
     }
     else
     {
@@ -63,126 +131,133 @@ void Geomesh::fixcrack(Node* node)
         // once found a match, the height map of current block will be modified
         // only perform this to current draw level
 
-        //if(node -> crackfixed == true) { return; }
+        //if(PNode -> crackfixed == true) { return; }
 
         // marks: 0: left, 1: top, 2:right, 3:bottom
 
         glm::vec2 f1, f2;
         int e1, e2;
-        if(node->offset_type == 0) // going to search 2 faces
+        if(leaf->offset_type == 0) // going to search 2 faces
         {
-            f1 = node->get_center() - glm::vec2(0.0,(node->hi.y-node->lo.y)); // bottom
-            f2 = node->get_center() - glm::vec2((node->hi.x-node->lo.x), 0.0); // left
+            f1 = leaf->GetCenter() - glm::vec2(0.0,(leaf->hi.y-leaf->lo.y)); // bottom
+            f2 = leaf->GetCenter() - glm::vec2((leaf->hi.x-leaf->lo.x), 0.0); // left
             e1 = 3;e2 = 0;
         }else
-        if(node->offset_type == 1) // going to search 2 faces
+        if(leaf->offset_type == 1) // going to search 2 faces
         {
-            f1 = node->get_center() + glm::vec2(0.0,(node->hi.y-node->lo.y)); // top
-            f2 = node->get_center() - glm::vec2((node->hi.x-node->lo.x), 0.0); // left
+            f1 = leaf->GetCenter() + glm::vec2(0.0,(leaf->hi.y-leaf->lo.y)); // top
+            f2 = leaf->GetCenter() - glm::vec2((leaf->hi.x-leaf->lo.x), 0.0); // left
             e1 = 1;e2 = 0;
         }else
-        if(node->offset_type == 2) // going to search 2 faces
+        if(leaf->offset_type == 2) // going to search 2 faces
         {
-            f1 = node->get_center() + glm::vec2(0.0,(node->hi.y-node->lo.y)); // top
-            f2 = node->get_center() + glm::vec2((node->hi.x-node->lo.x), 0.0); // right
+            f1 = leaf->GetCenter() + glm::vec2(0.0,(leaf->hi.y-leaf->lo.y)); // top
+            f2 = leaf->GetCenter() + glm::vec2((leaf->hi.x-leaf->lo.x), 0.0); // right
             e1 = 1;e2 = 2;
         }
         else
-        if(node->offset_type == 3) // going to search 2 faces
+        if(leaf->offset_type == 3) // going to search 2 faces
         {
-            f1 = node->get_center() - glm::vec2(0.0,(node->hi.y-node->lo.y)); // bottom
-            f2 = node->get_center() + glm::vec2((node->hi.x-node->lo.x), 0.0); // right
+            f1 = leaf->GetCenter() - glm::vec2(0.0,(leaf->hi.y-leaf->lo.y)); // bottom
+            f2 = leaf->GetCenter() + glm::vec2((leaf->hi.x-leaf->lo.x), 0.0); // right
             e1 = 3;e2 = 2;
         }
         else {return;} // may located at other blocks or out of the bound
 
-        // find the node
-        Node* sh_node = queryNode(f1);
+        // find the PNode
+        PNode* sh_PNode = QueryNode(f1);
 
         // Compare with neighbour, if my_level > neighbour_level
         // a height map sync will be called here
-        if(sh_node && node->level == (sh_node->level + 1))
+        if(sh_PNode && leaf->level == (sh_PNode->level + 1))
         {
-            node-> fix_heightmap(sh_node,e1);
+            leaf-> FixHeightmap(sh_PNode,e1);
         }
 
         // here is the second face
-        sh_node = queryNode(f2);
+        sh_PNode = QueryNode(f2);
 
-        if(sh_node && node->level == (sh_node->level + 1))
+        if(sh_PNode && leaf->level == (sh_PNode->level + 1))
         {
-            node-> fix_heightmap(sh_node,e2);
+            leaf-> FixHeightmap(sh_PNode,e2);
         }
     }
 }
 
-void Geomesh::subdivision(const glm::vec3& viewPos, const float& viewY, Node* node)
+void OGeomesh::Subdivision(const glm::vec3& viewPos)
+{
+    Subdivision(ConvertToUV(viewPos), QueryElevation(viewPos), this);
+}
+
+void OGeomesh::Subdivision(uint level)
+{
+    Subdivision( level, this );
+}
+
+void OGeomesh::Draw(Shader& shader, const glm::vec3& viewPos) const
+{
+    shader.setVec3("v3CameraProjectedPos",ConvertToUV(viewPos));
+    shader.setInt("renderType", OGeomesh::RENDER_MODE);
+    Draw(this, shader);
+}
+
+void OGeomesh::Subdivision(const glm::vec3& viewPos, const float& viewY, PNode* leaf)
 {
 
-    // distance between nodepos and viewpos
-    //auto d = node->get_center3() - viewPos;
-    float dx = fminf(fabsf(viewPos.x - node->lo.x),fabsf(viewPos.x - node->hi.x));
-    float dy = fminf(fabsf(viewPos.z - node->lo.y),fabsf(viewPos.z - node->hi.y));
+    // distance between PNodepos and viewpos
+    //auto d = PNode->get_center3() - viewPos;
+    float dx = fminf(fabsf(viewPos.x - leaf->lo.x),fabsf(viewPos.x - leaf->hi.x));
+    float dy = fminf(fabsf(viewPos.z - leaf->lo.y),fabsf(viewPos.z - leaf->hi.y));
     //float dz = abs(viewPos.z - viewZ);
     float d = fmaxf(fmaxf(dx, dy), fabsf(viewPos.y - viewY));
 
     // frustrum culling
-    float K = CUTIN_FACTOR*node->size();
+    float K = CUTIN_FACTOR*leaf->Size();
     //if(FRUSTRUM_CULLING)
     //{
     //    K *= glm::dot(viewFront, d) > 0.0f ? 1.0f:0.5f;
     //}
 
     // Subdivision
-    if( node->level < MIN_DEPTH || (node->level < MAX_DEPTH && d < K)   )
+    if( leaf->level < MIN_DEPTH || (leaf->level < MAX_DEPTH && d < K) )
     {
         // split and bake heightmap
-        node->split(model);
+        leaf->Split(model);
 
-        subdivision(viewPos, viewY, node->child[0]);
-        subdivision(viewPos, viewY, node->child[1]);
-        subdivision(viewPos, viewY, node->child[2]);
-        subdivision(viewPos, viewY, node->child[3]);
+        Subdivision(viewPos, viewY, leaf->child[0]);
+        Subdivision(viewPos, viewY, leaf->child[1]);
+        Subdivision(viewPos, viewY, leaf->child[2]);
+        Subdivision(viewPos, viewY, leaf->child[3]);
 
     }
     else
     {
-        if( node->subdivided && d >= CUTOUT_FACTOR * K )
+        if( leaf->IsSubdivided() && d >= CUTOUT_FACTOR * K )
         {
-            delete node->child[0];
-            delete node->child[1];
-            delete node->child[2];
-            delete node->child[3];
-
-            node->subdivided = false;
+            leaf->ReleaseConnectedNodes();
         }
     }
 }
 
-void Geomesh::subdivision(int level, Node* node)
+void OGeomesh::Subdivision(uint level, PNode* leaf)
 {
     // Subdivision
-    if( node->level < level && node->level < MAX_DEPTH )
+    if( leaf->level < level && leaf->level < MAX_DEPTH )
     {
         // split and bake heightmap
-        node->split(model);
+        leaf->Split(model);
 
-        subdivision(level, node->child[0]);
-        subdivision(level, node->child[1]);
-        subdivision(level, node->child[2]);
-        subdivision(level, node->child[3]);
+        Subdivision(level, leaf->child[0]);
+        Subdivision(level, leaf->child[1]);
+        Subdivision(level, leaf->child[2]);
+        Subdivision(level, leaf->child[3]);
 
     }
     else
     {
-        if( node->subdivided )
+        if( leaf->IsSubdivided() )
         {
-            delete node->child[0];
-            delete node->child[1];
-            delete node->child[2];
-            delete node->child[3];
-
-            node->subdivided = false;
+            leaf->ReleaseConnectedNodes();
         }
     }
 }
@@ -205,49 +280,48 @@ glm::vec2 computeExactTexPos(int code)
     return o;
 }
 
-void Geomesh::drawRecr(Node* node, Shader& shader) const
+void OGeomesh::Draw(const PNode* leaf, Shader& shader) const
 {
-    if(node->subdivided)
+    if(leaf->IsSubdivided())
     {
-        drawRecr(node->child[0], shader);
-        drawRecr(node->child[1], shader);
-        drawRecr(node->child[2], shader);
-        drawRecr(node->child[3], shader);
+        Draw(leaf->child[0], shader);
+        Draw(leaf->child[1], shader);
+        Draw(leaf->child[2], shader);
+        Draw(leaf->child[3], shader);
     }
     else
     {
         // Transfer local grid model
-        shader.setMat4("m4CubeProjMatrix", node->model);
+        shader.setMat4("m4CubeProjMatrix", leaf->PNode::model);
 
         // Transfer lo and hi
-        shader.setInt("level",node->level);
-        shader.setInt("hash",node->morton);
+        shader.setInt("level",leaf->level);
+        shader.setInt("hash",leaf->morton);
 
 
-
-        //std::cout << "current drawing node" << node->level << " - " << node->parent->level << std::endl;
+        //std::cout << "current drawing PNode" << PNode->level << " - " << PNode->parent->level << std::endl;
 
         // Active textures
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, node->heightmap);
+        glBindTexture(GL_TEXTURE_2D, leaf->heightmap);
 
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, node->parent->heightmap);
+        glBindTexture(GL_TEXTURE_2D, leaf->parent->heightmap);
 
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, node->appearance);
+        glBindTexture(GL_TEXTURE_2D, leaf->appearance);
 
         glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, node->parent->appearance);
+        glBindTexture(GL_TEXTURE_2D, leaf->parent->appearance);
 
         glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, node->normal);
+        glBindTexture(GL_TEXTURE_2D, leaf->normal);
 
         glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_2D, node->parent->normal);
+        glBindTexture(GL_TEXTURE_2D, leaf->parent->normal);
 
         // Render grid (inline function call renderGrid())
-        Node::draw();
+        PNode::Draw();
 
         //std::cout << "ok" << std::endl;
     }
@@ -255,24 +329,24 @@ void Geomesh::drawRecr(Node* node, Shader& shader) const
 }
 
 // static variables
-uint Geomesh::MIN_DEPTH = 0;
-uint Geomesh::MAX_DEPTH = 15;
-float Geomesh::CUTIN_FACTOR = 2.0f; // 2.8 -> see function definition
-float Geomesh::CUTOUT_FACTOR = 1.0f; // >= 1
-bool Geomesh::FRUSTRUM_CULLING = false;
-bool Geomesh::CRACK_FILLING = false;
-RenderMode Geomesh::RENDER_MODE = REAL;
+uint OGeomesh::MIN_DEPTH = 0;
+uint OGeomesh::MAX_DEPTH = 15;
+float OGeomesh::CUTIN_FACTOR = 2.0f; // 2.8 -> see function definition
+float OGeomesh::CUTOUT_FACTOR = 1.0f; // >= 1
+bool OGeomesh::FRUSTRUM_CULLING = false;
+bool OGeomesh::CRACK_FILLING = false;
+RenderMode OGeomesh::RENDER_MODE = REAL;
 
 #include "imgui.h"
 
-void Geomesh::gui_interface()
+void OGeomesh::GuiInterface()
 {
     static int counter = 0;
 
     //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-    if (ImGui::TreeNode("Geomesh::Control Panel"))
+    if (ImGui::TreeNode("OGeomesh::Control Panel"))
     {
-        ImGui::Text("Controllable parameters for Geomesh class.");
+        ImGui::Text("Controllable parameters for OGeomesh class.");
         ImGui::SliderInt("min depth", (int*)&MIN_DEPTH, 0, 5);
         ImGui::SliderInt("max depth", (int*)&MAX_DEPTH, 6, 15);
         ImGui::SliderFloat("cutout factor", &CUTOUT_FACTOR, 1.0f, 3.0f);
@@ -294,8 +368,8 @@ void Geomesh::gui_interface()
     {
         for (int i = 0; i < 5; i++)
         {
-            // Use SetNextItemOpen() so set the default state of a node to be open.
-            // We could also use TreeNodeEx() with the ImGuiTreeNodeFlags_DefaultOpen flag to achieve the same thing!
+            // Use SetNextItemOpen() so set the default state of a PNode to be open.
+            // We could also use TreePNodeEx() with the ImGuiTreePNodeFlags_DefaultOpen flag to achieve the same thing!
             if (i == 0)
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
 

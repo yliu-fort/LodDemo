@@ -1,5 +1,5 @@
-#ifndef ATMOSPHERE_H
-#define ATMOSPHERE_H
+#ifndef PAtmosphere_H
+#define PAtmosphere_H
 
 #include <iostream>
 #include <cmath>
@@ -11,52 +11,52 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
-#include "geocube.h"
+#include "OGeocube.h"
 
 #define PI (3.141592654)
 
-class Atmosphere
+class PAtmosphere
 {
 
 public:
-    Atmosphere(Camera* cam) : m_3DCamera(cam) {}
-    ~Atmosphere()
+    PAtmosphere(Camera* cam) : m_3DCamera(cam) {}
+    ~PAtmosphere()
     {
         //glDeleteTextures(1,&m_tPhaseBuffer);
         //glDeleteTextures(1,&m_tOpticalDepthBuffer);
     }
 
-    void bindCamera(Camera* cam) { m_3DCamera = cam; }
-    void init();
-    Geocube& getGroundHandle() {return m_tEarth;}
-    Geocube& getSkyHandle() {return m_tSky;}
-    Geocube& getOceanHandle() {return m_tOcean;}
-    void drawGround(Camera* camera);
-    void drawSky(Camera* camera);
-    void drawOcean(Camera* camera);
+    void BindCamera(Camera* cam) { m_3DCamera = cam; }
+    void Init();
+    OGeocube& GetGroundHandle() {return m_tEarth;}
+    OGeocube& GetSkyHandle() {return m_tSky;}
+    OGeocube& GetOceanHandle() {return m_tOcean;}
+    void DrawGround(Camera* camera);
+    void DrawSky(Camera* camera);
+    void DrawOcean(Camera* camera);
     void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float fRayleighScaleHeight, float fMieScaleHeight);
     void MakePhaseBuffer(float ESun, float Kr, float Km, float g);
-    void update();
-    void reset();
-    void gui_interface();
-    inline void setHDR(Shader& hdrShader)
+    void Update();
+    void Reset();
+    void GuiInterface();
+    inline void SetHDR(Shader& hdrShader)
     {
         hdrShader.setInt("hdr", m_fHdr);
         hdrShader.setFloat("exposure", m_fExposure);
     }
-    inline float getInnerRadius() const { return this->m_fInnerRadius; }
-    inline float getOuterRadius() const { return this->m_fOuterRadius; }
-    inline bool inAtmosphere(const glm::vec3& pos) const
+    inline float GetInnerRadius() const { return this->m_fInnerRadius; }
+    inline float GetOuterRadius() const { return this->m_fOuterRadius; }
+    inline bool InPAtmosphere(const glm::vec3& pos) const
     {
-        if(glm::length(pos) >= this->getOuterRadius())
+        if(glm::length(pos) >= this->GetOuterRadius())
             return false;
         return true;
     }
 
 protected:
-    Shader& getGroundShader(const glm::vec3& pos);
-    Shader& getSkyShader(const glm::vec3& pos);
-    Shader& getOceanShader(const glm::vec3& pos);
+    Shader& GetGroundShader(const glm::vec3& pos);
+    Shader& GetSkyShader(const glm::vec3& pos);
+    Shader& GetOceanShader(const glm::vec3& pos);
 
 private:
     Camera* m_3DCamera;
@@ -99,15 +99,15 @@ private:
     int m_nODBSamples = 50;
 
     Shader m_shSkyFromSpace         ;
-    Shader m_shSkyFromAtmosphere    ;
+    Shader m_shSkyFromPAtmosphere    ;
     Shader m_shGroundFromSpace      ;
-    Shader m_shGroundFromAtmosphere ;
+    Shader m_shGroundFromPAtmosphere ;
     Shader m_shSpaceFromSpace       ;
-    Shader m_shSpaceFromAtmosphere  ;
+    Shader m_shSpaceFromPAtmosphere  ;
     Shader m_shOceanFromSpace       ;
-    Shader m_shOceanFromAtmosphere  ;
+    Shader m_shOceanFromPAtmosphere  ;
 
-    Geocube m_tEarth, m_tSky, m_tOcean;
+    OGeocube m_tEarth, m_tSky, m_tOcean;
 };
 
 #endif

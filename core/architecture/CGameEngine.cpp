@@ -20,13 +20,13 @@
 #include "texture_utility.h"
 #include "shape.h"
 
-#include "grid.h"
-#include "geomesh.h"
+#include "PNode.h"
+#include "OGeomesh.h"
 #include "refcamera.h"
 #include "lighting.h"
 
-#include "geocube.h"
-#include "atmosphere.h"
+#include "OGeocube.h"
+#include "PAtmosphere.h"
 #include "UFramebuffer.h"
 
 // Shortcut
@@ -36,7 +36,7 @@ static bool drawNormalArrows = false;
 
 Shader hdrShader;
 std::unique_ptr<refCamera> refcam;
-std::unique_ptr<Atmosphere> mesh;
+std::unique_ptr<PAtmosphere> mesh;
 
 UFrameBufferAutoAdjusted hdr;
 
@@ -68,7 +68,7 @@ CGameEngine::CGameEngine() :
     hdrShader.reload_shader_program_from_files(FP("renderer/hdr.vs"),FP("renderer/hdr.fs"));
 
     // Initlize geogrid system
-    Node::init();
+    PNode::Init();
 
     // Initialize lighting system
     Lighting::init();
@@ -99,8 +99,8 @@ CGameEngine::CGameEngine() :
 
     // gen geocube
     //Geocube mesh;
-    mesh.reset(new Atmosphere(GetCurrentCamera()));
-    mesh->init();
+    mesh.reset(new PAtmosphere(GetCurrentCamera()));
+    mesh->Init();
 
     // config hdr fbo
     hdr.BindSizeReferences(&GetFrameWidthRef(), &GetFrameHeightRef());
@@ -112,7 +112,7 @@ CGameEngine::CGameEngine() :
 
 CGameEngine::~CGameEngine()
 {
-    Node::finalize();
+    PNode::Finalize();
 }
 
 void CGameEngine::Update()
@@ -141,7 +141,7 @@ void CGameEngine::RenderUpdate()
     hdr.BindAndClear();
 
     // update geomesh
-    mesh->getGroundHandle().update(refcam.get());
+    mesh->GetGroundHandle().Update(refcam.get());
 
     // Draw scene
     if(drawWireframe)
@@ -154,9 +154,9 @@ void CGameEngine::RenderUpdate()
     refcam->sync_frustrum();
 
     //mesh.drawOcean(refcam);
-    mesh->drawGround(refcam.get());
+    mesh->DrawGround(refcam.get());
     // Draw sky
-    mesh->drawSky(refcam.get());
+    mesh->DrawSky(refcam.get());
 
     // Restore options
     //glDisable(GL_DEPTH_CLAMP);
@@ -168,18 +168,18 @@ void CGameEngine::RenderUpdate()
     hdrShader.use();
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, hdr.GetCBO());
-    mesh->setHDR(hdrShader);
+    mesh->SetHDR(hdrShader);
     renderQuad();
 
     // gui
     GuiInterface::Begin();
-    mesh->gui_interface();
-    mesh->getGroundHandle().gui_interface();
-    Node::gui_interface();
-    Geomesh::gui_interface();
+    mesh->GuiInterface();
+    mesh->GetGroundHandle().GuiInterface();
+    PNode::GuiInterface();
+    OGeomesh::GuiInterface();
     refcam->gui_interface();
     //dirlight.gui_interface(camera);
-    gui_interface(mesh->getGroundHandle().currentGlobalHeight(refcam->Position)*6371.0);
+    gui_interface(mesh->GetGroundHandle().CurrentGlobalHeight(refcam->Position)*6371.0);
     ImGui::ShowDemoWindow();
     GuiInterface::End();
 }
