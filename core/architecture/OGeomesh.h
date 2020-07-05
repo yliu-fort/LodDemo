@@ -19,7 +19,7 @@ enum RenderMode
     ELEMENT_COUNT
 };
 
-class OGeomesh : public PNode
+class OGeomesh : protected PNode
 {
     // start from the deepest level (leaf node), compute the distance to reference point/camera
     // child sharing the same father are expected to be clustered
@@ -28,23 +28,24 @@ class OGeomesh : public PNode
     // 2 texture handles are required -> appearance (128x128) and height map (17x17)
 
     //std::shared_ptr<PNode> this;
-    glm::mat4 model; // projection to cube faces
+    glm::mat4 global_model_matrix_; // todo: switch to transform
 
 public:
-    OGeomesh(glm::mat4 arg = glm::mat4(1))
-        : PNode(), model(arg)
+    OGeomesh(glm::mat4 global_model_matrix = glm::mat4(1))
+        : PNode()
+        , global_model_matrix_(global_model_matrix)
     {
-        parent = static_cast<PNode *>(this);
-        SetModelMatrix(model);
-        BakeHeightMap(model);
-        BakeAppearanceMap(model);
+        parent_ = static_cast<PNode *>(this);
+        SetModelMatrix(global_model_matrix_);
+        BakeHeightMap(global_model_matrix_);
+        BakeAppearanceMap(global_model_matrix_);
         SetElevation();
     }
 
     ~OGeomesh(){}
     OGeomesh(const OGeomesh&) = delete;
 
-    PNode* GetHandle() const { return static_cast<PNode *>(this->parent); }
+    PNode* GetHandle() const { return static_cast<PNode *>(this->parent_); }
 
     glm::vec3 ConvertToDeformed(const glm::vec3& v) const;
     glm::vec3 ConvertToNormal(const glm::vec3& v) const;

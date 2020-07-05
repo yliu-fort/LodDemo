@@ -6,10 +6,6 @@
 
 #include <glad/glad.h>
 
-#include "glm/glm.hpp"
-#include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtc/type_ptr.hpp"
-
 #include "cmake_source_dir.h"
 #include "shader.h"
 #include "camera.h"
@@ -56,6 +52,9 @@ void gui_interface(float h)
 CGameEngine::CGameEngine() :
     CGameEngineAbstractBase()
 {
+    // Test
+    AutoTest();
+
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
@@ -149,8 +148,7 @@ void CGameEngine::RenderUpdate()
 
     // Draw near ground
     //glEnable(GL_DEPTH_CLAMP);
-    GetCurrentCamera()->Near = 0;
-    GetCurrentCamera()->Far = 1000;
+    GetCurrentCamera()->setClipping(0,1000);
     refcam->sync_frustrum();
 
     //mesh.drawOcean(refcam);

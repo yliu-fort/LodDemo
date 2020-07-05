@@ -5,12 +5,12 @@
 
 glm::vec3 OGeomesh::ConvertToDeformed(const glm::vec3& v) const
 {
-    return glm::vec3(model*glm::vec4(v,1.0));
+    return glm::vec3(global_model_matrix_*glm::vec4(v,1.0));
 }
 
 glm::vec3 OGeomesh::ConvertToNormal(const glm::vec3& v) const
 {
-    return glm::vec3(glm::inverse(model)*glm::vec4(v,1.0));
+    return glm::vec3(glm::inverse(global_model_matrix_)*glm::vec4(v,1.0));
 }
 
 glm::vec3 OGeomesh::ConvertToUV(const glm::vec3& v) const
@@ -60,10 +60,10 @@ void OGeomesh::ReleaseAllTextureHandles( PNode* node )
 {
     if(node->IsSubdivided())
     {
-        ReleaseAllTextureHandles(node->child[0]);
-        ReleaseAllTextureHandles(node->child[1]);
-        ReleaseAllTextureHandles(node->child[2]);
-        ReleaseAllTextureHandles(node->child[3]);
+        ReleaseAllTextureHandles(node->child_[0]);
+        ReleaseAllTextureHandles(node->child_[1]);
+        ReleaseAllTextureHandles(node->child_[2]);
+        ReleaseAllTextureHandles(node->child_[3]);
     }
 
     node->ReleaseTextureHandle();
@@ -83,7 +83,7 @@ PNode* OGeomesh::QueryNode( const glm::vec2& pos) const
             result = sh_PNode->Search(pos);
             if(result != -1 && sh_PNode->IsSubdivided())
             {
-                sh_PNode = sh_PNode->child[result];
+                sh_PNode = sh_PNode->child_[result];
                 continue;
             }
             break;
@@ -98,10 +98,10 @@ void OGeomesh::RefreshHeightmap(PNode* PNode)
     //bool isTraversible = PNode->subdivided;
     if(PNode->IsSubdivided())
     {
-        RefreshHeightmap(PNode->child[0]);
-        RefreshHeightmap(PNode->child[1]);
-        RefreshHeightmap(PNode->child[2]);
-        RefreshHeightmap(PNode->child[3]);
+        RefreshHeightmap(PNode->child_[0]);
+        RefreshHeightmap(PNode->child_[1]);
+        RefreshHeightmap(PNode->child_[2]);
+        RefreshHeightmap(PNode->child_[3]);
     }
     else
     {
@@ -118,18 +118,18 @@ void OGeomesh::Fixcrack(PNode* leaf)
     //bool isTraversible = PNode->subdivided;
     if(leaf->IsSubdivided())
     {
-        Fixcrack(leaf->child[0]);
-        Fixcrack(leaf->child[1]);
-        Fixcrack(leaf->child[2]);
-        Fixcrack(leaf->child[3]);
+        Fixcrack(leaf->child_[0]);
+        Fixcrack(leaf->child_[1]);
+        Fixcrack(leaf->child_[2]);
+        Fixcrack(leaf->child_[3]);
     }
     else
     {
         // fix crack
         // for each block, we only need to check 2 directions
-        // because the other 2 directions are filled by same or higher level lod
+        // because the other 2 directions are filled by same or higher level_ lod
         // once found a match, the height map of current block will be modified
-        // only perform this to current draw level
+        // only perform this to current draw level_
 
         //if(PNode -> crackfixed == true) { return; }
 
@@ -137,29 +137,29 @@ void OGeomesh::Fixcrack(PNode* leaf)
 
         glm::vec2 f1, f2;
         int e1, e2;
-        if(leaf->offset_type == 0) // going to search 2 faces
+        if(leaf->offset_type_ == 0) // going to search 2 faces
         {
-            f1 = leaf->GetCenter() - glm::vec2(0.0,(leaf->hi.y-leaf->lo.y)); // bottom
-            f2 = leaf->GetCenter() - glm::vec2((leaf->hi.x-leaf->lo.x), 0.0); // left
+            f1 = leaf->GetCenter() - glm::vec2(0.0,(leaf->hi_.y-leaf->lo_.y)); // bottom
+            f2 = leaf->GetCenter() - glm::vec2((leaf->hi_.x-leaf->lo_.x), 0.0); // left
             e1 = 3;e2 = 0;
         }else
-        if(leaf->offset_type == 1) // going to search 2 faces
+        if(leaf->offset_type_ == 1) // going to search 2 faces
         {
-            f1 = leaf->GetCenter() + glm::vec2(0.0,(leaf->hi.y-leaf->lo.y)); // top
-            f2 = leaf->GetCenter() - glm::vec2((leaf->hi.x-leaf->lo.x), 0.0); // left
+            f1 = leaf->GetCenter() + glm::vec2(0.0,(leaf->hi_.y-leaf->lo_.y)); // top
+            f2 = leaf->GetCenter() - glm::vec2((leaf->hi_.x-leaf->lo_.x), 0.0); // left
             e1 = 1;e2 = 0;
         }else
-        if(leaf->offset_type == 2) // going to search 2 faces
+        if(leaf->offset_type_ == 2) // going to search 2 faces
         {
-            f1 = leaf->GetCenter() + glm::vec2(0.0,(leaf->hi.y-leaf->lo.y)); // top
-            f2 = leaf->GetCenter() + glm::vec2((leaf->hi.x-leaf->lo.x), 0.0); // right
+            f1 = leaf->GetCenter() + glm::vec2(0.0,(leaf->hi_.y-leaf->lo_.y)); // top
+            f2 = leaf->GetCenter() + glm::vec2((leaf->hi_.x-leaf->lo_.x), 0.0); // right
             e1 = 1;e2 = 2;
         }
         else
-        if(leaf->offset_type == 3) // going to search 2 faces
+        if(leaf->offset_type_ == 3) // going to search 2 faces
         {
-            f1 = leaf->GetCenter() - glm::vec2(0.0,(leaf->hi.y-leaf->lo.y)); // bottom
-            f2 = leaf->GetCenter() + glm::vec2((leaf->hi.x-leaf->lo.x), 0.0); // right
+            f1 = leaf->GetCenter() - glm::vec2(0.0,(leaf->hi_.y-leaf->lo_.y)); // bottom
+            f2 = leaf->GetCenter() + glm::vec2((leaf->hi_.x-leaf->lo_.x), 0.0); // right
             e1 = 3;e2 = 2;
         }
         else {return;} // may located at other blocks or out of the bound
@@ -167,19 +167,19 @@ void OGeomesh::Fixcrack(PNode* leaf)
         // find the PNode
         PNode* sh_PNode = QueryNode(f1);
 
-        // Compare with neighbour, if my_level > neighbour_level
+        // Compare with neighbour, if my_level_ > neighbour_level_
         // a height map sync will be called here
-        if(sh_PNode && leaf->level == (sh_PNode->level + 1))
+        if(sh_PNode && leaf->level_ == (sh_PNode->level_ + 1))
         {
-            leaf-> FixHeightmap(sh_PNode,e1);
+            leaf-> FixHeightMap(sh_PNode,e1);
         }
 
         // here is the second face
         sh_PNode = QueryNode(f2);
 
-        if(sh_PNode && leaf->level == (sh_PNode->level + 1))
+        if(sh_PNode && leaf->level_ == (sh_PNode->level_ + 1))
         {
-            leaf-> FixHeightmap(sh_PNode,e2);
+            leaf-> FixHeightMap(sh_PNode,e2);
         }
     }
 }
@@ -189,9 +189,9 @@ void OGeomesh::Subdivision(const glm::vec3& viewPos)
     Subdivision(ConvertToUV(viewPos), QueryElevation(viewPos), this);
 }
 
-void OGeomesh::Subdivision(uint level)
+void OGeomesh::Subdivision(uint level_)
 {
-    Subdivision( level, this );
+    Subdivision( level_, this );
 }
 
 void OGeomesh::Draw(Shader& shader, const glm::vec3& viewPos) const
@@ -206,8 +206,8 @@ void OGeomesh::Subdivision(const glm::vec3& viewPos, const float& viewY, PNode* 
 
     // distance between PNodepos and viewpos
     //auto d = PNode->get_center3() - viewPos;
-    float dx = fminf(fabsf(viewPos.x - leaf->lo.x),fabsf(viewPos.x - leaf->hi.x));
-    float dy = fminf(fabsf(viewPos.z - leaf->lo.y),fabsf(viewPos.z - leaf->hi.y));
+    float dx = fminf(fabsf(viewPos.x - leaf->lo_.x),fabsf(viewPos.x - leaf->hi_.x));
+    float dy = fminf(fabsf(viewPos.z - leaf->lo_.y),fabsf(viewPos.z - leaf->hi_.y));
     //float dz = abs(viewPos.z - viewZ);
     float d = fmaxf(fmaxf(dx, dy), fabsf(viewPos.y - viewY));
 
@@ -219,15 +219,15 @@ void OGeomesh::Subdivision(const glm::vec3& viewPos, const float& viewY, PNode* 
     //}
 
     // Subdivision
-    if( leaf->level < MIN_DEPTH || (leaf->level < MAX_DEPTH && d < K) )
+    if( leaf->level_ < MIN_DEPTH || (leaf->level_ < MAX_DEPTH && d < K) )
     {
         // split and bake heightmap
-        leaf->Split(model);
+        leaf->Split(global_model_matrix_);
 
-        Subdivision(viewPos, viewY, leaf->child[0]);
-        Subdivision(viewPos, viewY, leaf->child[1]);
-        Subdivision(viewPos, viewY, leaf->child[2]);
-        Subdivision(viewPos, viewY, leaf->child[3]);
+        Subdivision(viewPos, viewY, leaf->child_[0]);
+        Subdivision(viewPos, viewY, leaf->child_[1]);
+        Subdivision(viewPos, viewY, leaf->child_[2]);
+        Subdivision(viewPos, viewY, leaf->child_[3]);
 
     }
     else
@@ -239,18 +239,18 @@ void OGeomesh::Subdivision(const glm::vec3& viewPos, const float& viewY, PNode* 
     }
 }
 
-void OGeomesh::Subdivision(uint level, PNode* leaf)
+void OGeomesh::Subdivision(uint level_, PNode* leaf)
 {
     // Subdivision
-    if( leaf->level < level && leaf->level < MAX_DEPTH )
+    if( leaf->level_ < level_ && leaf->level_ < MAX_DEPTH )
     {
         // split and bake heightmap
-        leaf->Split(model);
+        leaf->Split(global_model_matrix_);
 
-        Subdivision(level, leaf->child[0]);
-        Subdivision(level, leaf->child[1]);
-        Subdivision(level, leaf->child[2]);
-        Subdivision(level, leaf->child[3]);
+        Subdivision(level_, leaf->child_[0]);
+        Subdivision(level_, leaf->child_[1]);
+        Subdivision(level_, leaf->child_[2]);
+        Subdivision(level_, leaf->child_[3]);
 
     }
     else
@@ -262,10 +262,10 @@ void OGeomesh::Subdivision(uint level, PNode* leaf)
     }
 }
 
-glm::vec2 computeShlo(int level, int code)
+glm::vec2 computeShlo(int level_, int code)
 {
 
-    code >>= (2*(level-1));
+    code >>= (2*(level_-1));
     return 0.5f*glm::vec2((code>>1)&1, (code)&1);
 }
 
@@ -284,41 +284,41 @@ void OGeomesh::Draw(const PNode* leaf, Shader& shader) const
 {
     if(leaf->IsSubdivided())
     {
-        Draw(leaf->child[0], shader);
-        Draw(leaf->child[1], shader);
-        Draw(leaf->child[2], shader);
-        Draw(leaf->child[3], shader);
+        Draw(leaf->child_[0], shader);
+        Draw(leaf->child_[1], shader);
+        Draw(leaf->child_[2], shader);
+        Draw(leaf->child_[3], shader);
     }
     else
     {
         // Transfer local grid model
-        shader.setMat4("m4CubeProjMatrix", leaf->PNode::model);
+        shader.setMat4("m4CubeProjMatrix", leaf->model_);
 
         // Transfer lo and hi
-        shader.setInt("level",leaf->level);
-        shader.setInt("hash",leaf->morton);
+        shader.setInt("level",leaf->level_);
+        shader.setInt("hash",leaf->morton_);
 
 
-        //std::cout << "current drawing PNode" << PNode->level << " - " << PNode->parent->level << std::endl;
+        //std::cout << "current drawing PNode" << PNode->level_ << " - " << PNode->parent->level_ << std::endl;
 
         // Active textures
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, leaf->heightmap);
+        glBindTexture(GL_TEXTURE_2D, leaf->heightmap_);
 
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, leaf->parent->heightmap);
+        glBindTexture(GL_TEXTURE_2D, leaf->parent_->heightmap_);
 
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, leaf->appearance);
+        glBindTexture(GL_TEXTURE_2D, leaf->appearance_);
 
         glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, leaf->parent->appearance);
+        glBindTexture(GL_TEXTURE_2D, leaf->parent_->appearance_);
 
         glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, leaf->normal);
+        glBindTexture(GL_TEXTURE_2D, leaf->normal_);
 
         glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_2D, leaf->parent->normal);
+        glBindTexture(GL_TEXTURE_2D, leaf->parent_->normal_);
 
         // Render grid (inline function call renderGrid())
         PNode::Draw();
@@ -373,7 +373,7 @@ void OGeomesh::GuiInterface()
             if (i == 0)
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
 
-            if (ImGui::TreeNode((void*)(intptr_t)i, "Child %d", i))
+            if (ImGui::TreeNode((void*)(intptr_t)i, "child_ %d", i))
             {
                 ImGui::Text("blah blah");
                 ImGui::SameLine();
@@ -395,7 +395,7 @@ void OGeomesh::GuiInterface()
         // (for example, the imgui_impl_dx11.cpp renderer expect a 'ID3D11ShaderResourceView*' pointer. The imgui_impl_opengl3.cpp renderer expect a GLuint OpenGL texture identifier etc.)
         // If you decided that ImTextureID = MyEngineTexture*, then you can pass your MyEngineTexture* pointers to ImGui::Image(), and gather width/height through your own functions, etc.
         // Using ShowMetricsWindow() as a "debugger" to inspect the draw data that are being passed to your render will help you debug issues if you are confused about this.
-        // Consider using the lower-level ImDrawList::AddImage() API, via ImGui::GetWindowDrawList()->AddImage().
+        // Consider using the lower-level_ ImDrawList::AddImage() API, via ImGui::GetWindowDrawList()->AddImage().
         ImTextureID my_tex_id = io.Fonts->TexID;
         float my_tex_w = (float)io.Fonts->TexWidth;
         float my_tex_h = (float)io.Fonts->TexHeight;

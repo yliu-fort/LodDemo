@@ -30,33 +30,35 @@ uniform mat4 globalMatrix;
 uniform int level;
 uniform int hash;
 
-vec2 computeUVfromMorton(int code)
+int MergeBits1(int v)
 {
-    vec2 o = vec2(-1);
-    for(int i = 0; i < 15; i++)
-    {
-        o += vec2((code>>1)&1, (code)&1)/float(1<<i);
-        code >>= 2;
-    }
-    return o;
+    v &= 0x55555555;
+    v = (v ^ (v >> 1 )) & 0x33333333;
+    v = (v ^ (v >> 2 )) & 0x0F0F0F0F;
+    v = (v ^ (v >> 4 )) & 0x00FF00FF;
+    v = (v ^ (v >> 8 )) & 0x0000FFFF;
+    return v;
+}
+
+vec2 DecodeMortonWithLod2(int v, int l)
+{
+    v <<= (2*l);
+    v &= 0x3FFFFFFF;
+    v <<= 2;
+    return vec2(
+                float(MergeBits1(v >> 1 )) / 65536.0f,
+                float(MergeBits1(v >> 0 )) / 65536.0f
+                );
 }
 
 vec2 getCurrentUV()
 {
-    return computeUVfromMorton(hash)
+    return 2.0f*DecodeMortonWithLod2(hash, 15-level)-1.0f
             + 2.0*ivec2(gl_GlobalInvocationID.xy)
             /vec2(ALBEDO_MAP_X-1, ALBEDO_MAP_Y-1)
             /float(1<<level);
 }
 
-//const float freq[13] = {4.03*32,1.96*32,1.01*32, 32.0f/2.03f,
-//                 32.0f/3.98f, 32.0f/8.01f, 32.0f/15.97f,
-//                 32.0f/31.98f,32.0f/64.01f,32.0f/128.97f,
-//                 32.0f/256.07f,32.0f/511.89f,32.0f/1024.22f};
-//const int freqindex[16] = {0,1,1,2,
-//                       0,2,1,0,
-//                       2,1,2,2,
-//                       0,0,2,1};
 float snoise(vec2 v);
 
 float ridgenoise(vec2 t, int freq) {

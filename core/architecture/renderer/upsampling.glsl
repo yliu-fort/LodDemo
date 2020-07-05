@@ -23,20 +23,30 @@ uniform mat4 globalMatrix;
 uniform int level;
 uniform int hash;
 
-vec2 dpos(int code)
+int MergeBits1(int v)
 {
-    vec2 o = vec2(-1);
-    for(int i = 0; i < 15; i++)
-    {
-        o += vec2((code>>1)&1, (code)&1)/float(1<<i);
-        code >>= 2;
-    }
-    return o;
+    v &= 0x55555555;
+    v = (v ^ (v >> 1 )) & 0x33333333;
+    v = (v ^ (v >> 2 )) & 0x0F0F0F0F;
+    v = (v ^ (v >> 4 )) & 0x00FF00FF;
+    v = (v ^ (v >> 8 )) & 0x0000FFFF;
+    return v;
+}
+
+vec2 DecodeMortonWithLod2(int v, int l)
+{
+    v <<= (2*l);
+    v &= 0x3FFFFFFF;
+    v <<= 2;
+    return vec2(
+                float(MergeBits1(v >> 1 )) / 65536.0f,
+                float(MergeBits1(v >> 0 )) / 65536.0f
+                );
 }
 
 vec2 getCurrentUV()
 {
-    return dpos(hash)
+    return 2.0f*DecodeMortonWithLod2(hash, 15-level)-1.0f
             + 2.0*ivec2(gl_GlobalInvocationID.xy)
             /vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)
             /float(1<<level);

@@ -34,8 +34,7 @@ public:
     void DrawGround(Camera* camera);
     void DrawSky(Camera* camera);
     void DrawOcean(Camera* camera);
-    void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float fRayleighScaleHeight, float fMieScaleHeight);
-    void MakePhaseBuffer(float ESun, float Kr, float Km, float g);
+
     void Update();
     void Reset();
     void GuiInterface();
@@ -46,7 +45,7 @@ public:
     }
     inline float GetInnerRadius() const { return this->m_fInnerRadius; }
     inline float GetOuterRadius() const { return this->m_fOuterRadius; }
-    inline bool InPAtmosphere(const glm::vec3& pos) const
+    inline bool InAtmosphere(const glm::vec3& pos) const
     {
         if(glm::length(pos) >= this->GetOuterRadius())
             return false;
@@ -54,6 +53,9 @@ public:
     }
 
 protected:
+    void MakeOpticalDepthBuffer(float fInnerRadius, float fOuterRadius, float fRayleighScaleHeight, float fMieScaleHeight);
+    void MakePhaseBuffer(float ESun, float Kr, float Km, float g);
+
     Shader& GetGroundShader(const glm::vec3& pos);
     Shader& GetSkyShader(const glm::vec3& pos);
     Shader& GetOceanShader(const glm::vec3& pos);

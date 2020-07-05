@@ -24,11 +24,11 @@ class PNode
 {
 
 protected:
-    bool subdivided;
-    bool crackfixed;
-    bool textureHandleAllocated = false;
+    bool subdivided_;
+    bool crackfixed_;
+    bool texture_handle_allocated_ = false;
 
-    float elevation;
+    float elevation_;
 
     PNode();
     ~PNode();
@@ -36,70 +36,70 @@ protected:
 
 public:
 
-    glm::mat4 model;
+    glm::mat4 model_;
 
-    uint heightmap;
-    uint appearance, normal;
+    uint heightmap_;
+    uint appearance_, normal_;
 
-    PNode* child[4];
-    PNode* parent;
+    PNode* child_[4];
+    PNode* parent_;
 
-    uint level, offset_type;
-    int morton = 0;
+    uint level_ = 0, offset_type_;
+    int morton_ = 0;
 
-    glm::vec2 lo, hi; // global coordinates
-    glm::vec2 rlo, rhi; // relative coordinates
+    glm::vec2 lo_, hi_; // global coordinates
+    glm::vec2 rlo_, rhi_; // relative coordinates
 
     bool IsSubdivided() const
     {
-        return subdivided;
+        return subdivided_;
     }
 
     void SetModelMatrix(const glm::mat4& arg)
     {
-        model = glm::translate(arg, this->GetShift());
-        model = glm::scale(model, this->GetScale());
+        model_ = glm::translate(arg, this->GetShift());
+        model_ = glm::scale(model_, this->GetScale());
     }
     float Size() const
     {
-        return 0.5f*(hi.x-lo.x + hi.y-lo.y);
+        return 0.5f*(hi_.x-lo_.x + hi_.y-lo_.y);
     }
     glm::mat4 GetModelMatrix() const
     {
-        return this->model;
+        return this->model_;
     }
     glm::vec3 GetScale() const
     {
-        return glm::vec3(hi.x-lo.x,1.0f,hi.y-lo.y);
+        return glm::vec3(hi_.x-lo_.x,1.0f,hi_.y-lo_.y);
     }
     glm::vec3 GetShift() const
     {
-        return glm::vec3(lo.x,0.0f,lo.y);
+        return glm::vec3(lo_.x,0.0f,lo_.y);
     }
     glm::vec2 GetCenter() const
     {
-        return 0.5f*glm::vec2(hi.x + lo.x,hi.y + lo.y);
+        return 0.5f*glm::vec2(hi_.x + lo_.x,hi_.y + lo_.y);
     }
     glm::vec3 GetCenter3flat() const
     {
-        return glm::vec3(0.5f*(hi.x + lo.x),0.0f,0.5f*(hi.y + lo.y));
+        return glm::vec3(0.5f*(hi_.x + lo_.x),0.0f,0.5f*(hi_.y + lo_.y));
     }
     glm::vec3 GetCenter3() const
     {
-        return glm::vec3(0.5f*(hi.x + lo.x),elevation,0.5f*(hi.y + lo.y));
+        return glm::vec3(0.5f*(hi_.x + lo_.x),elevation_,0.5f*(hi_.y + lo_.y));
     }
     glm::vec3 GetRelativeShift() const
     {
-        return glm::vec3(rlo.x,0.0f,rlo.y);
+        return glm::vec3(rlo_.x,0.0f,rlo_.y);
     }
     glm::vec3 GetRelativeCenter() const
     {
-        return glm::vec3(0.5f*(rhi.x + rlo.x),0.0f,0.5f*(rhi.y + rlo.y));
+        return glm::vec3(0.5f*(rhi_.x + rlo_.x),0.0f,0.5f*(rhi_.y + rlo_.y));
     }
-    void BakeHeightMap(glm::mat4 arg);
-    void BakeAppearanceMap(glm::mat4 arg);
-    void FixHeightmap(PNode* neighbour, int edgedir);
-    void Split(glm::mat4 arg);
+    void BakeHeightMap(const glm::mat4& arg);
+    void BakeAppearanceMap(const glm::mat4& arg);
+    void FixHeightMap(PNode* neighbour, int edgedir);
+    void Split(const glm::mat4& arg);
     int Search(glm::vec2 p) const;
 
     float MinElevation() const;
@@ -114,14 +114,14 @@ public:
 
     void ReleaseConnectedNodes()
     {
-        if(subdivided)
+        if(subdivided_)
         {
-            delete child[0];
-            delete child[1];
-            delete child[2];
-            delete child[3];
+            delete child_[0];
+            delete child_[1];
+            delete child_[2];
+            delete child_[3];
         }
-        subdivided = false;
+        subdivided_ = false;
     }
 
     // Static function

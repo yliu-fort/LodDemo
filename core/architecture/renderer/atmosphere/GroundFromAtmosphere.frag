@@ -36,9 +36,8 @@ uniform int renderType;
 
 vec2 getSharedLower(int code)
 {
-
-    code >>= (2*(level-1));
-    return 0.5f*vec2((code>>1)&1, (code)&1);
+    code = ((code << (2*level)) & 0x3FFFFFFF) << 2;
+    return 0.5f*vec2(code&0x80000000, code&0x40000000);
 }
 
 quat rotationBetweenVectors(vec3 start, vec3 dest);
@@ -69,7 +68,13 @@ void main ()
 
     if(renderType == 1)
     {
-        albedo = vec3(fCosAlpha);
+        //color = texture(colormap, pow(FragPos.y,0.2f)).rgb;
+        albedo = vec3(blendNearFar);
+        if(blendNearFar == 1.0)
+            albedo = vec3(0.0,0.5,1.0);
+        if(blendNearFar == 0.0)
+            albedo = vec3(0.5,1.0,0.0);
+        //color = texture( debugmap, TexCoords*(1<<level) ).rgb;
     }
     else if(renderType == 2)
     {

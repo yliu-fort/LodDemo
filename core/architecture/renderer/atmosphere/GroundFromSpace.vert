@@ -56,23 +56,43 @@ uniform int hash;
 uniform sampler2D heightmap; // 0
 uniform sampler2D heightmapParent; // 1
 
+
+int MergeBits1(int v)
+{
+    v &= 0x55555555;
+    v = (v ^ (v >> 1 )) & 0x33333333;
+    v = (v ^ (v >> 2 )) & 0x0F0F0F0F;
+    v = (v ^ (v >> 4 )) & 0x00FF00FF;
+    v = (v ^ (v >> 8 )) & 0x0000FFFF;
+    return v;
+}
+vec2 DecodeMorton2(int v)
+{
+    return vec2(
+                float(MergeBits1(v >> 1 )) / 65536.0f,
+                float(MergeBits1(v >> 0 )) / 65536.0f
+                );
+}
+
+vec2 DecodeMortonWithLod2(int v, int l)
+{
+    v <<= (2*l);
+    v &= 0x3FFFFFFF;
+    v <<= 2;
+    return DecodeMorton2(v);
+}
+
 vec2 dpos(int code)
 {
-    vec2 o = vec2(-1);
-    for(int i = 0; i < 15; i++)
-    {
-        o += vec2((code>>1)&1, (code)&1)/float(1<<i);
-        code >>= 2;
-    }
-    return o;
+    return 2.0f*DecodeMortonWithLod2(code, 15-level)-1.0f;
 }
 
 vec2 computeSharedPixel(ivec2 texel, int code)
 {
 
     // todo: might be better to compute dpos and shlow then pass into the vs
-    code >>= (2*(level-1));
-    vec2 shlo =  0.5f*vec2((code>>1)&1, (code)&1);
+    code = ((code << (2*level)) & 0x3FFFFFFF) << 2;
+    vec2 shlo =  0.5f*vec2(code&0x80000000, code&0x40000000);
 
     //vec2 rr = (shlo*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1))/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
     //vec2 sh_pixel = ( shlo*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)
@@ -94,6 +114,7 @@ float getNormalAndHeightData(out vec3 tangent)
     //float l = 0.5f*dot(hi-lo, vec2(1));
     float d_l = max(abs(gPos.x),abs(gPos.y))*(1<<level)/2;
     blendNearFar = clamp((d_l-K-1.0f)/(K-1.0f),0.0f,1.0f);
+    //blendNearFar = ((dpos(hash).x + 1.0f) / 2.0f)*((dpos(hash).y + 1.0f) / 2.0f );
 
     // get values
     vec4 data = mix( texelFetch(heightmap, texel, 0), texture(heightmapParent, computeSharedPixel(texel, hash)), blendNearFar );

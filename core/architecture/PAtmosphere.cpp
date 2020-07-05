@@ -31,7 +31,7 @@ void PAtmosphere::Init()
 
 Shader& PAtmosphere::GetGroundShader(const glm::vec3& pos)
 {
-    if(this->InPAtmosphere(pos))
+    if(this->InAtmosphere(pos))
         return m_shGroundFromPAtmosphere;
     else
         return m_shGroundFromSpace;
@@ -39,7 +39,7 @@ Shader& PAtmosphere::GetGroundShader(const glm::vec3& pos)
 
 Shader& PAtmosphere::GetSkyShader(const glm::vec3& pos)
 {
-    if(this->InPAtmosphere(pos))
+    if(this->InAtmosphere(pos))
         return m_shSkyFromPAtmosphere;
     else
         return m_shSkyFromSpace;
@@ -47,7 +47,7 @@ Shader& PAtmosphere::GetSkyShader(const glm::vec3& pos)
 
 Shader& PAtmosphere::GetOceanShader(const glm::vec3& pos)
 {
-    if(this->InPAtmosphere(pos))
+    if(this->InAtmosphere(pos))
         return m_shOceanFromPAtmosphere;
     else
         return m_shOceanFromSpace;

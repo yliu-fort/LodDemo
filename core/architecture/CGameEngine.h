@@ -15,6 +15,8 @@ public:
     virtual ~CGameEngine();
     virtual void Update();
     virtual void RenderUpdate();
+
+    void AutoTest();
     //virtual Camera* GetCurrentCamera();
 
 };

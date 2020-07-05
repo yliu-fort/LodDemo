@@ -7,8 +7,9 @@
 #include "shader.h"
 #include "cmake_source_dir.h"
 #include "texture_utility.h"
-
+#include "UCartesianMath.h"
 #include <stdint.h>
+#include <set>
 
 #define HEIGHT_MAP_INTERNAL_FORMAT GL_RGBA32F
 #define HEIGHT_MAP_FORMAT GL_RGBA
@@ -149,15 +150,15 @@ void PNode::Finalize()
 
 void PNode::QueryTextureHandle()
 {
-    if(!textureHandleAllocated)
+    if(!texture_handle_allocated_)
     {
         if(PNode::CACHE.empty() || !PNode::USE_CACHE)
         {
-            glGenTextures(1, &heightmap);
+            glGenTextures(1, &heightmap_);
 
             glActiveTexture(GL_TEXTURE0);
             glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, heightmap);
+            glBindTexture(GL_TEXTURE_2D, heightmap_);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -166,11 +167,11 @@ void PNode::QueryTextureHandle()
             //Generate a distance field to the center of the cube
             glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
 
-            glGenTextures(1, &appearance);
+            glGenTextures(1, &appearance_);
 
             glActiveTexture(GL_TEXTURE0);
             glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, appearance);
+            glBindTexture(GL_TEXTURE_2D, appearance_);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -179,11 +180,11 @@ void PNode::QueryTextureHandle()
             //Generate a distance field to the center of the cube
             glTexImage2D( GL_TEXTURE_2D, 0, APPEARANCE_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, GL_RGBA, GL_FLOAT, NULL);
 
-            glGenTextures(1, &normal);
+            glGenTextures(1, &normal_);
 
             glActiveTexture(GL_TEXTURE0);
             glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, normal);
+            glBindTexture(GL_TEXTURE_2D, normal_);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -195,36 +196,37 @@ void PNode::QueryTextureHandle()
         }
         else
         {
-            heightmap = std::get<0>(PNode::CACHE.back());
-            appearance = std::get<1>(PNode::CACHE.back());
-            normal = std::get<2>(PNode::CACHE.back());
+            heightmap_ = std::get<0>(PNode::CACHE.back());
+            appearance_ = std::get<1>(PNode::CACHE.back());
+            normal_ = std::get<2>(PNode::CACHE.back());
             PNode::CACHE.pop_back();
         }
     }
 
-    textureHandleAllocated = true;
+    texture_handle_allocated_ = true;
 
 }
 void PNode::ReleaseTextureHandle()
 {
-    if(textureHandleAllocated)
+    if(texture_handle_allocated_)
     {
         if(PNode::CACHE.size() > MAX_CACHE_CAPACITY || !PNode::USE_CACHE)
         {
-            glDeleteTextures(1, &heightmap);
-            glDeleteTextures(1, &appearance);
-            glDeleteTextures(1, &normal);
+            glDeleteTextures(1, &heightmap_);
+            glDeleteTextures(1, &appearance_);
+            glDeleteTextures(1, &normal_);
         }
         else
         {
-            PNode::CACHE.push_back(std::make_tuple(heightmap,appearance, normal));
+            PNode::CACHE.push_back(std::make_tuple(heightmap_,appearance_,normal_));
         }
     }
 
-    textureHandleAllocated = false;
+    texture_handle_allocated_ = false;
 }
 
-PNode::PNode() : lo(-1), hi(1), rlo(0), rhi(1), subdivided(false), crackfixed(false), level(0), offset_type(0),elevation(0)
+PNode::PNode() : lo_(-1), hi_(1), rlo_(0), rhi_(1),
+    subdivided_(false), crackfixed_(false), offset_type_(0),elevation_(0)
 {
     QueryTextureHandle();
     PNode::NODE_COUNT++;
@@ -232,12 +234,12 @@ PNode::PNode() : lo(-1), hi(1), rlo(0), rhi(1), subdivided(false), crackfixed(fa
 
 PNode::~PNode()
 {
-    if(subdivided)
+    if(subdivided_)
     {
-        delete child[0];
-        delete child[1];
-        delete child[2];
-        delete child[3];
+        delete child_[0];
+        delete child_[1];
+        delete child_[2];
+        delete child_[3];
     }
 
     ReleaseTextureHandle();
@@ -250,7 +252,7 @@ void PNode::Draw()
     RenderGrid();
 }
 
-void PNode::BakeAppearanceMap(glm::mat4 arg)
+void PNode::BakeAppearanceMap(const glm::mat4& arg)
 {
 
     //Datafield//
@@ -261,8 +263,8 @@ void PNode::BakeAppearanceMap(glm::mat4 arg)
 
     appearance_baking.setMat4("globalMatrix", arg);
 
-    appearance_baking.setInt("level", this->level);
-    appearance_baking.setInt("hash", this->morton);
+    appearance_baking.setInt("level", this->level_);
+    appearance_baking.setInt("hash", this->morton_);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
@@ -272,15 +274,15 @@ void PNode::BakeAppearanceMap(glm::mat4 arg)
 
 
     // write to heightmap ? buggy
-    glBindImageTexture(0, appearance, 0, GL_FALSE, 0, GL_WRITE_ONLY, APPEARANCE_MAP_INTERNAL_FORMAT);
-    glBindImageTexture(1, normal, 0, GL_FALSE, 0, GL_WRITE_ONLY, APPEARANCE_MAP_INTERNAL_FORMAT);
+    glBindImageTexture(0, appearance_, 0, GL_FALSE, 0, GL_WRITE_ONLY, APPEARANCE_MAP_INTERNAL_FORMAT);
+    glBindImageTexture(1, normal_, 0, GL_FALSE, 0, GL_WRITE_ONLY, APPEARANCE_MAP_INTERNAL_FORMAT);
 
     // Deploy kernel
     glDispatchCompute((ALBEDO_MAP_X/16)+1,(ALBEDO_MAP_Y/16)+1,1);
 
 }
 
-void PNode::BakeHeightMap(glm::mat4 arg)
+void PNode::BakeHeightMap(const glm::mat4& arg)
 {
     // Initialize 2d heightmap texture
 
@@ -292,18 +294,18 @@ void PNode::BakeHeightMap(glm::mat4 arg)
 
     upsampling.setMat4("globalMatrix", arg);
 
-    upsampling.setInt("level", this->level);
-    upsampling.setInt("hash", this->morton);
+    upsampling.setInt("level", this->level_);
+    upsampling.setInt("hash", this->morton_);
 
     // bind height map
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, heightmap);
+    glBindTexture(GL_TEXTURE_2D, heightmap_);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
 
     // write to heightmap ? buggy
-    glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
+    glBindImageTexture(0, heightmap_, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
 
     // Deploy kernel
     glDispatchCompute((HEIGHT_MAP_X/16)+1,(HEIGHT_MAP_Y/16)+1,1);
@@ -312,10 +314,10 @@ void PNode::BakeHeightMap(glm::mat4 arg)
     //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     // Write flag
-    crackfixed = false;
+    crackfixed_ = false;
 
 }
-void PNode::FixHeightmap(PNode* neighbour, int edgedir)
+void PNode::FixHeightMap(PNode* neighbour, int edgedir)
 {
     // edge direction
     // 0: left, 1: top, 2:right, 3:bottom
@@ -327,11 +329,11 @@ void PNode::FixHeightmap(PNode* neighbour, int edgedir)
 
     if(edgedir == 0)
     {
-        texrange.x = (lo.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y);
-        texrange.y = (hi.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y);
+        texrange.x = (lo_.y-neighbour->lo_.y)/(neighbour->hi_.y-neighbour->lo_.y);
+        texrange.y = (hi_.y-neighbour->lo_.y)/(neighbour->hi_.y-neighbour->lo_.y);
         // scale tex.y
-        begin = glm::vec2(1, (lo.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y));
-        end   = glm::vec2(1, (hi.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y));
+        begin = glm::vec2(1, (lo_.y-neighbour->lo_.y)/(neighbour->hi_.y-neighbour->lo_.y));
+        end   = glm::vec2(1, (hi_.y-neighbour->lo_.y)/(neighbour->hi_.y-neighbour->lo_.y));
 
         my_begin = glm::vec2(0,0);
         my_end   = glm::vec2(0,1);
@@ -340,11 +342,11 @@ void PNode::FixHeightmap(PNode* neighbour, int edgedir)
     }
     if(edgedir == 2)
     {
-        texrange.x = (lo.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y);
-        texrange.y = (hi.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y);
+        texrange.x = (lo_.y-neighbour->lo_.y)/(neighbour->hi_.y-neighbour->lo_.y);
+        texrange.y = (hi_.y-neighbour->lo_.y)/(neighbour->hi_.y-neighbour->lo_.y);
         // scale tex.y
-        begin = glm::vec2(0, (lo.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y));
-        end   = glm::vec2(0, (hi.y-neighbour->lo.y)/(neighbour->hi.y-neighbour->lo.y));
+        begin = glm::vec2(0, (lo_.y-neighbour->lo_.y)/(neighbour->hi_.y-neighbour->lo_.y));
+        end   = glm::vec2(0, (hi_.y-neighbour->lo_.y)/(neighbour->hi_.y-neighbour->lo_.y));
 
         my_begin = glm::vec2(1,0);
         my_end   = glm::vec2(1,1);
@@ -353,11 +355,11 @@ void PNode::FixHeightmap(PNode* neighbour, int edgedir)
     }
     if(edgedir == 1)
     {
-        texrange.x = (lo.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x);
-        texrange.y = (hi.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x);
+        texrange.x = (lo_.x-neighbour->lo_.x)/(neighbour->hi_.x-neighbour->lo_.x);
+        texrange.y = (hi_.x-neighbour->lo_.x)/(neighbour->hi_.x-neighbour->lo_.x);
         // scale tex.x
-        begin = glm::vec2((lo.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x), 0);
-        end   = glm::vec2((hi.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x), 0);
+        begin = glm::vec2((lo_.x-neighbour->lo_.x)/(neighbour->hi_.x-neighbour->lo_.x), 0);
+        end   = glm::vec2((hi_.x-neighbour->lo_.x)/(neighbour->hi_.x-neighbour->lo_.x), 0);
 
         my_begin = glm::vec2(0,1);
         my_end   = glm::vec2(1,1);
@@ -366,11 +368,11 @@ void PNode::FixHeightmap(PNode* neighbour, int edgedir)
     }
     if(edgedir == 3)
     {
-        texrange.x = (lo.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x);
-        texrange.y = (hi.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x);
+        texrange.x = (lo_.x-neighbour->lo_.x)/(neighbour->hi_.x-neighbour->lo_.x);
+        texrange.y = (hi_.x-neighbour->lo_.x)/(neighbour->hi_.x-neighbour->lo_.x);
         // scale tex.x
-        begin = glm::vec2((lo.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x), 1);
-        end   = glm::vec2((hi.x-neighbour->lo.x)/(neighbour->hi.x-neighbour->lo.x), 1);
+        begin = glm::vec2((lo_.x-neighbour->lo_.x)/(neighbour->hi_.x-neighbour->lo_.x), 1);
+        end   = glm::vec2((hi_.x-neighbour->lo_.x)/(neighbour->hi_.x-neighbour->lo_.x), 1);
 
         my_begin = glm::vec2(0,0);
         my_end   = glm::vec2(1,0);
@@ -387,10 +389,10 @@ void PNode::FixHeightmap(PNode* neighbour, int edgedir)
 
     // bind neighbour heightmap
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, neighbour->heightmap);
+    glBindTexture(GL_TEXTURE_2D, neighbour->heightmap_);
 
     // write to heightmap
-    glBindImageTexture(0, heightmap, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
+    glBindImageTexture(0, heightmap_, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
 
     // Deploy kernel
     glDispatchCompute(1,1,1);
@@ -399,45 +401,45 @@ void PNode::FixHeightmap(PNode* neighbour, int edgedir)
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     // Write flag
-    crackfixed = true;
+    crackfixed_ = true;
 }
-void PNode::Split(glm::mat4 arg = glm::mat4(1))
+void PNode::Split(const glm::mat4& arg = glm::mat4(1))
 {
-    if(!this->subdivided)
+    if(!this->subdivided_)
     {
-        child[0] = new PNode;
-        child[0]->SetConnectivity<0>(this);
-        child[0]->SetModelMatrix(arg);
-        child[0]->BakeHeightMap(arg);
-        child[0]->BakeAppearanceMap(arg);
-        child[0]->SetElevation();
+        child_[0] = new PNode;
+        child_[0]->SetConnectivity<0>(this);
+        child_[0]->SetModelMatrix(arg);
+        child_[0]->BakeHeightMap(arg);
+        child_[0]->BakeAppearanceMap(arg);
+        child_[0]->SetElevation();
 
 
-        child[1] = new PNode;
-        child[1]->SetConnectivity<1>(this);
-        child[1]->SetModelMatrix(arg);
-        child[1]->BakeHeightMap(arg);
-        child[1]->BakeAppearanceMap(arg);
-        child[1]->SetElevation();
+        child_[1] = new PNode;
+        child_[1]->SetConnectivity<1>(this);
+        child_[1]->SetModelMatrix(arg);
+        child_[1]->BakeHeightMap(arg);
+        child_[1]->BakeAppearanceMap(arg);
+        child_[1]->SetElevation();
 
 
-        child[2] = new PNode;
-        child[2]->SetConnectivity<2>(this);
-        child[2]->SetModelMatrix(arg);
-        child[2]->BakeHeightMap(arg);
-        child[2]->BakeAppearanceMap(arg);
-        child[2]->SetElevation();
+        child_[2] = new PNode;
+        child_[2]->SetConnectivity<2>(this);
+        child_[2]->SetModelMatrix(arg);
+        child_[2]->BakeHeightMap(arg);
+        child_[2]->BakeAppearanceMap(arg);
+        child_[2]->SetElevation();
 
 
-        child[3] = new PNode;
-        child[3]->SetConnectivity<3>(this);
-        child[3]->SetModelMatrix(arg);
-        child[3]->BakeHeightMap(arg);
-        child[3]->BakeAppearanceMap(arg);
-        child[3]->SetElevation();
+        child_[3] = new PNode;
+        child_[3]->SetConnectivity<3>(this);
+        child_[3]->SetModelMatrix(arg);
+        child_[3]->BakeHeightMap(arg);
+        child_[3]->BakeAppearanceMap(arg);
+        child_[3]->SetElevation();
 
 
-        this->subdivided = true;
+        this->subdivided_ = true;
     }
 }
 int PNode::Search(glm::vec2 p) const
@@ -445,7 +447,7 @@ int PNode::Search(glm::vec2 p) const
     glm::vec2 center = GetCenter();
 
     // not in box
-    if(p.x < lo.x || p.y < lo.y || p.x > hi.x || p.y > hi.y) { return -1; }
+    if(p.x < lo_.x || p.y < lo_.y || p.x > hi_.x || p.y > hi_.y) { return -1; }
 
     // find in which subregion
     if(p.x < center.x)
@@ -469,7 +471,7 @@ float PNode::MinElevation() const
     std::vector<float> heightData(HEIGHT_MAP_X*HEIGHT_MAP_Y);
 
     // read texture
-    glGetTextureImage(heightmap, 0, GL_RED, GL_FLOAT,HEIGHT_MAP_X*HEIGHT_MAP_Y*sizeof(float),&heightData[0]);
+    glGetTextureImage(heightmap_, 0, GL_RED, GL_FLOAT,HEIGHT_MAP_X*HEIGHT_MAP_Y*sizeof(float),&heightData[0]);
 
     auto min = std::min_element(heightData.begin(),heightData.end());
     return *min;
@@ -479,66 +481,72 @@ float PNode::MinElevation() const
 }
 float PNode::GetElevation(const glm::vec2& pos) const
 {
-#if 1
     // pos must located inside this grid
     // use queryGrid() before call this function
     // Caution: getTextureImage is SUPER HEAVY
     // so use this function as few as possible
     // and avoid to call this function every frame
-    glm::vec2 relPos = (pos-lo)/(hi-lo);
+    glm::vec2 relPos = (pos-lo_)/(hi_-lo_);
 
     uint xoffset = uint(glm::clamp(relPos.x,0.0f,1.0f)*(HEIGHT_MAP_X-1));
     uint yoffset = uint(glm::clamp(relPos.y,0.0f,1.0f)*(HEIGHT_MAP_Y-1));
 
     float height = 0.0f;
-    glGetTextureSubImage(heightmap,
+    glGetTextureSubImage(heightmap_,
                          0,xoffset,yoffset,0,1,1,1,GL_RED,GL_FLOAT,HEIGHT_MAP_X*HEIGHT_MAP_Y*sizeof(float),&height);
 
     return height;
-#else
-    return 0;
-#endif
 }
 void PNode::SetElevation()
 {
-    elevation = GetElevation(GetCenter());
+    elevation_ = GetElevation(GetCenter());
 }
 
 template<uint TYPE>
 void PNode::SetConnectivity(PNode* leaf)
 {
-    static_assert (TYPE < 4, "Only 4 child index" );
-    offset_type = TYPE;
-    glm::vec2 center = glm::vec2(0.5f)*(leaf->lo + leaf->hi);
-    this->morton = leaf->morton | ( TYPE << (2*(leaf->level)) ) ; // bin = xy: 00, 01, 10, 11
+    static_assert (TYPE < 4, "Only 4 child_ index" );
+
+    parent_ = leaf;
+    level_ = parent_->level_+1;
+
+    offset_type_ = TYPE;
+    glm::vec2 center = glm::vec2(0.5f)*(parent_->lo_ + parent_->hi_);
+    //this->morton_ = leaf->morton_ | ( TYPE << (2*(leaf->level_)) ) ; // bin = xy: 00, 01, 10, 11
+
 
     if(TYPE == 0) // bottom-left
     {
-        lo = leaf->lo;
-        hi = center;
+        lo_ = parent_->lo_;
+        hi_ = center;
     }else
         if(TYPE == 1) // top-left
         {
-            lo = glm::vec2(leaf->lo.x, center.y);
-            hi = glm::vec2(center.x, leaf->hi.y);
+            lo_ = glm::vec2(parent_->lo_.x, center.y);
+            hi_ = glm::vec2(center.x, parent_->hi_.y);
         }else
             if(TYPE == 2) // bottom-right
             {
-                lo = glm::vec2(center.x, leaf->lo.y);
-                hi = glm::vec2(leaf->hi.x, center.y);
+                lo_ = glm::vec2(center.x, parent_->lo_.y);
+                hi_ = glm::vec2(parent_->hi_.x, center.y);
             }else
                 if(TYPE == 3) // top-right
                 {
-                    lo = center;
-                    hi = leaf->hi;
+                    lo_ = center;
+                    hi_ = parent_->hi_;
                 }
 
-    parent = leaf;
+    // convert from [-1 1] to [0 1] then compute morton
+    //auto mapped_lo = (lo_+ 1.0f)/2.0f;
+    //auto morton_new = Umath::EncodeMortonWithLod2(mapped_lo, 15-level_);
+    //bool a = Umath::GetLodLevel(morton_new) == 15-level_;
+    //assert(a);
 
-    level = parent->level+1;
+    this->morton_ = Umath::EncodeMortonWithLod2((lo_+ 1.0f)/2.0f, 15-level_);
+printf("%d, %x\n", level_, morton_);
 
-    rlo = (lo - parent->lo)/(parent->hi - parent->lo);
-    rhi = (hi - parent->lo)/(parent->hi - parent->lo);
+    rlo_ = (lo_ - parent_->lo_)/(parent_->hi_ - parent_->lo_);
+    rhi_ = (hi_ - parent_->lo_)/(parent_->hi_ - parent_->lo_);
 }
 
 void PlaneSeedInit()
