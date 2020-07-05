@@ -505,44 +505,36 @@ void PNode::SetElevation()
 template<uint TYPE>
 void PNode::SetConnectivity(PNode* leaf)
 {
-    static_assert (TYPE < 4, "Only 4 child_ index" );
+    static_assert (TYPE < 4, "Only have 4 child." );
 
-    parent_ = leaf;
-    level_ = parent_->level_+1;
+    this->parent_ = leaf;
+    this->level_ = parent_->level_+1;
+    this->morton_ = (parent_->morton_ << 2) | TYPE;
+    this->offset_type_ = TYPE;
 
-    offset_type_ = TYPE;
     glm::vec2 center = glm::vec2(0.5f)*(parent_->lo_ + parent_->hi_);
-    //this->morton_ = leaf->morton_ | ( TYPE << (2*(leaf->level_)) ) ; // bin = xy: 00, 01, 10, 11
 
-
-    if(TYPE == 0) // bottom-left
+    // may need for rounding error free lo and hi
+    // todo: need further observation...
+    switch (TYPE)
     {
+    case 0:
         lo_ = parent_->lo_;
         hi_ = center;
-    }else
-        if(TYPE == 1) // top-left
-        {
-            lo_ = glm::vec2(parent_->lo_.x, center.y);
-            hi_ = glm::vec2(center.x, parent_->hi_.y);
-        }else
-            if(TYPE == 2) // bottom-right
-            {
-                lo_ = glm::vec2(center.x, parent_->lo_.y);
-                hi_ = glm::vec2(parent_->hi_.x, center.y);
-            }else
-                if(TYPE == 3) // top-right
-                {
-                    lo_ = center;
-                    hi_ = parent_->hi_;
-                }
-
-    // convert from [-1 1] to [0 1] then compute morton
-    //auto mapped_lo = (lo_+ 1.0f)/2.0f;
-    //auto morton_new = Umath::EncodeMortonWithLod2(mapped_lo, 15-level_);
-    //bool a = Umath::GetLodLevel(morton_new) == 15-level_;
-    //assert(a);
-
-    this->morton_ = Umath::EncodeMortonWithLod2((lo_+ 1.0f)/2.0f, 15-level_);
+        break;
+    case 1:
+        lo_ = glm::vec2(center.x, parent_->lo_.y);
+        hi_ = glm::vec2(parent_->hi_.x, center.y);
+        break;
+    case 2:
+        lo_ = glm::vec2(parent_->lo_.x, center.y);
+        hi_ = glm::vec2(center.x, parent_->hi_.y);
+        break;
+    case 3:
+        lo_ = center;
+        hi_ = parent_->hi_;
+        break;
+    }
 
     rlo_ = (lo_ - parent_->lo_)/(parent_->hi_ - parent_->lo_);
     rhi_ = (hi_ - parent_->lo_)/(parent_->hi_ - parent_->lo_);

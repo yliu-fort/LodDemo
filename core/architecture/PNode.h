@@ -45,7 +45,7 @@ public:
     PNode* parent_;
 
     uint level_ = 0, offset_type_;
-    int morton_ = 0;
+    int morton_ = 0x2; //for level detection
 
     glm::vec2 lo_, hi_; // global coordinates
     glm::vec2 rlo_, rhi_; // relative coordinates

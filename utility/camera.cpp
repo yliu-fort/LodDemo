@@ -103,8 +103,8 @@ void Camera::ProcessMouseMovement(float xoffset, float yoffset, GLboolean constr
     updateCameraVectors();
 }
 
-#define CAM_MIN_SPEED (1e-6)
-#define CAM_MAX_SPEED (1e30)
+
+
 // Processes input received from a mouse scroll-wheel event. Only requires input on the vertical wheel-axis
 void Camera::ProcessMouseScroll(float yoffset)
 {
@@ -115,12 +115,12 @@ void Camera::ProcessMouseScroll(float yoffset)
     if (Zoom >= 45.0f)
         Zoom = 45.0f;*/
 
-    if (MovementSpeed >= CAM_MIN_SPEED && MovementSpeed <= CAM_MAX_SPEED)
+    constexpr float CAM_MIN_SPEED = 1e-6f;
+    constexpr float CAM_MAX_SPEED = 1e30f;
+
+    //if (MovementSpeed >= CAM_MIN_SPEED && MovementSpeed <= CAM_MAX_SPEED)
         MovementSpeed *= yoffset>0?2.0f:0.5f;
-    if (MovementSpeed <= CAM_MIN_SPEED)
-        MovementSpeed = CAM_MIN_SPEED;
-    if (MovementSpeed >= CAM_MAX_SPEED)
-        MovementSpeed = CAM_MAX_SPEED;
+        MovementSpeed = glm::clamp(MovementSpeed, CAM_MIN_SPEED, CAM_MAX_SPEED);
     std::cout << "Move speed = " << MovementSpeed << std::endl;
 }
 
