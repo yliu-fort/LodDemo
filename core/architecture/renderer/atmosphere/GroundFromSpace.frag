@@ -34,10 +34,12 @@ uniform int level;
 uniform int hash;
 uniform int renderType;
 
-vec2 getSharedLower(int code)
+vec2 GetSharedLower(int code)
 {
-    code = ((code << (2*level)) & 0x3FFFFFFF) << 2;
-    return 0.5f*vec2(code&0x80000000, code&0x40000000);
+    if(level == 0)
+        return vec2(0);
+
+    return 0.5f*vec2(code&1, (code >> 1)&1);
 }
 
 quat rotationBetweenVectors(vec3 start, vec3 dest);
@@ -47,7 +49,7 @@ void tangentToViewSpace(inout vec3 v);
 
 void main ()
 {
-    vec2 shTexcoord = getSharedLower(hash)+TexCoords/(1.0f + float(level > 0));
+    vec2 shTexcoord = GetSharedLower(hash)+TexCoords/(1.0f + float(level > 0));
 
     // compute lighting (bug: normal correction is incorrect)
     vec3 normal = 2.0f * mix(texture(normalmap, TexCoords).xyz, texture(normalmapParent, shTexcoord).xyz, blendNearFar) - 1.0f;

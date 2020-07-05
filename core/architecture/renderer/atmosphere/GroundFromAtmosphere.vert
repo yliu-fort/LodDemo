@@ -66,20 +66,15 @@ int MergeBits1(int v)
     v = (v ^ (v >> 8 )) & 0x0000FFFF;
     return v;
 }
-vec2 DecodeMorton2(int v)
-{
-    return vec2(
-                float(MergeBits1(v >> 1 )) / 65536.0f,
-                float(MergeBits1(v >> 0 )) / 65536.0f
-                );
-}
-
 vec2 DecodeMortonWithLod2(int v, int l)
 {
     v <<= (2*l);
     v &= 0x3FFFFFFF;
     v <<= 2;
-    return DecodeMorton2(v);
+    return vec2(
+                float(MergeBits1(v >> 0 )) / 65536.0f,
+                float(MergeBits1(v >> 1 )) / 65536.0f
+                );
 }
 
 vec2 dpos(int code)
@@ -87,19 +82,22 @@ vec2 dpos(int code)
     return 2.0f*DecodeMortonWithLod2(code, 15-level)-1.0f;
 }
 
+vec2 GetSharedLower(int code)
+{
+    if(level == 0)
+        return vec2(0);
+
+    return 0.5f*vec2(code&1, (code >> 1)&1);
+}
+
 vec2 computeSharedPixel(ivec2 texel, int code)
 {
-
-    // todo: might be better to compute dpos and shlow then pass into the vs
-    //code >>= (2*(level-1));
-    code = ((code << (2*level)) & 0x3FFFFFFF) << 2;
-    vec2 shlo =  0.5f*vec2(code&0x80000000, code&0x40000000);
 
     //vec2 rr = (shlo*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1))/vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y);
     //vec2 sh_pixel = ( shlo*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1)
     //                + (texel*vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y) - 0.5f)/2 + 0.5f )
     //        /vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y); // map to shlo->shhi
-    return ( 0.5f + shlo*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1) + texel/(1.0f + float(level > 0)) )
+    return ( 0.5f + GetSharedLower(code)*vec2(HEIGHT_MAP_X-1, HEIGHT_MAP_Y-1) + texel/(1.0f + float(level > 0)) )
             /vec2(HEIGHT_MAP_X, HEIGHT_MAP_Y); // map to shlo->shhi
 }
 

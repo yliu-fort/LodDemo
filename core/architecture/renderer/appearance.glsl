@@ -46,8 +46,8 @@ vec2 DecodeMortonWithLod2(int v, int l)
     v &= 0x3FFFFFFF;
     v <<= 2;
     return vec2(
-                float(MergeBits1(v >> 1 )) / 65536.0f,
-                float(MergeBits1(v >> 0 )) / 65536.0f
+                float(MergeBits1(v >> 0 )) / 65536.0f,
+                float(MergeBits1(v >> 1 )) / 65536.0f
                 );
 }
 
@@ -99,7 +99,6 @@ float ridgenoises3(vec2 t, int freq) {
 
 }
 
-
 float calc_height(vec2 pixel)
 {
 
@@ -127,7 +126,7 @@ float calc_height(vec2 pixel)
     density += EFFECTIVE_HEIGHT*heightData;
 
     // Bound height
-    density = clamp(density,0.0,EFFECTIVE_HEIGHT);
+    density = clamp(density,0.0f,EFFECTIVE_HEIGHT);
 
     return density;
 }
@@ -151,7 +150,7 @@ void main()
     float height = calc_height(pixel);
 
     vec4 color = mix(vec4(textureLod( material,
-                                 vec3(pixel*(1<<15), 16.45f*(height/EFFECTIVE_HEIGHT)), 15-level ).rgb, 0.0f),
+                                      vec3(pixel*(1<<15), 16.45f*(height/EFFECTIVE_HEIGHT)), 15-level ).rgb, 0.0f),
                      vec4(0.0,0.021,0.047,1.0), clamp(tanh(-10.0/(height/EFFECTIVE_HEIGHT-0.1)),0,1));
 
     // compute normal

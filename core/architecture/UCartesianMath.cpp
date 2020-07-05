@@ -58,7 +58,7 @@ uint EncodeMorton3(vec3 n)
     uint xx = ExpandBits2(uint(n[0]));
     uint yy = ExpandBits2(uint(n[1]));
     uint zz = ExpandBits2(uint(n[2]));
-    return (xx << 2) | (yy << 1) | (zz << 0);
+    return (xx << 0) | (yy << 1) | (zz << 2);
 }
 
 
@@ -70,7 +70,7 @@ uint EncodeMorton3(float x, float y, float z)
     uint xx = ExpandBits2(uint(x));
     uint yy = ExpandBits2(uint(y));
     uint zz = ExpandBits2(uint(z));
-    return (xx << 2) | (yy << 1) | (zz << 0);
+    return (xx << 0) | (yy << 1) | (zz << 2);
 }
 
 
@@ -80,7 +80,7 @@ uint EncodeMorton2(vec2 n)
     n[1] = min(max(n[1] * 65536.0f, 0.0f), 65535.0f);
     uint xx = ExpandBits1(uint(n[0]));
     uint yy = ExpandBits1(uint(n[1]));
-    return (xx << 1) | (yy << 0);
+    return (xx << 0) | (yy << 1);
 }
 
 
@@ -90,16 +90,16 @@ uint EncodeMorton2(float x, float y)
     y = min(max(y * 65536.0f, 0.0f), 65535.0f);
     uint xx = ExpandBits1(uint(x));
     uint yy = ExpandBits1(uint(y));
-    return (xx << 1) | (yy << 0);
+    return (xx << 0) | (yy << 1);
 }
 
 
 vec3 DecodeMorton3(uint v)
 {
     return vec3(
-                float(MergeBits2(v >> 2 )) / 1024.0f,
+                float(MergeBits2(v >> 0 )) / 1024.0f,
                 float(MergeBits2(v >> 1 )) / 1024.0f,
-                float(MergeBits2(v >> 0 )) / 1024.0f
+                float(MergeBits2(v >> 2 )) / 1024.0f
                 );
 }
 
@@ -107,8 +107,8 @@ vec3 DecodeMorton3(uint v)
 vec2 DecodeMorton2(uint v)
 {
     vec2 n(
-                float(MergeBits1(v >> 1 )) / 65536.0f,
-                float(MergeBits1(v >> 0 )) / 65536.0f
+                float(MergeBits1(v >> 0 )) / 65536.0f,
+                float(MergeBits1(v >> 1 )) / 65536.0f
                 );
 
     return n;

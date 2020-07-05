@@ -39,8 +39,8 @@ vec2 DecodeMortonWithLod2(int v, int l)
     v &= 0x3FFFFFFF;
     v <<= 2;
     return vec2(
-                float(MergeBits1(v >> 1 )) / 65536.0f,
-                float(MergeBits1(v >> 0 )) / 65536.0f
+                float(MergeBits1(v >> 0 )) / 65536.0f,
+                float(MergeBits1(v >> 1 )) / 65536.0f
                 );
 }
 
@@ -133,7 +133,7 @@ float calc_height(vec2 pixel)
     density += EFFECTIVE_HEIGHT*heightData;
 
     // Bound height
-    density = clamp(density,0.0,EFFECTIVE_HEIGHT);
+    density = clamp(density,0.0f,EFFECTIVE_HEIGHT);
 
     return density;
 }

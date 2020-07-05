@@ -543,7 +543,6 @@ void PNode::SetConnectivity(PNode* leaf)
     //assert(a);
 
     this->morton_ = Umath::EncodeMortonWithLod2((lo_+ 1.0f)/2.0f, 15-level_);
-printf("%d, %x\n", level_, morton_);
 
     rlo_ = (lo_ - parent_->lo_)/(parent_->hi_ - parent_->lo_);
     rhi_ = (hi_ - parent_->lo_)/(parent_->hi_ - parent_->lo_);
