@@ -72,7 +72,7 @@ void main ()
     {
         //color = texture(colormap, pow(FragPos.y,0.2f)).rgb;
         albedo = vec3(blendNearFar);
-        if(blendNearFar == 1.0)
+        if(blendNearFar >= 1.0)
             albedo = vec3(0.0,0.5,1.0);
         if(blendNearFar == 0.0)
             albedo = vec3(0.5,1.0,0.0);

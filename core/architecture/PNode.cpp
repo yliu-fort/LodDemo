@@ -260,9 +260,7 @@ void PNode::BakeAppearanceMap(const glm::mat4& arg)
     glEnable(GL_TEXTURE_2D);
 
     appearance_baking.use();
-
     appearance_baking.setMat4("globalMatrix", arg);
-
     appearance_baking.setInt("level", this->level_);
     appearance_baking.setInt("hash", this->morton_);
 
@@ -271,7 +269,6 @@ void PNode::BakeAppearanceMap(const glm::mat4& arg)
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D_ARRAY, materialTex);
-
 
     // write to heightmap ? buggy
     glBindImageTexture(0, appearance_, 0, GL_FALSE, 0, GL_WRITE_ONLY, APPEARANCE_MAP_INTERNAL_FORMAT);
@@ -291,9 +288,7 @@ void PNode::BakeHeightMap(const glm::mat4& arg)
     glEnable(GL_TEXTURE_2D);
 
     upsampling.use();
-
     upsampling.setMat4("globalMatrix", arg);
-
     upsampling.setInt("level", this->level_);
     upsampling.setInt("hash", this->morton_);
 
@@ -309,9 +304,6 @@ void PNode::BakeHeightMap(const glm::mat4& arg)
 
     // Deploy kernel
     glDispatchCompute((HEIGHT_MAP_X/16)+1,(HEIGHT_MAP_Y/16)+1,1);
-
-    // make sure writing to image has finished before read
-    //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     // Write flag
     crackfixed_ = false;

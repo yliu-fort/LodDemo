@@ -129,7 +129,7 @@ vec3 projectToS3()
 
 vec3 projectVertexOntoSphere(float h)
 {
-    return vec3( m4ModelMatrix*vec4( (1.0+h)*projectToS3(),1.0f ) );
+    return vec3( m4ModelMatrix*vec4( (1.0f+h)*projectToS3(),1.0f ) );
 }
 
 vec3 projectToS3v(vec3 v)

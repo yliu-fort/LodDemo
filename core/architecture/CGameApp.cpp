@@ -45,7 +45,7 @@ bool CGameApp::InitMode(bool bFullScreen, int nWidth, int nHeight)
     m_nHeight = nHeight;
 
     // Open a window and create its OpenGL context
-    m_pWindow = glfwCreateWindow( m_nWidth, m_nHeight, "", nullptr, nullptr);
+    m_pWindow = glfwCreateWindow( 400, 400, "Launching", nullptr, nullptr);
     if( m_pWindow == nullptr ){
         fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n" );
         getchar();

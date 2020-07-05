@@ -44,4 +44,5 @@ glm::vec2 DecodeMortonWithLod2(glm::uint32, glm::uint32);
 glm::uint32 GetLodLevel(glm::uint32);
 
 glm::uint32 CountLeadingZeros(glm::uint32);
+
 }

@@ -91,5 +91,6 @@ add_subdirectory("utility") # Provide absolute path for shaders
 #add_subdirectory("core/mipmap")
 #add_subdirectory("core/atmosphere")
 add_subdirectory("core/architecture")
+add_subdirectory("core/curvedSurface")
 ### TESTS&DEMOS
 #add_subdirectory("test")
