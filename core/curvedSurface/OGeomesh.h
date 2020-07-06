@@ -19,7 +19,7 @@ enum RenderMode
     ELEMENT_COUNT
 };
 
-class OGeomesh : protected PGeoNode
+class OGeomesh : protected PNode
 {
     // start from the deepest level (leaf node), compute the distance to reference point/camera
     // child sharing the same father are expected to be clustered
@@ -32,10 +32,10 @@ class OGeomesh : protected PGeoNode
 
 public:
     OGeomesh(glm::mat4 global_model_matrix = glm::mat4(1))
-        : PGeoNode()
+        : PNode()
         , global_model_matrix_(global_model_matrix)
     {
-        parent_ = static_cast<PGeoNode *>(this);
+        parent_ = static_cast<PNode *>(this);
         SetModelMatrix(global_model_matrix_);
         BakeHeightMap(global_model_matrix_);
         BakeAppearanceMap(global_model_matrix_);
@@ -45,7 +45,7 @@ public:
     ~OGeomesh(){}
     OGeomesh(const OGeomesh&) = delete;
 
-    PNode* GetHandle() const { return static_cast<PGeoNode *>(this->parent_); }
+    PNode* GetHandle() const { return static_cast<PNode *>(this->parent_); }
 
     glm::vec3 ConvertToDeformed(const glm::vec3& v) const;
     glm::vec3 ConvertToNormal(const glm::vec3& v) const;
@@ -54,19 +54,18 @@ public:
     float QueryElevation(const glm::vec3& pos) const;
     void Subdivision(const glm::vec3& viewPos);
     void Subdivision(uint level);
-    void Subdivision(uint, uint);
     void Draw(Shader& shader, const glm::vec3& viewPos) const;
     void ReleaseAllTextureHandles();
-    void ReleaseAllTextureHandles( PGeoNode* node );
+    void ReleaseAllTextureHandles( PNode* node );
 
     // Caution: only return subdivided grids.
     // write additional condition if you need this
     PNode* QueryNode( const glm::vec2& ) const;
-    void RefreshHeightmap( PGeoNode* );
-    void Fixcrack( PGeoNode* );
-    void Subdivision( const glm::vec3&, const float&, PGeoNode* );
-    void Subdivision( uint, PGeoNode* );
-    void Draw( const PGeoNode*, Shader& ) const;
+    void RefreshHeightmap( PNode* );
+    void Fixcrack( PNode* );
+    void Subdivision( const glm::vec3&, const float&, PNode* );
+    void Subdivision( uint, PNode* );
+    void Draw( const PNode*, Shader& ) const;
 
 
     // static functions

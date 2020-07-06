@@ -1,6 +1,6 @@
 #include "OGeomesh.h"
 #include <glad/glad.h>
-#include "UCartesianMath.h"
+
 
 
 glm::vec3 OGeomesh::ConvertToDeformed(const glm::vec3& v) const
@@ -45,7 +45,7 @@ bool OGeomesh::IsGroundReference(const glm::vec3& pos) const
 float OGeomesh::QueryElevation(const glm::vec3& pos) const
 {
     auto tpos = ConvertToUV(pos);
-    auto node = (PGeoNode*)QueryNode(glm::vec2(tpos.x, tpos.z));
+    auto node = QueryNode(glm::vec2(tpos.x, tpos.z));
     if(node)
         return node->GetElevation(glm::vec2(tpos.x, tpos.z));
     return this->GetElevation(glm::vec2(tpos.x, tpos.z));
@@ -56,14 +56,14 @@ void OGeomesh::ReleaseAllTextureHandles()
     ReleaseAllTextureHandles(this);
 }
 
-void OGeomesh::ReleaseAllTextureHandles( PGeoNode* node )
+void OGeomesh::ReleaseAllTextureHandles( PNode* node )
 {
     if(node->IsSubdivided())
     {
-        ReleaseAllTextureHandles((PGeoNode*)node->child_[0]);
-        ReleaseAllTextureHandles((PGeoNode*)node->child_[1]);
-        ReleaseAllTextureHandles((PGeoNode*)node->child_[2]);
-        ReleaseAllTextureHandles((PGeoNode*)node->child_[3]);
+        ReleaseAllTextureHandles(node->child_[0]);
+        ReleaseAllTextureHandles(node->child_[1]);
+        ReleaseAllTextureHandles(node->child_[2]);
+        ReleaseAllTextureHandles(node->child_[3]);
     }
 
     node->ReleaseTextureHandle();
@@ -93,15 +93,15 @@ PNode* OGeomesh::QueryNode( const glm::vec2& pos) const
         return sh_PNode;
 }
 
-void OGeomesh::RefreshHeightmap(PGeoNode* PNode)
+void OGeomesh::RefreshHeightmap(PNode* PNode)
 {
     //bool isTraversible = PNode->subdivided;
     if(PNode->IsSubdivided())
     {
-        RefreshHeightmap((PGeoNode*)PNode->child_[0]);
-        RefreshHeightmap((PGeoNode*)PNode->child_[1]);
-        RefreshHeightmap((PGeoNode*)PNode->child_[2]);
-        RefreshHeightmap((PGeoNode*)PNode->child_[3]);
+        RefreshHeightmap(PNode->child_[0]);
+        RefreshHeightmap(PNode->child_[1]);
+        RefreshHeightmap(PNode->child_[2]);
+        RefreshHeightmap(PNode->child_[3]);
     }
     else
     {
@@ -113,15 +113,15 @@ void OGeomesh::RefreshHeightmap(PGeoNode* PNode)
     }
 }
 
-void OGeomesh::Fixcrack(PGeoNode* leaf)
+void OGeomesh::Fixcrack(PNode* leaf)
 {
     //bool isTraversible = PNode->subdivided;
     if(leaf->IsSubdivided())
     {
-        Fixcrack((PGeoNode*)leaf->child_[0]);
-        Fixcrack((PGeoNode*)leaf->child_[1]);
-        Fixcrack((PGeoNode*)leaf->child_[2]);
-        Fixcrack((PGeoNode*)leaf->child_[3]);
+        Fixcrack(leaf->child_[0]);
+        Fixcrack(leaf->child_[1]);
+        Fixcrack(leaf->child_[2]);
+        Fixcrack(leaf->child_[3]);
     }
     else
     {
@@ -137,26 +137,26 @@ void OGeomesh::Fixcrack(PGeoNode* leaf)
 
         glm::vec2 f1, f2;
         int e1, e2;
-        if(leaf->GetOffsetType() == 0) // going to search 2 faces
+        if(leaf->offset_type_ == 0) // going to search 2 faces
         {
             f1 = leaf->GetCenter() - glm::vec2(0.0,(leaf->hi_.y-leaf->lo_.y)); // bottom
             f2 = leaf->GetCenter() - glm::vec2((leaf->hi_.x-leaf->lo_.x), 0.0); // left
             e1 = 3;e2 = 0;
         }else
-        if(leaf->GetOffsetType() == 1) // going to search 2 faces
+        if(leaf->offset_type_ == 1) // going to search 2 faces
         {
             f1 = leaf->GetCenter() + glm::vec2(0.0,(leaf->hi_.y-leaf->lo_.y)); // top
             f2 = leaf->GetCenter() - glm::vec2((leaf->hi_.x-leaf->lo_.x), 0.0); // left
             e1 = 1;e2 = 0;
         }else
-        if(leaf->GetOffsetType() == 2) // going to search 2 faces
+        if(leaf->offset_type_ == 2) // going to search 2 faces
         {
             f1 = leaf->GetCenter() + glm::vec2(0.0,(leaf->hi_.y-leaf->lo_.y)); // top
             f2 = leaf->GetCenter() + glm::vec2((leaf->hi_.x-leaf->lo_.x), 0.0); // right
             e1 = 1;e2 = 2;
         }
         else
-        if(leaf->GetOffsetType() == 3) // going to search 2 faces
+        if(leaf->offset_type_ == 3) // going to search 2 faces
         {
             f1 = leaf->GetCenter() - glm::vec2(0.0,(leaf->hi_.y-leaf->lo_.y)); // bottom
             f2 = leaf->GetCenter() + glm::vec2((leaf->hi_.x-leaf->lo_.x), 0.0); // right
@@ -189,18 +189,19 @@ void OGeomesh::Subdivision(const glm::vec3& viewPos)
     Subdivision(ConvertToUV(viewPos), QueryElevation(viewPos), this);
 }
 
-void OGeomesh::Subdivision(uint code, uint lod)
-{
-    auto uv = 2.0f*Umath::DecodeMorton2(code)-1.0f;
-    Subdivision(glm::vec3(uv.x, 4.0/(1<<lod), uv.y), 0, this);
-}
-
 void OGeomesh::Subdivision(uint level_)
 {
     Subdivision( level_, this );
 }
 
-void OGeomesh::Subdivision(const glm::vec3& viewPos, const float& viewY, PGeoNode* leaf)
+void OGeomesh::Draw(Shader& shader, const glm::vec3& viewPos) const
+{
+    shader.setVec3("v3CameraProjectedPos",ConvertToUV(viewPos));
+    shader.setInt("renderType", OGeomesh::RENDER_MODE);
+    Draw(this, shader);
+}
+
+void OGeomesh::Subdivision(const glm::vec3& viewPos, const float& viewY, PNode* leaf)
 {
 
     // distance between PNodepos and viewpos
@@ -223,10 +224,10 @@ void OGeomesh::Subdivision(const glm::vec3& viewPos, const float& viewY, PGeoNod
         // split and bake heightmap
         leaf->Split(global_model_matrix_);
 
-        Subdivision(viewPos, viewY, (PGeoNode*)leaf->child_[0]);
-        Subdivision(viewPos, viewY, (PGeoNode*)leaf->child_[1]);
-        Subdivision(viewPos, viewY, (PGeoNode*)leaf->child_[2]);
-        Subdivision(viewPos, viewY, (PGeoNode*)leaf->child_[3]);
+        Subdivision(viewPos, viewY, leaf->child_[0]);
+        Subdivision(viewPos, viewY, leaf->child_[1]);
+        Subdivision(viewPos, viewY, leaf->child_[2]);
+        Subdivision(viewPos, viewY, leaf->child_[3]);
 
     }
     else
@@ -238,7 +239,7 @@ void OGeomesh::Subdivision(const glm::vec3& viewPos, const float& viewY, PGeoNod
     }
 }
 
-void OGeomesh::Subdivision(uint level_, PGeoNode* leaf)
+void OGeomesh::Subdivision(uint level_, PNode* leaf)
 {
     // Subdivision
     if( leaf->level_ < level_ && leaf->level_ < MAX_DEPTH )
@@ -246,10 +247,10 @@ void OGeomesh::Subdivision(uint level_, PGeoNode* leaf)
         // split and bake heightmap
         leaf->Split(global_model_matrix_);
 
-        Subdivision(level_, (PGeoNode*)leaf->child_[0]);
-        Subdivision(level_, (PGeoNode*)leaf->child_[1]);
-        Subdivision(level_, (PGeoNode*)leaf->child_[2]);
-        Subdivision(level_, (PGeoNode*)leaf->child_[3]);
+        Subdivision(level_, leaf->child_[0]);
+        Subdivision(level_, leaf->child_[1]);
+        Subdivision(level_, leaf->child_[2]);
+        Subdivision(level_, leaf->child_[3]);
 
     }
     else
@@ -279,21 +280,14 @@ glm::vec2 computeExactTexPos(int code)
     return o;
 }
 
-void OGeomesh::Draw(Shader& shader, const glm::vec3& viewPos) const
-{
-    shader.setVec3("v3CameraProjectedPos",ConvertToUV(viewPos));
-    shader.setInt("renderType", OGeomesh::RENDER_MODE);
-    Draw(this, shader);
-}
-
-void OGeomesh::Draw(const PGeoNode* leaf, Shader& shader) const
+void OGeomesh::Draw(const PNode* leaf, Shader& shader) const
 {
     if(leaf->IsSubdivided())
     {
-        Draw((PGeoNode*)leaf->child_[0], shader);
-        Draw((PGeoNode*)leaf->child_[1], shader);
-        Draw((PGeoNode*)leaf->child_[2], shader);
-        Draw((PGeoNode*)leaf->child_[3], shader);
+        Draw(leaf->child_[0], shader);
+        Draw(leaf->child_[1], shader);
+        Draw(leaf->child_[2], shader);
+        Draw(leaf->child_[3], shader);
     }
     else
     {
@@ -312,22 +306,22 @@ void OGeomesh::Draw(const PGeoNode* leaf, Shader& shader) const
         glBindTexture(GL_TEXTURE_2D, leaf->heightmap_);
 
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, ((PGeoNode*)leaf->parent_)->heightmap_);
+        glBindTexture(GL_TEXTURE_2D, leaf->parent_->heightmap_);
 
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, leaf->appearance_);
 
         glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, ((PGeoNode*)leaf->parent_)->appearance_);
+        glBindTexture(GL_TEXTURE_2D, leaf->parent_->appearance_);
 
         glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_2D, leaf->normal_);
 
         glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_2D, ((PGeoNode*)leaf->parent_)->normal_);
+        glBindTexture(GL_TEXTURE_2D, leaf->parent_->normal_);
 
         // Render grid (inline function call renderGrid())
-        this->PNode::Draw();
+        PNode::Draw();
 
         //std::cout << "ok" << std::endl;
     }

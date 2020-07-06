@@ -4,15 +4,12 @@ layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoords;
 
 out vec2 TexCoords;
-out vec3 FragPos;
 
-uniform mat4 projectionMatrix;
-uniform mat4 model;
-
+uniform mat4 m4ViewProjectionMatrix;
+uniform mat4 m4ModelMatrix;
 void main()
 {
     TexCoords = aTexCoords;
-    FragPos = vec3(model * vec4(aPos, 1.0));
 
-    gl_Position = projectionMatrix*model*vec4(aPos, 1.0);
+    gl_Position = m4ViewProjectionMatrix * m4ModelMatrix *vec4(aPos, 1.0);
 }

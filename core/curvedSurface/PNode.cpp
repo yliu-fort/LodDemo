@@ -9,15 +9,229 @@
 #include "texture_utility.h"
 #include "UCartesianMath.h"
 #include <stdint.h>
+#include <set>
+
+#define HEIGHT_MAP_INTERNAL_FORMAT GL_RGBA32F
+#define HEIGHT_MAP_FORMAT GL_RGBA
+#define APPEARANCE_MAP_INTERNAL_FORMAT GL_RGBA8
+
+static Shader upsampling, crackfixing, appearance_baking;
+static unsigned int noiseTex, elevationTex, materialTex;
+
 
 uint PNode::NODE_COUNT = 0;
 uint PNode::INTERFACE_NODE_COUNT = 0;
+bool PNode::USE_CACHE = true;
 
-PNode::PNode() : subdivided_(false), lo_(-1), hi_(1), rlo_(0), rhi_(1)
+#define MAX_CACHE_CAPACITY (1524)
+std::vector<std::tuple<uint,uint,uint>> PNode::CACHE;
+
+
+void RenderGrid();
+void PlaneSeedInit();
+
+void CubeSeedInitZero()
 {
-    //QueryTextureHandle();
+    // prescribed elevation map
+    glGenTextures(1, &elevationTex);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    //Generate a distance field to the center of the cube
+    int width=256, height=256, nrChannels=3;
+
+    for(GLuint i = 0; i < 6; i++)
+    {
+        //data = stbi_load(textures_faces[i].c_str(), &width, &height, &nrChannels, 0);
+        glTexImage2D(
+                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, NULL
+                );
+    }
+
+    return;
+}
+
+void CubeSeedInitTanh()
+{
+    // prescribed elevation map
+    glGenTextures(1, &elevationTex);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, elevationTex);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    //Generate a distance field to the center of the cube
+    std::vector<glm::vec3> dataField;
+    int width=256, height=256, nrChannels=3;
+    for(uint j=0; j<height; j++){
+        for(uint i=0; i<width; i++){
+            //if(i > res/3)
+            //    dataField.push_back( 0.5*(tanh(0.02f*(i - res/3)-1)) );
+            //else
+            //    dataField.push_back(0);
+            glm::vec3 data( 2400.0*tanh(0.0005*(10*((i - width/2.0)*(i - width/2.0) + (j- height/2.0)*(j - height/2.0))
+                                                /(float)width/(float)height-1.7)) );
+            dataField.push_back( data );
+        }
+    }
+
+    for(GLuint i = 0; i < 6; i++)
+    {
+        //data = stbi_load(textures_faces[i].c_str(), &width, &height, &nrChannels, 0);
+        glTexImage2D(
+                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, &dataField[0]
+                );
+    }
+
+    return;
+}
+
+
+void CubeAssetInit()
+{
+    std::vector<std::string> faces
+    {
+        FP("../../resources/textures/earth/se/surface_bump_pos_x.jpg"),
+                FP("../../resources/textures/earth/se/surface_bump_neg_x.jpg"),
+                FP("../../resources/textures/earth/se/surface_bump_pos_y.jpg"),
+                FP("../../resources/textures/earth/se/surface_bump_neg_y.jpg"),
+                FP("../../resources/textures/earth/se/surface_bump_pos_z.jpg"),
+                FP("../../resources/textures/earth/se/surface_bump_neg_z.jpg")
+    };
+    elevationTex = loadCubemap(faces);
+}
+
+void CubeAssetTilesInit()
+{
+    elevationTex = loadCubemapLarge(FP("../../resources/Earth/Bump/"),".png", 1);
+}
+
+void PNode::Init()
+{
+    //cubeSeedInitZero();
+    //cubeAssetInit();
+    CubeAssetTilesInit();
+
+    materialTex = loadLayeredTexture("Y42lf.png",FP("../../resources/textures"), false);
+
+    // Geo mesh, careful: need a noise texture and shader before intialized
+    upsampling.reload_shader_program_from_files(FP("renderer/upsampling.glsl"));
+    appearance_baking.reload_shader_program_from_files(FP("renderer/appearance.glsl"));
+    crackfixing.reload_shader_program_from_files(FP("renderer/crackfixing.glsl"));
+
+    std::cout << "PNode class initialized!" << std::endl;
+}
+
+void PNode::Finalize()
+{
+    //glDeleteTextures(1,&noiseTex);
+    glDeleteTextures(1,&elevationTex);
+    if(!CACHE.empty())
+    {
+        for(auto i: CACHE)
+        {
+            glDeleteTextures(1,&std::get<0>(i));
+            glDeleteTextures(1,&std::get<1>(i));
+            glDeleteTextures(1,&std::get<2>(i));
+        }
+    }
+    CACHE.clear();
+}
+
+void PNode::QueryTextureHandle()
+{
+    if(!texture_handle_allocated_)
+    {
+        if(PNode::CACHE.empty() || !PNode::USE_CACHE)
+        {
+            glGenTextures(1, &heightmap_);
+
+            glActiveTexture(GL_TEXTURE0);
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, heightmap_);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            //Generate a distance field to the center of the cube
+            glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
+
+            glGenTextures(1, &appearance_);
+
+            glActiveTexture(GL_TEXTURE0);
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, appearance_);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            //Generate a distance field to the center of the cube
+            glTexImage2D( GL_TEXTURE_2D, 0, APPEARANCE_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, GL_RGBA, GL_FLOAT, NULL);
+
+            glGenTextures(1, &normal_);
+
+            glActiveTexture(GL_TEXTURE0);
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, normal_);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            //Generate a distance field to the center of the cube
+            glTexImage2D( GL_TEXTURE_2D, 0, APPEARANCE_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, GL_RGBA, GL_FLOAT, NULL);
+
+        }
+        else
+        {
+            heightmap_ = std::get<0>(PNode::CACHE.back());
+            appearance_ = std::get<1>(PNode::CACHE.back());
+            normal_ = std::get<2>(PNode::CACHE.back());
+            PNode::CACHE.pop_back();
+        }
+    }
+
+    texture_handle_allocated_ = true;
+
+}
+void PNode::ReleaseTextureHandle()
+{
+    if(texture_handle_allocated_)
+    {
+        if(PNode::CACHE.size() > MAX_CACHE_CAPACITY || !PNode::USE_CACHE)
+        {
+            glDeleteTextures(1, &heightmap_);
+            glDeleteTextures(1, &appearance_);
+            glDeleteTextures(1, &normal_);
+        }
+        else
+        {
+            PNode::CACHE.push_back(std::make_tuple(heightmap_,appearance_,normal_));
+        }
+    }
+
+    texture_handle_allocated_ = false;
+}
+
+PNode::PNode() : lo_(-1), hi_(1), rlo_(0), rhi_(1),
+    subdivided_(false), crackfixed_(false), offset_type_(0),elevation_(0)
+{
+    QueryTextureHandle();
     PNode::NODE_COUNT++;
 }
+
 PNode::~PNode()
 {
     if(subdivided_)
@@ -28,121 +242,17 @@ PNode::~PNode()
         delete child_[3];
     }
 
-    //ReleaseTextureHandle();
+    ReleaseTextureHandle();
     PNode::NODE_COUNT--;
 }
-void PNode::Split(const glm::mat4& arg)
-{
-    if(!this->subdivided_)
-    {
-        child_[0] = new PNode;
-        child_[0]->SetConnectivity<0>(this);
-        child_[0]->SetModelMatrix(arg);
 
-
-        child_[1] = new PNode;
-        child_[1]->SetConnectivity<1>(this);
-        child_[1]->SetModelMatrix(arg);
-
-
-        child_[2] = new PNode;
-        child_[2]->SetConnectivity<2>(this);
-        child_[2]->SetModelMatrix(arg);
-
-        child_[3] = new PNode;
-        child_[3]->SetConnectivity<3>(this);
-        child_[3]->SetModelMatrix(arg);
-
-        this->subdivided_ = true;
-    }
-}
-int PNode::Search(glm::vec2 p) const
-{
-    glm::vec2 center = GetCenter();
-
-    // not in box
-    if(p.x < lo_.x || p.y < lo_.y || p.x > hi_.x || p.y > hi_.y) { return -1; }
-
-    // find in which subregion
-    if(p.x < center.x)
-    {
-        if(p.y < center.y)
-            return 0; // bottom-left
-        else
-            return 1; //top-left
-    }else
-    {
-        if(p.y < center.y)
-            return 2; // bottom-right
-        else
-            return 3; //top-right
-    }
-
-}
-template<uint TYPE>
-void PNode::SetConnectivity(PNode* leaf)
-{
-    static_assert (TYPE < 4, "Only have 4 child." );
-
-    this->parent_ = leaf;
-    this->level_ = parent_->level_+1;
-    this->morton_ = (parent_->morton_ << 2) | TYPE;
-
-    glm::vec2 center = glm::vec2(0.5f)*(parent_->lo_ + parent_->hi_);
-
-    // may need for rounding error free lo and hi
-    // todo: need further observation...
-    switch (TYPE)
-    {
-    case 0x0:
-        lo_ = parent_->lo_;
-        hi_ = center;
-        break;
-    case 0x1:
-        lo_ = glm::vec2(center.x, parent_->lo_.y);
-        hi_ = glm::vec2(parent_->hi_.x, center.y);
-        break;
-    case 0x2:
-        lo_ = glm::vec2(parent_->lo_.x, center.y);
-        hi_ = glm::vec2(center.x, parent_->hi_.y);
-        break;
-    case 0x3:
-        lo_ = center;
-        hi_ = parent_->hi_;
-        break;
-    }
-
-    rlo_ = (lo_ - parent_->lo_)/(parent_->hi_ - parent_->lo_);
-    rhi_ = (hi_ - parent_->lo_)/(parent_->hi_ - parent_->lo_);
-}
 void PNode::Draw()
 {
     // Render grid
     RenderGrid();
 }
 
-
-//// GeoNode class implementation
-Shader PGeoNode::upsampling;
-Shader PGeoNode::crackfixing;
-Shader PGeoNode::appearance_baking;
-uint PGeoNode::noiseTex;
-uint PGeoNode::elevationTex;
-uint PGeoNode::materialTex;
-bool PGeoNode::USE_CACHE = true;
-std::vector<std::tuple<uint,uint,uint>> PGeoNode::CACHE;
-
-PGeoNode::PGeoNode() : PNode()
-{
-    QueryTextureHandle();
-}
-
-PGeoNode::~PGeoNode()
-{
-    ReleaseTextureHandle();
-}
-
-void PGeoNode::BakeAppearanceMap(const glm::mat4& arg)
+void PNode::BakeAppearanceMap(const glm::mat4& arg)
 {
 
     //Datafield//
@@ -168,7 +278,8 @@ void PGeoNode::BakeAppearanceMap(const glm::mat4& arg)
     glDispatchCompute((ALBEDO_MAP_X/16)+1,(ALBEDO_MAP_Y/16)+1,1);
 
 }
-void PGeoNode::BakeHeightMap(const glm::mat4& arg)
+
+void PNode::BakeHeightMap(const glm::mat4& arg)
 {
     // Initialize 2d heightmap texture
 
@@ -198,7 +309,7 @@ void PGeoNode::BakeHeightMap(const glm::mat4& arg)
     crackfixed_ = false;
 
 }
-void PGeoNode::FixHeightMap(PNode* neighbour, int edgedir)
+void PNode::FixHeightMap(PNode* neighbour, int edgedir)
 {
     // edge direction
     // 0: left, 1: top, 2:right, 3:bottom
@@ -270,7 +381,7 @@ void PGeoNode::FixHeightMap(PNode* neighbour, int edgedir)
 
     // bind neighbour heightmap
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, ((PGeoNode*)neighbour)->heightmap_);
+    glBindTexture(GL_TEXTURE_2D, neighbour->heightmap_);
 
     // write to heightmap
     glBindImageTexture(0, heightmap_, 0, GL_FALSE, 0, GL_WRITE_ONLY, HEIGHT_MAP_INTERNAL_FORMAT);
@@ -284,47 +395,69 @@ void PGeoNode::FixHeightMap(PNode* neighbour, int edgedir)
     // Write flag
     crackfixed_ = true;
 }
-void PGeoNode::Split(const glm::mat4& arg)
+void PNode::Split(const glm::mat4& arg = glm::mat4(1))
 {
     if(!this->subdivided_)
     {
-        child_[0] = new PGeoNode;
+        child_[0] = new PNode;
         child_[0]->SetConnectivity<0>(this);
         child_[0]->SetModelMatrix(arg);
-        ((PGeoNode*)child_[0])->BakeHeightMap(arg);
-        ((PGeoNode*)child_[0])->BakeAppearanceMap(arg);
-        ((PGeoNode*)child_[0])->SetElevation();
+        child_[0]->BakeHeightMap(arg);
+        child_[0]->BakeAppearanceMap(arg);
+        child_[0]->SetElevation();
 
 
-        child_[1] = new PGeoNode;
+        child_[1] = new PNode;
         child_[1]->SetConnectivity<1>(this);
         child_[1]->SetModelMatrix(arg);
-        ((PGeoNode*)child_[1])->BakeHeightMap(arg);
-        ((PGeoNode*)child_[1])->BakeAppearanceMap(arg);
-        ((PGeoNode*)child_[1])->SetElevation();
+        child_[1]->BakeHeightMap(arg);
+        child_[1]->BakeAppearanceMap(arg);
+        child_[1]->SetElevation();
 
 
-        child_[2] = new PGeoNode;
+        child_[2] = new PNode;
         child_[2]->SetConnectivity<2>(this);
         child_[2]->SetModelMatrix(arg);
-        ((PGeoNode*)child_[2])->BakeHeightMap(arg);
-        ((PGeoNode*)child_[2])->BakeAppearanceMap(arg);
-        ((PGeoNode*)child_[2])->SetElevation();
+        child_[2]->BakeHeightMap(arg);
+        child_[2]->BakeAppearanceMap(arg);
+        child_[2]->SetElevation();
 
 
-        child_[3] = new PGeoNode;
+        child_[3] = new PNode;
         child_[3]->SetConnectivity<3>(this);
         child_[3]->SetModelMatrix(arg);
-        ((PGeoNode*)child_[3])->BakeHeightMap(arg);
-        ((PGeoNode*)child_[3])->BakeAppearanceMap(arg);
-        ((PGeoNode*)child_[3])->SetElevation();
+        child_[3]->BakeHeightMap(arg);
+        child_[3]->BakeAppearanceMap(arg);
+        child_[3]->SetElevation();
 
 
         this->subdivided_ = true;
     }
 }
+int PNode::Search(glm::vec2 p) const
+{
+    glm::vec2 center = GetCenter();
 
-float PGeoNode::MinElevation() const
+    // not in box
+    if(p.x < lo_.x || p.y < lo_.y || p.x > hi_.x || p.y > hi_.y) { return -1; }
+
+    // find in which subregion
+    if(p.x < center.x)
+    {
+        if(p.y < center.y)
+            return 0; // bottom-left
+        else
+            return 1; //top-left
+    }else
+    {
+        if(p.y < center.y)
+            return 2; // bottom-right
+        else
+            return 3; //top-right
+    }
+
+}
+float PNode::MinElevation() const
 {
 #if 1
     std::vector<float> heightData(HEIGHT_MAP_X*HEIGHT_MAP_Y);
@@ -338,7 +471,7 @@ float PGeoNode::MinElevation() const
     return 0;
 #endif
 }
-float PGeoNode::GetElevation(const glm::vec2& pos) const
+float PNode::GetElevation(const glm::vec2& pos) const
 {
     // pos must located inside this grid
     // use queryGrid() before call this function
@@ -356,124 +489,108 @@ float PGeoNode::GetElevation(const glm::vec2& pos) const
 
     return height;
 }
-void PGeoNode::SetElevation()
+void PNode::SetElevation()
 {
     elevation_ = GetElevation(GetCenter());
 }
 
-void PGeoNode::QueryTextureHandle()
+template<uint TYPE>
+void PNode::SetConnectivity(PNode* leaf)
 {
-    if(!texture_handle_allocated_)
+    static_assert (TYPE < 4, "Only have 4 child." );
+
+    this->parent_ = leaf;
+    this->level_ = parent_->level_+1;
+    this->morton_ = (parent_->morton_ << 2) | TYPE;
+    this->offset_type_ = TYPE;
+
+    glm::vec2 center = glm::vec2(0.5f)*(parent_->lo_ + parent_->hi_);
+
+    // may need for rounding error free lo and hi
+    // todo: need further observation...
+    switch (TYPE)
     {
-        if(PGeoNode::CACHE.empty() || !PGeoNode::USE_CACHE)
-        {
-            glGenTextures(1, &heightmap_);
-
-            glActiveTexture(GL_TEXTURE0);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, heightmap_);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            //Generate a distance field to the center of the cube
-            glTexImage2D( GL_TEXTURE_2D, 0, HEIGHT_MAP_INTERNAL_FORMAT, HEIGHT_MAP_X, HEIGHT_MAP_Y, 0, HEIGHT_MAP_FORMAT, GL_FLOAT, NULL);
-
-            glGenTextures(1, &appearance_);
-
-            glActiveTexture(GL_TEXTURE0);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, appearance_);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            //Generate a distance field to the center of the cube
-            glTexImage2D( GL_TEXTURE_2D, 0, APPEARANCE_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, GL_RGBA, GL_FLOAT, NULL);
-
-            glGenTextures(1, &normal_);
-
-            glActiveTexture(GL_TEXTURE0);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, normal_);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            //Generate a distance field to the center of the cube
-            glTexImage2D( GL_TEXTURE_2D, 0, APPEARANCE_MAP_INTERNAL_FORMAT, ALBEDO_MAP_X, ALBEDO_MAP_Y, 0, GL_RGBA, GL_FLOAT, NULL);
-
-        }
-        else
-        {
-            heightmap_ = std::get<0>(PGeoNode::CACHE.back());
-            appearance_ = std::get<1>(PGeoNode::CACHE.back());
-            normal_ = std::get<2>(PGeoNode::CACHE.back());
-            PGeoNode::CACHE.pop_back();
-        }
+    case 0:
+        lo_ = parent_->lo_;
+        hi_ = center;
+        break;
+    case 1:
+        lo_ = glm::vec2(center.x, parent_->lo_.y);
+        hi_ = glm::vec2(parent_->hi_.x, center.y);
+        break;
+    case 2:
+        lo_ = glm::vec2(parent_->lo_.x, center.y);
+        hi_ = glm::vec2(center.x, parent_->hi_.y);
+        break;
+    case 3:
+        lo_ = center;
+        hi_ = parent_->hi_;
+        break;
     }
 
-    texture_handle_allocated_ = true;
-
-}
-void PGeoNode::ReleaseTextureHandle()
-{
-    if(texture_handle_allocated_)
-    {
-        if(PGeoNode::CACHE.size() > MAX_CACHE_CAPACITY || !PGeoNode::USE_CACHE)
-        {
-            glDeleteTextures(1, &heightmap_);
-            glDeleteTextures(1, &appearance_);
-            glDeleteTextures(1, &normal_);
-        }
-        else
-        {
-            PGeoNode::CACHE.push_back(std::make_tuple(heightmap_,appearance_,normal_));
-        }
-    }
-
-    texture_handle_allocated_ = false;
+    rlo_ = (lo_ - parent_->lo_)/(parent_->hi_ - parent_->lo_);
+    rhi_ = (hi_ - parent_->lo_)/(parent_->hi_ - parent_->lo_);
 }
 
-void PGeoNode::Init()
+void PlaneSeedInit()
 {
-    //void CubeAssetTilesInit()
-    {
-        elevationTex = loadCubemapLarge(FP("../../resources/Earth/Bump/"),".png", 1);
-    }
+    //Store the volume data to polygonise
+    glGenTextures(1, &noiseTex);
+    glActiveTexture(GL_TEXTURE0);
+    //glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, noiseTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 
-    materialTex = loadLayeredTexture("Y42lf.png",FP("../../resources/textures"), false);
-
-    // Geo mesh, careful: need a noise texture and shader before intialized
-    upsampling.reload_shader_program_from_files(FP("renderer/upsampling.glsl"));
-    appearance_baking.reload_shader_program_from_files(FP("renderer/appearance.glsl"));
-    crackfixing.reload_shader_program_from_files(FP("renderer/crackfixing.glsl"));
-}
-void PGeoNode::Finalize()
-{
-    //glDeleteTextures(1,&noiseTex);
-    glDeleteTextures(1,&elevationTex);
-    if(!CACHE.empty())
-    {
-        for(auto i: CACHE)
-        {
-            glDeleteTextures(1,&std::get<0>(i));
-            glDeleteTextures(1,&std::get<1>(i));
-            glDeleteTextures(1,&std::get<2>(i));
+    //Generate a distance field to the center of the cube
+    std::vector<glm::vec3> dataField;
+    uint res = 256;
+    for(uint j=0; j<res; j++){
+        for(uint i=0; i<res; i++){
+            dataField.push_back( glm::vec3(rand() / double(RAND_MAX)) );
         }
     }
-    CACHE.clear();
+
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
+
+    // prescribed elevation map
+    glGenTextures(1, &elevationTex);
+    glActiveTexture(GL_TEXTURE0);
+    //glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, elevationTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+
+    //Generate a distance field to the center of the cube
+    dataField.clear();
+    res = 256;
+    for(uint j=0; j<res; j++){
+        for(uint i=0; i<res; i++){
+            //if(i > res/3)
+            //    dataField.push_back( 0.5*(tanh(0.02f*(i - res/3)-1)) );
+            //else
+            //    dataField.push_back(0);
+            glm::vec3 data( -6.0*tanh(0.005*(10*((i - res/2.0)*(i - res/2.0) + (j- res/2.0)*(j - res/2.0))/(float)res/(float)res-1.7)) );
+            dataField.push_back( data );
+        }
+    }
+
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB32F, res, res, 0, GL_RGB, GL_FLOAT, &dataField[0]);
+
+    return;
 }
 
 // renderGrid() renders a 16x16 2d grid in NDC.
 // -------------------------------------------------
-uint PNode::gridVAO = 0;
-uint PNode::gridVBO = 0;
+static unsigned int gridVAO = 0;
+static unsigned int gridVBO = 0;
 
-void PNode::RenderGrid()
+void RenderGrid()
 {
 
     // initialize (if necessary)
@@ -492,6 +609,8 @@ void PNode::RenderGrid()
             {
                 glm::vec2 lo((i)/float(GRIDX), (j)/float(GRIDY));
                 glm::vec2 hi((i+1)/float(GRIDX), (j+1)/float(GRIDY));
+                glm::vec2 tlo((i + 0.5)/float(HEIGHT_MAP_X), (j + 0.5)/float(HEIGHT_MAP_Y));
+                glm::vec2 thi((i + 1.5)/float(HEIGHT_MAP_X), (j + 1.5)/float(HEIGHT_MAP_Y));
 
                 vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, lo.x, lo.y)); // bottom-left
                 vertices.push_back(float8( lo.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, lo.x, hi.y)); // top-left
@@ -529,7 +648,7 @@ void PNode::RenderGrid()
 
 #include "imgui.h"
 
-void PGeoNode::GuiInterface()
+void PNode::GuiInterface()
 {                       // Create a window called "Hello, world!" and append into it.
 
     //ImGui::SetNextItemOpen(true, ImGuiCond_Once);
@@ -537,13 +656,13 @@ void PGeoNode::GuiInterface()
     {
         ImGui::Text("Controllable parameters for PNode class.");               // Display some text (you can use a format strings too)
 
-        ImGui::Checkbox("Use cache", &PGeoNode::USE_CACHE);
-        if(PGeoNode::USE_CACHE)
+        ImGui::Checkbox("Use cache", &PNode::USE_CACHE);
+        if(PNode::USE_CACHE)
         {
-            ImGui::Text("cache load %d", PGeoNode::CACHE.size());
+            ImGui::Text("cache load %d", PNode::CACHE.size());
         }
-        ImGui::Text("Number of PNodes generated %d", PGeoNode::NODE_COUNT);
-        ImGui::Text("Number of interface PNodes generated %d", PGeoNode::INTERFACE_NODE_COUNT);
+        ImGui::Text("Number of PNodes generated %d", PNode::NODE_COUNT);
+        ImGui::Text("Number of interface PNodes generated %d", PNode::INTERFACE_NODE_COUNT);
 
         if (ImGui::TreeNode("Noise map"))
         {

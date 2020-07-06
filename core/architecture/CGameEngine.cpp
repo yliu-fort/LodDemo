@@ -67,7 +67,7 @@ CGameEngine::CGameEngine() :
     hdrShader.reload_shader_program_from_files(FP("renderer/hdr.vs"),FP("renderer/hdr.fs"));
 
     // Initlize geogrid system
-    PNode::Init();
+    PGeoNode::Init();
 
     // Initialize lighting system
     Lighting::init();
@@ -111,7 +111,7 @@ CGameEngine::CGameEngine() :
 
 CGameEngine::~CGameEngine()
 {
-    PNode::Finalize();
+    PGeoNode::Finalize();
 }
 
 void CGameEngine::Update()
@@ -173,7 +173,7 @@ void CGameEngine::RenderUpdate()
     GuiInterface::Begin();
     mesh->GuiInterface();
     mesh->GetGroundHandle().GuiInterface();
-    PNode::GuiInterface();
+    PGeoNode::GuiInterface();
     OGeomesh::GuiInterface();
     refcam->gui_interface();
     //dirlight.gui_interface(camera);

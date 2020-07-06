@@ -79,7 +79,6 @@ set(LIBS ${LIBS} UTILITY)
 add_subdirectory("utility") # Provide absolute path for shaders
 
 ### CASE CONFIGURATION
-#add_subdirectory("core/lod")
 #add_subdirectory("core/surface")
 #add_subdirectory("core/icosphere")
 #add_subdirectory("core/planet")
@@ -92,5 +91,6 @@ add_subdirectory("utility") # Provide absolute path for shaders
 #add_subdirectory("core/atmosphere")
 add_subdirectory("core/architecture")
 add_subdirectory("core/curvedSurface")
+add_subdirectory("core/lod")
 ### TESTS&DEMOS
 #add_subdirectory("test")

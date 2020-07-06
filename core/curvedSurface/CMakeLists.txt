@@ -9,11 +9,5 @@ file(GLOB SOURCE
     )
 
 # then create a project file per tutorial
-# COUP architechture
-# C - system, low-level logic
-# O - object ( primitives, camera, complex object)
-# U - utility ( texture loader, wrapper etc)
-# P - parts ( transform, shader, material...)
-###
-add_executable(LodDemo ${SOURCE})
-target_link_libraries(LodDemo ${LIBS})
+add_executable(curvedPlane ${SOURCE})
+target_link_libraries(curvedPlane ${LIBS})
