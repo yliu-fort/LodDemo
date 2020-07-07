@@ -5,7 +5,7 @@
 
 // Caution: only return subdivided grids.
 // write additional condition if you need root
-AMRNode* AMRMesh::QueryNode( const glm::vec2& pos) const
+PNode* AMRMesh::QueryNode( const glm::vec2& pos) const
 {
     //bool isTraversible = AMRNode->subdivided;
         // find the AMRNode
@@ -17,7 +17,7 @@ AMRNode* AMRMesh::QueryNode( const glm::vec2& pos) const
             result = sh_AMRNode->Search(pos);
             if(result != -1 && sh_AMRNode->IsSubdivided())
             {
-                sh_AMRNode = (AMRNode*)sh_AMRNode->child_[result];
+                sh_AMRNode = sh_AMRNode->child_[result];
                 continue;
             }
             break;
@@ -35,7 +35,7 @@ void AMRMesh::Subdivision(uint code, uint lod)
 }
 
 
-void AMRMesh::Subdivision(const glm::vec3& viewPos, const float& viewY, AMRNode* leaf)
+void AMRMesh::Subdivision(const glm::vec3& viewPos, const float& viewY, PNode* leaf)
 {
 
     // distance between AMRNodepos and viewpos
@@ -54,10 +54,10 @@ void AMRMesh::Subdivision(const glm::vec3& viewPos, const float& viewY, AMRNode*
         // split and bake heightmap
         leaf->Split(global_model_matrix_);
 
-        Subdivision(viewPos, viewY, (AMRNode*)leaf->child_[0]);
-        Subdivision(viewPos, viewY, (AMRNode*)leaf->child_[1]);
-        Subdivision(viewPos, viewY, (AMRNode*)leaf->child_[2]);
-        Subdivision(viewPos, viewY, (AMRNode*)leaf->child_[3]);
+        Subdivision(viewPos, viewY, leaf->child_[0]);
+        Subdivision(viewPos, viewY, leaf->child_[1]);
+        Subdivision(viewPos, viewY, leaf->child_[2]);
+        Subdivision(viewPos, viewY, leaf->child_[3]);
 
     }
     else
@@ -75,14 +75,14 @@ void AMRMesh::Draw(Shader& shader) const
     Draw(this, shader);
 }
 
-void AMRMesh::Draw(const AMRNode* leaf, Shader& shader) const
+void AMRMesh::Draw(const PNode* leaf, Shader& shader) const
 {
     if(leaf->IsSubdivided())
     {
-        Draw((AMRNode*)leaf->child_[0], shader);
-        Draw((AMRNode*)leaf->child_[1], shader);
-        Draw((AMRNode*)leaf->child_[2], shader);
-        Draw((AMRNode*)leaf->child_[3], shader);
+        Draw(leaf->child_[0], shader);
+        Draw(leaf->child_[1], shader);
+        Draw(leaf->child_[2], shader);
+        Draw(leaf->child_[3], shader);
     }
     else
     {
@@ -98,7 +98,7 @@ void AMRMesh::Draw(const AMRNode* leaf, Shader& shader) const
         shader.setInt("hash",leaf->morton_);
 
         // Render grid (inline function call renderGrid())
-        this->AMRNode::Draw();
+        ((AMRNode*)leaf)->Draw();
 
         //std::cout << "ok" << std::endl;
     }

@@ -16,7 +16,7 @@
 #include "texture_utility.h"
 #include "shape.h"
 
-#include "AMRmesh.h"
+#include "AMRMesh.h"
 #include "UCartesianMath.h"
 
 using namespace glm;

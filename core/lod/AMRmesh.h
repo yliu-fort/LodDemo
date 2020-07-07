@@ -43,22 +43,22 @@ public:
     ~AMRMesh(){}
     AMRMesh(const AMRMesh&) = delete;
 
-    AMRNode* GetHandle() const { return static_cast<AMRNode *>(this->parent_); }
+    PNode* GetHandle() const { return this->parent_; }
 
 
     void Subdivision(uint, uint);
-    void Subdivision( const glm::vec3&, const float&, AMRNode* );
+    void Subdivision( const glm::vec3&, const float&, PNode* );
 
 
-    void ReleaseAllTextureHandles();
-    void ReleaseAllTextureHandles( AMRNode* node );
+    //void ReleaseAllTextureHandles();
+    //void ReleaseAllTextureHandles( AMRNode* node );
 
     // Caution: only return subdivided grids.
     // write additional condition if you need this
-    AMRNode* QueryNode( const glm::vec2& ) const;
+    PNode* QueryNode( const glm::vec2& ) const;
 
     void Draw( Shader& shader ) const;
-    void Draw( const AMRNode*, Shader& ) const;
+    void Draw( const PNode*, Shader& ) const;
 
 
     // static functions
