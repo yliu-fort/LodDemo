@@ -326,7 +326,7 @@ void AMRNode::Split(const glm::mat4& arg)
     }
 }
 
-int rseed = 58345;
+
 void AMRNode::AssignField()
 {
     // Initialize field ( call in instance )
