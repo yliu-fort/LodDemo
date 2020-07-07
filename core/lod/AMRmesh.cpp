@@ -3,106 +3,123 @@
 #include "UCartesianMath.h"
 
 
+void AMRMesh::MultiLevelIntegrator()
+{
+    UpdateLevelOrderList();
+
+    AMRNode::MultiLevelIntegrator(
+                [](const std::vector<PNode*>& list, int level){
+        //for(int i = 0; i < level; ++i)
+        //    printf("\t");
+        //std::cout << " Entering level " << level << std::endl;
+        //for(auto id: list)
+        //    if(id->level_ != level)
+        //        printf("! [%d, %d]\n", id->morton_, id->level_);
+    },
+    [](const std::vector<PNode*>& list, int level){
+        //for(int i = 0; i < level; ++i)
+        //    printf("\t");
+        //std::cout << " Leaving level " << level << std::endl;
+    },
+    level_order_list_, 0);
+}
+
+
 // Caution: only return subdivided grids.
 // write additional condition if you need root
 PNode* AMRMesh::QueryNode( const glm::vec2& pos) const
 {
     //bool isTraversible = AMRNode->subdivided;
-        // find the AMRNode
-        auto sh_AMRNode = GetHandle();
-        int result = -1;
-        while(true)
+    // find the AMRNode
+    auto shared_node = GetHandle();
+    int result = -1;
+    while(true)
+    {
+        // start from root
+        result = shared_node->Search(pos);
+        if(result != -1 && shared_node->IsSubdivided())
         {
-            // start from root
-            result = sh_AMRNode->Search(pos);
-            if(result != -1 && sh_AMRNode->IsSubdivided())
-            {
-                sh_AMRNode = sh_AMRNode->child_[result];
-                continue;
-            }
-            break;
+            shared_node = shared_node->child_[result];
+            continue;
         }
+        break;
+    }
 
-        if(result == -1) { return NULL; }
-        return sh_AMRNode;
+    if(result == -1) { return NULL; }
+    return shared_node;
 }
 
 
 void AMRMesh::Subdivision(uint code, uint lod)
 {
     auto uv = 2.0f*Umath::DecodeMorton2(code)-1.0f;
-    Subdivision(glm::vec3(uv.x, 4.0/(1<<lod), uv.y), 0, this);
-}
+    auto viewPos = glm::vec3(uv.x, 4.0/(1<<lod), uv.y);
+    auto viewY = 0;
 
+    auto func = [&, this](PNode* leaf){
+        // distance between nodepos and viewpos
+        float dx = fminf(fabsf(viewPos.x - leaf->lo_.x),fabsf(viewPos.x - leaf->hi_.x));
+        float dy = fminf(fabsf(viewPos.z - leaf->lo_.y),fabsf(viewPos.z - leaf->hi_.y));
+        float d = fmaxf(fmaxf(dx, dy), fabsf(viewPos.y - viewY));
 
-void AMRMesh::Subdivision(const glm::vec3& viewPos, const float& viewY, PNode* leaf)
-{
+        // compute refinement factor
+        float K = CUTIN_FACTOR*leaf->Size();
 
-    // distance between AMRNodepos and viewpos
-    //auto d = AMRNode->get_center3() - viewPos;
-    float dx = fminf(fabsf(viewPos.x - leaf->lo_.x),fabsf(viewPos.x - leaf->hi_.x));
-    float dy = fminf(fabsf(viewPos.z - leaf->lo_.y),fabsf(viewPos.z - leaf->hi_.y));
-    //float dz = abs(viewPos.z - viewZ);
-    float d = fmaxf(fmaxf(dx, dy), fabsf(viewPos.y - viewY));
-
-    // frustrum culling
-    float K = CUTIN_FACTOR*leaf->Size();
-
-    // Subdivision
-    if( leaf->level_ < MIN_DEPTH || (leaf->level_ < MAX_DEPTH && d < K) )
-    {
-        // split and bake heightmap
-        leaf->Split(global_model_matrix_);
-
-        Subdivision(viewPos, viewY, leaf->child_[0]);
-        Subdivision(viewPos, viewY, leaf->child_[1]);
-        Subdivision(viewPos, viewY, leaf->child_[2]);
-        Subdivision(viewPos, viewY, leaf->child_[3]);
-
-    }
-    else
-    {
-        if( leaf->IsSubdivided() && d >= CUTOUT_FACTOR * K )
+        // Subdivision
+        if( leaf->level_ < MIN_DEPTH || (leaf->level_ < MAX_DEPTH && d < K) )
         {
-            leaf->ReleaseConnectedNodes();
+            if(!leaf->IsSubdivided())
+            {
+                // split and bake heightmap
+                this->modified_ = true;
+                leaf->Split(global_model_matrix_);
+            }
+            return true;
         }
-    }
+        else
+        {
+            if( leaf->IsSubdivided() && d >= CUTOUT_FACTOR * K )
+            {
+                this->modified_ = true;
+                leaf->ReleaseConnectedNodes();
+            }
+        }
+        return false;
+
+    };
+
+    GetHandle()->Exec(func);
 }
 
 void AMRMesh::Draw(Shader& shader) const
 {
     shader.setInt("renderType", AMRMesh::RENDER_MODE);
-    Draw(this, shader);
-}
 
-void AMRMesh::Draw(const PNode* leaf, Shader& shader) const
-{
-    if(leaf->IsSubdivided())
-    {
-        Draw(leaf->child_[0], shader);
-        Draw(leaf->child_[1], shader);
-        Draw(leaf->child_[2], shader);
-        Draw(leaf->child_[3], shader);
-    }
-    else
-    {
+    auto func = [&](PNode* leaf){
 
-        // Bind to_render field
-        ((AMRNode*)leaf)->BindRenderTarget(&shader, "f0");
+        if(leaf->IsSubdivided())
+            return true;
 
-        // Transfer local grid model
-        shader.setMat4("m4CubeProjMatrix", leaf->model_);
+        {
+            // Bind to_render field
+            ((AMRNode*)leaf)->BindRenderTarget(&shader, "f0");
 
-        // Transfer lo and hi
-        shader.setInt("level",leaf->level_);
-        shader.setInt("hash",leaf->morton_);
+            // Transfer local grid model
+            shader.setMat4("m4CubeProjMatrix", leaf->model_);
 
-        // Render grid (inline function call renderGrid())
-        ((AMRNode*)leaf)->Draw();
+            // Transfer lo and hi
+            shader.setInt("level",leaf->level_);
+            shader.setInt("hash",leaf->morton_);
 
-        //std::cout << "ok" << std::endl;
-    }
-    return;
+            // Render grid (inline function call renderGrid())
+            ((AMRNode*)leaf)->Draw();
+
+            //std::cout << "ok" << std::endl;
+        }
+        return false;
+    };
+
+    GetHandle()->Exec(func);
 }
 
 // static variables
@@ -110,8 +127,6 @@ uint AMRMesh::MIN_DEPTH = 0;
 uint AMRMesh::MAX_DEPTH = 15;
 float AMRMesh::CUTIN_FACTOR = 2.0f; // 2.8 -> see function definition
 float AMRMesh::CUTOUT_FACTOR = 1.0f; // >= 1
-bool AMRMesh::FRUSTRUM_CULLING = false;
-bool AMRMesh::CRACK_FILLING = false;
 RenderMode AMRMesh::RENDER_MODE = REAL;
 
 #include "imgui.h"
@@ -126,6 +141,7 @@ void AMRMesh::GuiInterface()
         ImGui::Text("Controllable parameters for AMRMesh class.");
         ImGui::SliderInt("min depth", (int*)&MIN_DEPTH, 0, 5);
         ImGui::SliderInt("max depth", (int*)&MAX_DEPTH, 6, 15);
+        ImGui::SliderFloat("cutin factor", &CUTIN_FACTOR, 1.0f, 3.0f);
         ImGui::SliderFloat("cutout factor", &CUTOUT_FACTOR, 1.0f, 3.0f);
 
         // render mode
@@ -134,8 +150,6 @@ void AMRMesh::GuiInterface()
         const char* current_element_name = (RENDER_MODE >= 0 && RENDER_MODE < ELEMENT_COUNT) ? RENDER_TYPE_NAMES[RENDER_MODE] : "Unknown";
         ImGui::SliderInt("render type", (int*)&RENDER_MODE, 0, ELEMENT_COUNT - 1, current_element_name);
 
-        ImGui::Checkbox("frustrum culling", &FRUSTRUM_CULLING);
-        ImGui::Checkbox("crack filling", &CRACK_FILLING);
         ImGui::TreePop();
     }
 

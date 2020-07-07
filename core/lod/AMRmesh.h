@@ -29,15 +29,20 @@ class AMRMesh : protected AMRNode
 
     //std::shared_ptr<AMRNode> this;
     glm::mat4 global_model_matrix_; // todo: switch to transform
+    std::vector<std::vector<PNode*>> level_order_list_;
+    bool modified_;
 
 public:
-    AMRMesh(glm::mat4 global_model_matrix = glm::mat4(1))
+    AMRMesh(glm::mat4 global_model_matrix)
         : AMRNode()
         , global_model_matrix_(global_model_matrix)
+        ,level_order_list_()
+        ,modified_(true)
     {
         parent_ = static_cast<AMRNode *>(this);
         SetModelMatrix(global_model_matrix_);
         AssignField();
+        UpdateLevelOrderList();
     }
 
     ~AMRMesh(){}
@@ -45,21 +50,23 @@ public:
 
     PNode* GetHandle() const { return this->parent_; }
 
-
-    void Subdivision(uint, uint);
-    void Subdivision( const glm::vec3&, const float&, PNode* );
-
-
     //void ReleaseAllTextureHandles();
     //void ReleaseAllTextureHandles( AMRNode* node );
 
     // Caution: only return subdivided grids.
     // write additional condition if you need this
     PNode* QueryNode( const glm::vec2& ) const;
-
+    void Subdivision(uint, uint);
     void Draw( Shader& shader ) const;
-    void Draw( const PNode*, Shader& ) const;
-
+    void MultiLevelIntegrator();
+    void UpdateLevelOrderList()
+    {
+        if(modified_){
+            level_order_list_ = GetLevelOrder(GetHandle());
+            std::cout << "level-order list updated.\n";
+        }
+        modified_ = false;
+    }
 
     // static functions
     static void GuiInterface();
@@ -69,8 +76,6 @@ public:
     static uint MIN_DEPTH, MAX_DEPTH;
     static float CUTIN_FACTOR;
     static float CUTOUT_FACTOR;
-    static bool FRUSTRUM_CULLING;
-    static bool CRACK_FILLING;
     static RenderMode RENDER_MODE;
 };
 

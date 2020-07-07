@@ -10,7 +10,7 @@
 #include <memory>
 #include <tuple>
 #include <map>
-
+#include <list>
 typedef unsigned int uint;
 class Shader;
 
@@ -92,6 +92,14 @@ public:
     virtual void Split(const glm::mat4& arg);
     int Search(glm::vec2 p) const;
 
+    // Generic functions
+    template <typename Func>
+    void Exec(Func&& func) {
+        if(func(this))
+            for(auto id_: child_)
+                id_->Exec(func);
+    }
+
     template<uint TYPE>
     void SetConnectivity(PNode* leaf);
 
@@ -109,6 +117,7 @@ public:
 
     // static function
     static void Draw();
+    static std::vector<std::vector<PNode*>> GetLevelOrder(PNode* root);
 
     // static member
     static uint NODE_COUNT;
@@ -193,6 +202,23 @@ public:
     static void RegisterComputeShader(const char* name, const char* path);
     static void RegisterField(const char* glsl_name, uint glsl_entry);
     static const dataStorage& GetFields();
+    template <typename ForwardFunc, typename BackwardFunc>
+    static void MultiLevelIntegrator(
+            ForwardFunc&& f,
+            BackwardFunc&& g,
+            const std::vector<std::vector<PNode*>>& list,
+            uint level )
+    {
+        if(level >= list.size())
+            return;
+
+        f(list[level],level);
+
+        MultiLevelIntegrator(f, g, list, level+1);
+        MultiLevelIntegrator(f, g, list, level+1);
+
+        g(list[level],level);
+    }
 
     // Static member
     static constexpr int NUM_GHOST_LAYER = 2;

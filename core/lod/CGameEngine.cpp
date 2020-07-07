@@ -50,9 +50,6 @@ void gui_interface()
 CGameEngine::CGameEngine() :
     CGameEngineAbstractBase()
 {
-    // Test
-    AutoTest();
-
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
@@ -65,11 +62,14 @@ CGameEngine::CGameEngine() :
 
     AMRNode::Init();
 
-    grid.reset(new AMRMesh);
-    grid->Subdivision(Umath::EncodeMorton2( glm::vec2(0.5,0.5)), (uint)5);
+    grid.reset(new AMRMesh(mat4(1)));
+    grid->Subdivision(Umath::EncodeMorton2( vec2(0.5,0.5)), (uint)5);
 
     GetCurrentCamera()->setClipping(0.001,100.0);
 
+
+    // Test
+    AutoTest();
 }
 
 CGameEngine::~CGameEngine()
@@ -79,6 +79,7 @@ CGameEngine::~CGameEngine()
 void CGameEngine::Update()
 {
     grid->Subdivision(Umath::EncodeMorton2( uv ), (uint)lodLevel);
+    grid->MultiLevelIntegrator();
 }
 
 void CGameEngine::RenderUpdate()
@@ -108,6 +109,7 @@ void CGameEngine::RenderUpdate()
 
     // gui
     GuiInterface::Begin();
+    AMRMesh::GuiInterface();
     gui_interface();
     ImGui::ShowDemoWindow();
     GuiInterface::End();

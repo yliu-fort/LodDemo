@@ -121,7 +121,36 @@ void PNode::Draw()
     // Render grid
     RenderGrid();
 }
+std::vector<std::vector<PNode*>> PNode::GetLevelOrder(PNode* root)
+{
+    std::vector< std::vector<PNode*> > ans;
+    if (root == NULL)
+        return std::vector<std::vector<PNode*>>();
 
+    std::list<PNode*> queue;
+    queue.push_back(root);
+
+    // level-order traversal
+    while(!queue.empty())
+    {
+        std::vector<PNode*> list;
+        int size = queue.size();
+        for(int i = 0; i < size; i++)
+        {
+            PNode* node = queue.front();
+            queue.pop_front();
+            list.push_back(node);
+
+            if(node->IsSubdivided())
+                for(auto id_: node->child_){
+                    queue.push_back(id_);
+                }
+        }
+        ans.push_back(list);
+    }
+
+    return ans;
+}
 
 // renderGrid() renders a 16x16 2d grid in NDC.
 // -------------------------------------------------
@@ -281,6 +310,11 @@ void AMRNode::Init()
 
     // register fields
     RegisterField("f0",0);
+    RegisterField("f1",1);
+    RegisterField("f2",2);
+    RegisterField("rho",3);
+    RegisterField("vel",4);
+    RegisterField("patch",5);
 
     // Initialize field ( call in instance )
     //Shader& initializer= kShaderList.at("initialize");
@@ -294,7 +328,6 @@ void AMRNode::Init()
     // Dispatch kernel
     //glDispatchCompute((FIELD_MAP_X/16)+1,(FIELD_MAP_Y/16)+1,1);
 }
-
 
 void AMRNode::Split(const glm::mat4& arg)
 {
@@ -325,7 +358,6 @@ void AMRNode::Split(const glm::mat4& arg)
         this->subdivided_ = true;
     }
 }
-
 
 void AMRNode::AssignField()
 {
@@ -362,7 +394,6 @@ void AMRNode::AssignField()
         id_.second.SwapBuffer();
     }
 }
-
 
 void AMRNode::BindRenderTarget(Shader* shader, const char* fieldname)
 {
