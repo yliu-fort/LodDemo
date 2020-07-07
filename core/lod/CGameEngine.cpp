@@ -16,7 +16,7 @@
 #include "texture_utility.h"
 #include "shape.h"
 
-#include "OGeomesh.h"
+#include "AMRmesh.h"
 #include "UCartesianMath.h"
 
 using namespace glm;
@@ -27,9 +27,10 @@ static bool drawWireframe = false;
 static bool drawNormalArrows = false;
 
 Shader simpleShader, utilityShader;
+Shader fieldShader;
 
-std::unique_ptr<OGeomesh> grid;
-int lodLevel = 0;
+std::unique_ptr<AMRMesh> grid;
+int lodLevel = 5;
 vec2 uv = vec2(0.5,0.5);
 
 void renderAxis();
@@ -60,10 +61,14 @@ CGameEngine::CGameEngine() :
     // Read shader
     simpleShader.reload_shader_program_from_files(FP("renderer/box.vert"),FP("renderer/box.frag"));
     utilityShader.reload_shader_program_from_files(FP("renderer/axis.vert"),FP("renderer/axis.frag"));
+    fieldShader.reload_shader_program_from_files(FP("renderer/field_visualizer.vert"),FP("renderer/field_visualizer.frag"));
 
+    AMRNode::Init();
 
-    grid.reset(new OGeomesh);
+    grid.reset(new AMRMesh);
     grid->Subdivision(Umath::EncodeMorton2( glm::vec2(0.5,0.5)), (uint)5);
+
+    GetCurrentCamera()->setClipping(0.001,100.0);
 
 }
 
@@ -88,10 +93,10 @@ void CGameEngine::RenderUpdate()
     if(drawWireframe)
         glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 
-    simpleShader.use();
-    simpleShader.setMat4("m4ViewProjectionMatrix",GetCurrentCamera()->GetFrustumMatrix());
-    simpleShader.setMat4("m4ModelMatrix",rotate(mat4(1),radians(90.0f),vec3(1,0,0)));
-    grid->Draw(simpleShader,GetCurrentCamera()->Position);
+    fieldShader.use();
+    fieldShader.setMat4("m4ViewProjectionMatrix",GetCurrentCamera()->GetFrustumMatrix());
+    fieldShader.setMat4("m4ModelMatrix",rotate(mat4(1),radians(90.0f),vec3(1,0,0)));
+    grid->Draw(fieldShader);
 
     glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 
@@ -119,12 +124,12 @@ void renderAxis()
     {
         float vertices[] = {
             // z dir
-            0.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f, // to +x
-            1.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f, // +x
-            0.0f, 0.0f, 0.0f,  0.0f, 1.0f, 0.0f, // to +y
-            0.0f, 1.0f, 0.0f,  0.0f, 1.0f, 0.0f, // +y
-            0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, // to +z
-            0.0f, 0.0f, 1.0f,  0.0f, 0.0f, 1.0f, // +z
+            0.0f, 0.0f, -1e-6f,  1.0f, 0.0f, 0.0f, // to +x
+            1.0f, 0.0f, -1e-6f,  1.0f, 0.0f, 0.0f, // +x
+            0.0f, 0.0f, -1e-6f,  0.0f, 1.0f, 0.0f, // to +y
+            0.0f, 1.0f, -1e-6f,  0.0f, 1.0f, 0.0f, // +y
+            0.0f, 0.0f, -1e-6f,  0.0f, 0.0f, 1.0f, // to +z
+            0.0f, 0.0f, 1.0f-1e-6f,  0.0f, 0.0f, 1.0f, // +z
 
         };
         glGenVertexArrays(1, &axisVAO);

@@ -1,5 +1,5 @@
-#ifndef OGeomesh_H
-#define OGeomesh_H
+#ifndef AMRMesh_H
+#define AMRMesh_H
 
 #include "PNode.h"
 #include <memory>
@@ -19,7 +19,7 @@ enum RenderMode
     ELEMENT_COUNT
 };
 
-class OGeomesh : protected PGeoNode
+class AMRMesh : protected AMRNode
 {
     // start from the deepest level (leaf node), compute the distance to reference point/camera
     // child sharing the same father are expected to be clustered
@@ -27,46 +27,38 @@ class OGeomesh : protected PGeoNode
     // if node requires further subdivision -> redirect/allocate new texture handle
     // 2 texture handles are required -> appearance (128x128) and height map (17x17)
 
-    //std::shared_ptr<PNode> this;
+    //std::shared_ptr<AMRNode> this;
     glm::mat4 global_model_matrix_; // todo: switch to transform
 
 public:
-    OGeomesh(glm::mat4 global_model_matrix = glm::mat4(1))
-        : PGeoNode()
+    AMRMesh(glm::mat4 global_model_matrix = glm::mat4(1))
+        : AMRNode()
         , global_model_matrix_(global_model_matrix)
     {
-        parent_ = static_cast<PGeoNode *>(this);
+        parent_ = static_cast<AMRNode *>(this);
         SetModelMatrix(global_model_matrix_);
-        BakeHeightMap(global_model_matrix_);
-        BakeAppearanceMap(global_model_matrix_);
-        SetElevation();
+        AssignField();
     }
 
-    ~OGeomesh(){}
-    OGeomesh(const OGeomesh&) = delete;
+    ~AMRMesh(){}
+    AMRMesh(const AMRMesh&) = delete;
 
-    PNode* GetHandle() const { return static_cast<PGeoNode *>(this->parent_); }
+    AMRNode* GetHandle() const { return static_cast<AMRNode *>(this->parent_); }
 
-    glm::vec3 ConvertToDeformed(const glm::vec3& v) const;
-    glm::vec3 ConvertToNormal(const glm::vec3& v) const;
-    glm::vec3 ConvertToUV(const glm::vec3& v) const;
-    bool IsGroundReference(const glm::vec3& pos) const;
-    float QueryElevation(const glm::vec3& pos) const;
-    void Subdivision(const glm::vec3& viewPos);
-    void Subdivision(uint level);
+
     void Subdivision(uint, uint);
-    void Draw(Shader& shader, const glm::vec3& viewPos) const;
+    void Subdivision( const glm::vec3&, const float&, AMRNode* );
+
+
     void ReleaseAllTextureHandles();
-    void ReleaseAllTextureHandles( PGeoNode* node );
+    void ReleaseAllTextureHandles( AMRNode* node );
 
     // Caution: only return subdivided grids.
     // write additional condition if you need this
-    PNode* QueryNode( const glm::vec2& ) const;
-    void RefreshHeightmap( PGeoNode* );
-    void Fixcrack( PGeoNode* );
-    void Subdivision( const glm::vec3&, const float&, PGeoNode* );
-    void Subdivision( uint, PGeoNode* );
-    void Draw( const PGeoNode*, Shader& ) const;
+    AMRNode* QueryNode( const glm::vec2& ) const;
+
+    void Draw( Shader& shader ) const;
+    void Draw( const AMRNode*, Shader& ) const;
 
 
     // static functions

@@ -18,7 +18,7 @@
 #include "shape.h"
 
 #include "PNode.h"
-#include "OGeomesh.h"
+#include "AMRMesh.h"
 #include "refcamera.h"
 
 #include "UFramebuffer.h"

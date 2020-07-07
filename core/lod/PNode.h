@@ -9,6 +9,7 @@
 #include <vector>
 #include <memory>
 #include <tuple>
+#include <map>
 
 typedef unsigned int uint;
 class Shader;
@@ -75,10 +76,6 @@ public:
     {
         return glm::vec3(0.5f*(hi_.x + lo_.x),0.0f,0.5f*(hi_.y + lo_.y));
     }
-    //glm::vec3 GetCenter3() const
-    //{
-    //    return glm::vec3(0.5f*(hi_.x + lo_.x),elevation_,0.5f*(hi_.y + lo_.y));
-    //}
     glm::vec3 GetRelativeShift() const
     {
         return glm::vec3(rlo_.x,0.0f,rlo_.y);
@@ -117,60 +114,98 @@ public:
     static uint NODE_COUNT;
     static uint INTERFACE_NODE_COUNT;
 
-    static constexpr int GRIDX =(18);
-    static constexpr int GRIDY =(18);
+    static constexpr int GRIDX =(17);
+    static constexpr int GRIDY =(17);
 
 };
 
-class PGeoNode : public PNode
+class FieldData2D
+{
+public:
+    const char* glsl_name_;
+    GLuint glsl_entry_;
+
+    FieldData2D(){}
+    FieldData2D(const char* glsl_name, GLuint glsl_entry)
+        : glsl_name_(glsl_name)
+        , glsl_entry_(glsl_entry)
+    {}
+    ~FieldData2D(){ ReleaseBuffers(); }
+    //FieldData2D(const FieldData2D&) = delete;
+
+    uint GetReadBuffer() const { return ptr_[0]; }
+    uint GetWriteBuffer() const{ return ptr_[1]; }
+    void SwapBuffer() { std::swap(ptr_[0],ptr_[1]); }
+    void BindTexture(Shader* shader, int i = 0);
+    void BindImage(int i = 1);
+    void BindDefault(Shader* shader);
+    void AllocBuffers(int w, int h, float* data = nullptr);
+    void ReleaseBuffers();
+
+protected:
+    GLuint texture_type_ = GL_TEXTURE_2D;
+    GLuint internal_format_ = GL_RGBA32F;
+    GLuint format_ = GL_RGBA;
+
+    GLuint ptr_[2];
+};
+
+class AMRNode : public PNode
 {
 protected:
-    bool crackfixed_ = false;
-    bool texture_handle_allocated_ = false;
-    float elevation_ = 0;
+    using dataStorage = std::map<std::string, FieldData2D>;
+    using shaderStorage = std::map<std::string, Shader>;
 
-    PGeoNode();
-    virtual ~PGeoNode();
-    PGeoNode(const PGeoNode&) = delete;
+protected:
+    // Storage for allocated fields
+    dataStorage fields_;
+
+    // Constructor&Destructor
+    AMRNode() : fields_(AMRNode::GetFields()) {}
+    virtual ~AMRNode() {}
+    AMRNode(const AMRNode&) = delete;
 
 public:
-    uint heightmap_;
-    uint appearance_;
-    uint normal_;
+    // operations
+    void AssignField();
+    void Streaming();
+    void Collision();
+    void InterpCoarseToFine();
+    void InterpFineToCoarse();
+    void BoundaryPatch();
 
-    void BakeHeightMap(const glm::mat4& arg);
-    void BakeAppearanceMap(const glm::mat4& arg);
-    void FixHeightMap(PNode* neighbour, int edgedir);
+    // AMR operator
+    // Implement user-defined behaviour
     virtual void Split(const glm::mat4& arg) override;
 
-    float MinElevation() const;
-    float GetElevation(const glm::vec2& pos) const;
-    void SetElevation();
+    // may not necessary as we have FieldData class to manage the mem allocation
+    //void QueryTextureHandle();
+    //void ReleaseTextureHandle();
 
-    void QueryTextureHandle();
-    void ReleaseTextureHandle();
+    // output
+    void BindRenderTarget(Shader*, const char*);
 
     // Static function
     static void Init();
     static void Finalize();
     static void GuiInterface();
 
+    static void RegisterComputeShader(const char* name, const char* path);
+    static void RegisterField(const char* glsl_name, uint glsl_entry);
+    static const dataStorage& GetFields();
+
     // Static member
-    static bool USE_CACHE;
-    static std::vector<std::tuple<uint,uint,uint>> CACHE;
+    static constexpr int NUM_GHOST_LAYER = 2;
+    static constexpr int FIELD_MAP_X =(28+2*NUM_GHOST_LAYER); // -1: node based to cell based
+    static constexpr int FIELD_MAP_Y =(28+2*NUM_GHOST_LAYER);
 
-    static constexpr int HEIGHT_MAP_X =(PNode::GRIDX+1);
-    static constexpr int HEIGHT_MAP_Y =(PNode::GRIDY+1);
-    static constexpr int ALBEDO_MAP_X =(127);
-    static constexpr int ALBEDO_MAP_Y =(127);
+    static constexpr auto FIELD_MAP_INTERNAL_FORMAT = GL_RGBA32F;
+    static constexpr auto FIELD_MAP_FORMAT = GL_RGBA;
 
-    static constexpr auto HEIGHT_MAP_INTERNAL_FORMAT = GL_RGBA32F;
-    static constexpr auto HEIGHT_MAP_FORMAT = GL_RGBA;
-    static constexpr auto APPEARANCE_MAP_INTERNAL_FORMAT = GL_RGBA8;
-    static constexpr uint MAX_CACHE_CAPACITY = 1524;
+    // store all compute shaders needed
+    static shaderStorage kShaderList;
 
-    static Shader upsampling, crackfixing, appearance_baking;
-    static unsigned int noiseTex, elevationTex, materialTex;
-
+    // store all uniform fields needed
+    static dataStorage kFieldList;
 };
 #endif

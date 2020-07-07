@@ -6,6 +6,7 @@ file(GLOB SOURCE
     "*.h"
     "*.cpp"
     "renderer/*"
+    "compute/*"
     )
 
 # then create a project file per tutorial
