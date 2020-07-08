@@ -1,46 +1,32 @@
 #include "AMRMesh.h"
 #include <glad/glad.h>
 #include "UCartesianMath.h"
+#include <array>
 
-static std::vector<glm::vec2> wi({glm::vec2(-1, 0),
-                                  glm::vec2( 1, 0),
-                                  glm::vec2( 0,-1),
-                                  glm::vec2( 0, 1),
-                                  glm::vec2(-1,-1),
-                                  glm::vec2(-1, 1),
-                                  glm::vec2( 1,-1),
-                                  glm::vec2( 1, 1)
-                                 });
+
 void AMRMesh::MultiLevelIntegrator()
 {
     UpdateLevelOrderList();
 
     Shader* advector = &(AMRNode::kShaderList.at("advector"));
-    Shader* advector_comm = &(AMRNode::kShaderList.at("patch_advector"));
+    Shader* patch_communicator = &(AMRNode::kShaderList.at("communicator"));
+
+    constexpr std::array<glm::vec2, 8> wi({glm::vec2(-1, 0),
+                                      glm::vec2( 1, 0),
+                                      glm::vec2( 0,-1),
+                                      glm::vec2( 0, 1),
+                                      glm::vec2(-1,-1),
+                                      glm::vec2(-1, 1),
+                                      glm::vec2( 1,-1),
+                                      glm::vec2( 1, 1)
+                                     });
 
     auto m_fAdvection = [&](const std::vector<PNode*>& list, int)
     {
-        advector->use();
-        for(auto block: list)
-        {
-
-            // bind buffers
-
-            auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
-            for(auto& id_: *buffer_)
-            {
-                id_.second.BindDefault();
-            }
-
-            // set constants ...
-
-            // Dispatch kernel
-            glDispatchCompute((AMRNode::FIELD_MAP_X/16)+1,(AMRNode::FIELD_MAP_Y/16)+1,1);
-        }
-
         // communicate with other neighbours...
-        advector_comm->use();
-
+        // fill the boundary patches
+        // edge first, corner second
+        patch_communicator->use();
         for(auto block: list)
         {
             auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
@@ -54,9 +40,7 @@ void AMRMesh::MultiLevelIntegrator()
 
                 // Get neighbour node handle
                 auto shared_node = QueryNode(
-                            Umath::DecodeMortonWithLod2(
-                                Umath::GetNeighbourWithLod2(block->morton_, -i,  -j, block->level_)
-                                ,block->level_)
+                                Umath::GetNeighbourWithLod2(block->morton_, i,  j, 15-block->level_)
                             );
 
                 if(shared_node == nullptr) continue;
@@ -65,7 +49,9 @@ void AMRMesh::MultiLevelIntegrator()
                 // bind buffers
                 for(auto& id_: *buffer_)
                 {
+                    id_.second.SwapBuffer();
                     id_.second.BindImage();
+                    id_.second.SwapBuffer();
                 }
 
                 for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr()))
@@ -74,39 +60,46 @@ void AMRMesh::MultiLevelIntegrator()
                 }
 
                 // set constants ...
-                advector_comm->setInt("xoffset",i);
-                advector_comm->setInt("yoffset",j);
+                patch_communicator->setInt("xoffset",i);
+                patch_communicator->setInt("yoffset",j);
 
                 glm::uvec2 grid(AMRNode::FIELD_MAP_X,AMRNode::FIELD_MAP_Y);
-                if(i == 0)
-                    grid.y = 1;
-                if(j == 0)
+                if(i != 0)
                     grid.x = 1;
-                if(i != 0 && j != 0)
-                    grid = glm::uvec2(1);
+                if(j != 0)
+                    grid.y = 1;
 
                 // Dispatch kernel
                 glDispatchCompute(grid.x, grid.y, 1);
-
             }
-
-
         }
+        //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
+        // advect local field
+        advector->use();
         for(auto block: list)
         {
+
+            // bind buffers
+
             auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
             for(auto& id_: *buffer_)
             {
+                id_.second.BindDefault();
                 id_.second.SwapBuffer();
             }
+
+            // set constants ...
+
+            // Dispatch kernel
+            glDispatchCompute((AMRNode::FIELD_MAP_X/16)+1,(AMRNode::FIELD_MAP_Y/16)+1,1);
         }
 
     };
 
     AMRNode::MultiLevelIntegrator(
-                [](const std::vector<PNode*>& list, int){
-    },
+                [](const std::vector<PNode*>& list, int){},
+    //[](const std::vector<PNode*>& list, int){},
     m_fAdvection,
     level_order_list_, 0);
 }

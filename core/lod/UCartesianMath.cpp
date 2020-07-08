@@ -1,6 +1,6 @@
 #include "UCartesianMath.h"
 #include <cmath>
-
+#include <iostream>
 using namespace glm;
 using uint = uint32;
 
@@ -189,15 +189,14 @@ uint GetNeighbourWithLod2(uint v, int ox, int oy, uint l)
     v &= 0x3FFFFFFFu;
     v <<= 2;
 
-    ox <<= (2*l);
-    oy <<= (2*l);
-    ox <<= (2);
-    oy <<= (2);
+    ox <<= (l+1);
+    oy <<= (l+1);
 
     ivec2 n(
-                MergeBits1(v >> 0 ) + ox,
-                MergeBits1(v >> 1 ) + oy
+                (int)MergeBits1(v >> 0 ) + ox,
+                (int)MergeBits1(v >> 1 ) + oy
                 );
+//std::cout << n.x << ", " << n.y << std::endl;
     if(n.x < 0 || n.x > 65535 || n.y < 0 || n.y > 65535)
         return 0xFFFFFFFFu;
 

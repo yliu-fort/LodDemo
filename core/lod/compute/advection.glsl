@@ -16,8 +16,8 @@ void main()
 {
     // get index in global work group i.e x,y position
     ivec2 p = ivec2(gl_GlobalInvocationID.xy);
-    if(p.x >= FIELD_MAP_X-1 || p.y >= FIELD_MAP_Y-1 ) return;
-    if(p.x < 1 || p.y < 1) return;
+    if(p.x > FIELD_MAP_X-NUM_GHOST_LAYER || p.y > FIELD_MAP_Y-NUM_GHOST_LAYER ) return;
+    if(p.x < NUM_GHOST_LAYER-1 || p.y < NUM_GHOST_LAYER-1 ) return;
 
     vec3 data;
     data.x = texelFetch(f0, p + ivec2(-1,  0), 0).x; // advect towards +x

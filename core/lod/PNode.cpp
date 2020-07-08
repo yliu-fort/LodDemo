@@ -221,14 +221,14 @@ void FieldData2D::BindTexture(int i)
 }
 void FieldData2D::BindImage(int i)
 {
-    glBindImageTexture(glsl_entry_, ptr_[i], 0, GL_FALSE, 0, GL_READ_WRITE, internal_format_);
+    glBindImageTexture(glsl_entry_, ptr_[i], 0, GL_FALSE, 0, GL_WRITE_ONLY, internal_format_);
 }
 void FieldData2D::BindDefault()
 {
     //shader->setInt(glsl_name_, glsl_entry_);
     glActiveTexture(GL_TEXTURE0+glsl_entry_);
     glBindTexture(texture_type_, ptr_[0]);
-    glBindImageTexture(glsl_entry_, ptr_[1], 0, GL_FALSE, 0, GL_READ_WRITE, internal_format_);
+    glBindImageTexture(glsl_entry_, ptr_[1], 0, GL_FALSE, 0, GL_WRITE_ONLY, internal_format_);
     //std::cout << "Bind Texture " << glsl_name_ << " to " << glsl_entry_ << std::endl;
 }
 void FieldData2D::AllocBuffers(int w, int h, float* data)
@@ -308,7 +308,7 @@ void AMRNode::Init()
     // read shaders
     RegisterComputeShader("initializer",FP("compute/draw_a_sphere.glsl"));
     RegisterComputeShader("advector",FP("compute/advection.glsl"));
-    RegisterComputeShader("patch_advector",FP("compute/advection_patch_comm.glsl"));
+    RegisterComputeShader("communicator",FP("compute/patch_comm.glsl"));
     //RegisterComputeShader("streaming",FP("renderer/streaming.glsl"));
     //RegisterComputeShader("collision",FP("renderer/collision.glsl"));
 
@@ -384,7 +384,7 @@ void AMRNode::AssignField()
 
     // Dispatch kernel
     glDispatchCompute((AMRNode::FIELD_MAP_X/16)+1,(AMRNode::FIELD_MAP_Y/16)+1,1);
-
+    //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     // swap buffer when finished
     for(auto& id_: fields_)
     {

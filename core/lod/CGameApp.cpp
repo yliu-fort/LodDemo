@@ -153,7 +153,7 @@ int CGameApp::OnCreate()
 
     // Mouse input mode
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glfwSwapInterval(0); // 60 fps constraint
+    glfwSwapInterval(1); // 60 fps constraint
 
     GuiInterface::Init(m_pWindow);
 

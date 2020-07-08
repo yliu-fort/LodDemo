@@ -63,7 +63,8 @@ CGameEngine::CGameEngine() :
     AMRNode::Init();
 
     grid.reset(new AMRMesh(mat4(1)));
-    grid->Subdivision(Umath::EncodeMorton2( vec2(0.5,0.5)), (uint)5);
+    //AMRMesh::MIN_DEPTH = 3;
+    //grid->Subdivision(Umath::EncodeMorton2( vec2(0.5,0.5)), (uint)0);
 
     GetCurrentCamera()->setClipping(0.001,100.0);
 
@@ -78,7 +79,7 @@ CGameEngine::~CGameEngine()
 
 void CGameEngine::Update()
 {
-    grid->Subdivision(Umath::EncodeMorton2( uv ), (uint)lodLevel);
+    //grid->Subdivision(Umath::EncodeMorton2( uv ), (uint)lodLevel);
     grid->MultiLevelIntegrator();
 }
 
