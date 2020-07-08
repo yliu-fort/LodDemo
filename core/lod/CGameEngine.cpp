@@ -31,7 +31,7 @@ Shader fieldShader;
 
 std::unique_ptr<AMRMesh> grid;
 int lodLevel = 4;
-vec2 uv = vec2(0.5,1.0);
+vec2 uv = vec2(0.5,0.5);
 
 void renderAxis();
 void gui_interface()

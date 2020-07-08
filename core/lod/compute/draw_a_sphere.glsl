@@ -53,7 +53,7 @@ void main()
     vec2 pixel = getCurrentUV();
 
     // Procedure
-    float height = clamp( float(pow(length(pixel), 2.0f) > 0.25f*0.25f), 0.0f, 1.0f );
+    float height = clamp( float(pow(length(pixel), 2.0f) < 0.25f*0.25f), 0.0f, 1.0f );
 
     vec3 color = vec3(height);
 

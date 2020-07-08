@@ -94,9 +94,10 @@ public:
     }
     uint GetOffsetType() const
     {
-        if(level_ == 0) return -1;
+        if(level_ == 0) return 0xFFFFFFFFu;
         return morton_&0x3;
     }
+    bool ContainToCoarseInterface(int i, int j) const;
     virtual void Split(const glm::mat4& arg) = 0;
     int Search(glm::vec2 p) const;
     PNode* Query(uint) const;

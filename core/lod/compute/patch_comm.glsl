@@ -18,16 +18,32 @@ uniform int yoffset;
 void main()
 {
     // get index in global work group i.e x,y position
-    //ivec2 p = ivec2(gl_GlobalInvocationID.xy);
-    vec2 PIVOT = ( vec2(FIELD_MAP_X,FIELD_MAP_Y) - 2*NUM_GHOST_LAYER + 1 )/2.0; // 14
-    vec2 RANGE = abs(ivec2(xoffset, yoffset))*(PIVOT + NUM_GHOST_LAYER - 1); // 15
+    // Sync ghost layer 1
+    vec2 PIVOT = ( vec2(FIELD_MAP_X,FIELD_MAP_Y) - 2*NUM_GHOST_LAYER + 1 )/2.0; // 14.5
+    vec2 RANGE = abs(ivec2(xoffset, yoffset))*(PIVOT + NUM_GHOST_LAYER - 1); // 15.5
     vec2 PIVOTN = ( vec2(FIELD_MAP_X,FIELD_MAP_Y) - 2*NUM_GHOST_LAYER - 1 )/2.0; // 13.5
     vec2 RANGEN = abs(ivec2(xoffset, yoffset))*(PIVOTN + NUM_GHOST_LAYER ); // 15.5
 
-    // 1 or FIELD_MAP - 1
-    ivec2 p = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2( xoffset, yoffset) * PIVOT + RANGE);
-    ivec2 n = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2(-xoffset,-yoffset) * PIVOTN + RANGEN);
+    // 1 or FIELD_MAP - 2
+    ivec2 dest = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2( xoffset, yoffset) * PIVOT + RANGE);
+    ivec2 src = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2(-xoffset,-yoffset) * PIVOTN + RANGEN);
 
 
-    imageStore(f0w, p, texelFetch(f0, n, 0));
+    imageStore(f0w, dest, texelFetch(f0, src, 0));
+
+
+    //// Sync ghost layer 2
+    //// layer 1: (1, 30) -> layer 2: (0, 31)
+    //PIVOT = ( vec2(FIELD_MAP_X,FIELD_MAP_Y) - NUM_GHOST_LAYER + 1 )/2.0; // 15.5
+    //RANGE = abs(ivec2(xoffset, yoffset))*(PIVOT); // 15.5
+    //// layer 1: (2, 29) -> layer 2: (3, 28)
+    //PIVOTN = ( vec2(FIELD_MAP_X,FIELD_MAP_Y) - 2*NUM_GHOST_LAYER - 3 )/2.0; // 12.5
+    //RANGEN = abs(ivec2(xoffset, yoffset))*(PIVOTN + NUM_GHOST_LAYER + 1 ); // 15.5
+    //
+    //// 0 or FIELD_MAP - 1
+    //dest = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2( xoffset, yoffset) * PIVOT + RANGE);
+    //src = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2(-xoffset,-yoffset) * PIVOTN + RANGEN);
+    //
+    //
+    //imageStore(f0w, dest, texelFetch(f0, src, 0));
 }

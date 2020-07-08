@@ -10,6 +10,7 @@ void AMRMesh::MultiLevelIntegrator()
 
     Shader* advector = &(AMRNode::kShaderList.at("advector"));
     Shader* patch_communicator = &(AMRNode::kShaderList.at("communicator"));
+    Shader* patch_interpolater = &(AMRNode::kShaderList.at("interpolater"));
 
     constexpr std::array<glm::vec2, 8> wi({glm::vec2(-1, 0),
                                            glm::vec2( 1, 0),
@@ -23,7 +24,7 @@ void AMRMesh::MultiLevelIntegrator()
 
     auto m_fAdvection = [&](const std::vector<PNode*>& list, int)
     {
-        // communicate with other neighbours...
+        //// communicate with other neighbours...
         // fill the boundary patches
         // edge first, corner second
         patch_communicator->use();
@@ -64,7 +65,55 @@ void AMRMesh::MultiLevelIntegrator()
             }
         }
 
-        // advect local field
+        //// Interpolates field from fine meshes to coarse meshes
+        patch_interpolater->use();
+        for(auto block: list)
+        {
+            // Nothing to do with root level
+            if(block->level_ == 0) continue;
+
+            auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
+
+            for(auto idx: wi)
+            {
+                int i = idx.x, j = idx.y;
+                if(i == 0 && j == 0) continue;
+
+                // Interface only appears in certain directions
+                if(!block->ContainToCoarseInterface(i,j)) continue;
+
+                // Get neighbour node handle
+                auto shared_node = QueryNode(
+                            Umath::GetNeighbourWithLod2(block->parent_->morton_, i,  j, 15-block->parent_->level_)
+                            );
+
+                // Block boundary patches
+                if(shared_node == nullptr) continue;
+
+                // Block To fine interface
+                if(shared_node->IsSubdivided()) continue;
+
+                // now deal with block communication on coarse-fine boundaries.
+                // ...
+                // bind buffers
+                for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr())) { id_.second.BindImageFront(); }
+                for(auto& id_: *buffer_) { id_.second.BindTextureFront(); }
+
+                // set constants ...
+                patch_interpolater->setInt("xoffset",i);
+                patch_interpolater->setInt("yoffset",j);
+                patch_interpolater->setInt("roffset",block->GetOffsetType());
+
+                glm::uvec2 grid(AMRNode::FIELD_MAP_X/2,AMRNode::FIELD_MAP_Y/2);
+                if(i != 0) { grid.x = 1;}
+                if(j != 0) { grid.y = 1;}
+
+                // Dispatch kernel
+                glDispatchCompute(grid.x, grid.y, 1);
+            }
+        }
+
+        //// advect local field
         advector->use();
         for(auto block: list)
         {

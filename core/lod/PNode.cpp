@@ -32,6 +32,46 @@ PNode::~PNode()
     //ReleaseTextureHandle();
     PNode::NODE_COUNT--;
 }
+bool PNode::ContainToCoarseInterface(int i, int j) const
+{
+    if(GetOffsetType() == 0x0)
+    {
+        if(i == -1 && j ==  0)
+             return true;
+        else if(i == -1 && j == -1)
+             return true;
+        else if(i ==  0 && j == -1)
+             return true;
+    }
+    else if(GetOffsetType() == 0x1)
+    {
+        if(i ==  1 && j ==  0)
+             return true;
+        else if(i ==  1 && j == -1)
+             return true;
+        else if(i ==  0 && j == -1)
+             return true;
+    }
+    else if(GetOffsetType() == 0x2)
+    {
+        if(i == -1 && j ==  0)
+             return true;
+        else if(i == -1 && j ==  1)
+             return true;
+        else if(i ==  0 && j ==  1)
+             return true;
+    }
+    else if(GetOffsetType() == 0x3)
+    {
+        if(i ==  1 && j ==  0)
+             return true;
+        else if(i ==  1 && j ==  1)
+             return true;
+        else if(i ==  0 && j ==  1)
+             return true;
+    }
+    return false;
+}
 //void PNode::Split(const glm::mat4& arg)
 //{
 //    if(!this->subdivided_)
@@ -317,11 +357,23 @@ AMRNode::dataStorage* AMRNode::GetFieldPtr()
 void AMRNode::Init()
 {
     // read shaders
+    // Initializer: initializes fields on patch creation
+    // apply analytic functions or precomputed datasets etc.
     RegisterComputeShader("initializer",FP("compute/draw_a_sphere.glsl"));
+
+    // Advector: advects fields on patch
+    // by "offseting" the pixel towards 8 directions in 2d
+    // or 27 directions in 3d, ghost layer will be overwritten after this operation.
     RegisterComputeShader("advector",FP("compute/advection.glsl"));
+
+    // Communicator: syncs data between different patches with same "lod level"
+    // by computing an offset to infer the overlapped pixels
+    // and copy the data from source image to dest image.
     RegisterComputeShader("communicator",FP("compute/patch_comm.glsl"));
-    //RegisterComputeShader("streaming",FP("renderer/streaming.glsl"));
-    //RegisterComputeShader("collision",FP("renderer/collision.glsl"));
+
+    // Interpolater: interpolates data from fine meshs to coarse meshes
+    // by summing data on 4 relavent pixels.
+    RegisterComputeShader("interpolater",FP("compute/interp.glsl"));
 
 
     // set constants
