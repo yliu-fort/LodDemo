@@ -56,6 +56,7 @@ public:
     // Caution: only return subdivided grids.
     // write additional condition if you need this
     PNode* QueryNode( const glm::vec2& ) const;
+    PNode* QueryNode( uint ) const;
     void Subdivision(uint, uint);
     void Draw( Shader& shader ) const;
     void MultiLevelIntegrator();

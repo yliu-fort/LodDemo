@@ -95,16 +95,16 @@ void CGameEngine::RenderUpdate()
         glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 
     fieldShader.use();
-    fieldShader.setMat4("m4ViewProjectionMatrix",GetCurrentCamera()->GetFrustumMatrix());
-    fieldShader.setMat4("m4ModelMatrix",rotate(mat4(1),radians(90.0f),vec3(1,0,0)));
-    grid->Draw(fieldShader);
+    fieldShader.setMat4( "m4ViewProjectionMatrix", GetCurrentCamera()->GetFrustumMatrix() );
+    fieldShader.setMat4( "m4ModelMatrix", mat4(1) );
+    grid->Draw( fieldShader );
 
     glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 
     // Draw axis
     utilityShader.use();
-    utilityShader.setMat4("m4ViewProjectionMatrix",GetCurrentCamera()->GetFrustumMatrix());
-    utilityShader.setMat4("m4ModelMatrix",mat4(1));
+    utilityShader.setMat4( "m4ViewProjectionMatrix", GetCurrentCamera()->GetFrustumMatrix() );
+    utilityShader.setMat4( "m4ModelMatrix",mat4(1) );
     renderAxis();
 
     // gui

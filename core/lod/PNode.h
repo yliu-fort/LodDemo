@@ -15,13 +15,13 @@ typedef unsigned int uint;
 class Shader;
 
 // Node class
-// implemented basic tree operation
+// implements basic tree operations
 class PNode
 {
 protected:
     static unsigned int gridVAO;
     static unsigned int gridVBO;
-    static void RenderGrid();
+    static void RenderGridXY();
 
 protected:
     bool subdivided_;
@@ -49,8 +49,8 @@ public:
 
     void SetModelMatrix(const glm::mat4& arg)
     {
-        model_ = glm::translate(arg, this->GetShift());
-        model_ = glm::scale(model_, this->GetScale());
+        model_ = glm::translate(arg, this->GetShiftXY());
+        model_ = glm::scale(model_, this->GetScaleU());
     }
     float Size() const
     {
@@ -60,13 +60,21 @@ public:
     {
         return this->model_;
     }
-    glm::vec3 GetScale() const
+    glm::vec3 GetScaleA() const
     {
         return glm::vec3(hi_.x-lo_.x,1.0f,hi_.y-lo_.y);
     }
-    glm::vec3 GetShift() const
+    glm::vec3 GetShiftXZ() const
     {
         return glm::vec3(lo_.x,0.0f,lo_.y);
+    }
+    glm::vec3 GetShiftXY() const
+    {
+        return glm::vec3(lo_.x,lo_.y,0.0f);
+    }
+    glm::vec3 GetScaleU() const
+    {
+        return glm::vec3(2.0/(1<<level_));
     }
     glm::vec2 GetCenter() const
     {
@@ -89,8 +97,9 @@ public:
         if(level_ == 0) return -1;
         return morton_&0x3;
     }
-    virtual void Split(const glm::mat4& arg);
+    virtual void Split(const glm::mat4& arg) = 0;
     int Search(glm::vec2 p) const;
+    PNode* Query(uint) const;
 
     // Generic functions
     template <typename Func>
@@ -143,11 +152,11 @@ public:
     //FieldData2D(const FieldData2D&) = delete;
 
     uint GetReadBuffer() const { return ptr_[0]; }
-    uint GetWriteBuffer() const{ return ptr_[1]; }
+    uint GetWriteBuffer() const { return ptr_[1]; }
     void SwapBuffer() { std::swap(ptr_[0],ptr_[1]); }
-    void BindTexture(Shader* shader, int i = 0);
+    void BindTexture(int i = 0);
     void BindImage(int i = 1);
-    void BindDefault(Shader* shader);
+    void BindDefault();
     void AllocBuffers(int w, int h, float* data = nullptr);
     void ReleaseBuffers();
 
@@ -170,7 +179,7 @@ protected:
     dataStorage fields_;
 
     // Constructor&Destructor
-    AMRNode() : fields_(AMRNode::GetFields()) {}
+    AMRNode() : fields_(AMRNode::kFieldList) {}
     virtual ~AMRNode() {}
     AMRNode(const AMRNode&) = delete;
 
@@ -192,7 +201,7 @@ public:
     //void ReleaseTextureHandle();
 
     // output
-    void BindRenderTarget(Shader*, const char*);
+    void BindRenderTarget(const char*);
 
     // Static function
     static void Init();
@@ -201,7 +210,8 @@ public:
 
     static void RegisterComputeShader(const char* name, const char* path);
     static void RegisterField(const char* glsl_name, uint glsl_entry);
-    static const dataStorage& GetFields();
+    const dataStorage& GetFields() const;
+    dataStorage* GetFieldPtr();
     template <typename ForwardFunc, typename BackwardFunc>
     static void MultiLevelIntegrator(
             ForwardFunc&& f,

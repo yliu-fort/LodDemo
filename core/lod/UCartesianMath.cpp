@@ -181,4 +181,28 @@ uint GetLodLevel(uint x)
     return CountLeadingZeros(x)/2;
 }
 
+// Return 0xFFFFFFFF when out of range
+// ox, oy must have form like 1 << n for integer lattice move
+uint GetNeighbourWithLod2(uint v, int ox, int oy, uint l)
+{
+    v <<= (2*l);
+    v &= 0x3FFFFFFFu;
+    v <<= 2;
+
+    ox <<= (2*l);
+    oy <<= (2*l);
+    ox <<= (2);
+    oy <<= (2);
+
+    ivec2 n(
+                MergeBits1(v >> 0 ) + ox,
+                MergeBits1(v >> 1 ) + oy
+                );
+    if(n.x < 0 || n.x > 65535 || n.y < 0 || n.y > 65535)
+        return 0xFFFFFFFFu;
+
+    return EncodeMortonWithLod2(vec2(n)/65536.0f, l);
+}
+
+
 }

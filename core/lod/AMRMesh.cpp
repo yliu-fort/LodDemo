@@ -7,20 +7,96 @@ void AMRMesh::MultiLevelIntegrator()
 {
     UpdateLevelOrderList();
 
+    Shader* advector = &(AMRNode::kShaderList.at("advector"));
+    Shader* advector_comm = &(AMRNode::kShaderList.at("patch_advector"));
+
+    auto m_fAdvection = [&](const std::vector<PNode*>& list, int)
+    {
+        advector->use();
+        for(auto block: list)
+        {
+
+            // bind buffers
+
+            auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
+            for(auto& id_: *buffer_)
+            {
+                id_.second.BindDefault();
+            }
+
+            // set constants ...
+
+            // Dispatch kernel
+            glDispatchCompute((AMRNode::FIELD_MAP_X/16)+1,(AMRNode::FIELD_MAP_Y/16)+1,1);
+        }
+
+        // communicate with other neighbours...
+        advector_comm->use();
+
+        for(auto block: list)
+        {
+            auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
+            for(int i = -1; i < 2; ++i)
+                for(int j = -1; j < 2; ++j)
+                {
+                    if(i == 0 && j == 0) continue;
+
+                    // Get neighbour node handle
+                    auto shared_node = QueryNode(
+                                Umath::DecodeMortonWithLod2(
+                                    Umath::GetNeighbourWithLod2(block->morton_, -i,  -j, block->level_)
+                                    ,block->level_)
+                                );
+
+                    if(shared_node == nullptr) continue;
+                    // now deal with block communication between "same lod level".
+                    // ...
+                    // bind buffers
+                    for(auto& id_: *buffer_)
+                    {
+                        id_.second.BindImage();
+                    }
+
+                    for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr()))
+                    {
+                        id_.second.BindTexture();
+                    }
+
+                    // set constants ...
+                    advector_comm->setInt("xoffset",i);
+                    advector_comm->setInt("yoffset",j);
+
+                    glm::uvec2 grid(AMRNode::FIELD_MAP_X,AMRNode::FIELD_MAP_Y);
+                    if(i == 0)
+                        grid.y = 1;
+                    if(j == 0)
+                        grid.x = 1;
+                    if(i != 0 && j != 0)
+                        grid = glm::uvec2(1);
+
+                    // Dispatch kernel
+                    glDispatchCompute(grid.x, grid.y, 1);
+
+                }
+
+
+        }
+
+        for(auto block: list)
+        {
+            auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
+            for(auto& id_: *buffer_)
+            {
+                id_.second.SwapBuffer();
+            }
+        }
+
+    };
+
     AMRNode::MultiLevelIntegrator(
-                [](const std::vector<PNode*>& list, int level){
-        //for(int i = 0; i < level; ++i)
-        //    printf("\t");
-        //std::cout << " Entering level " << level << std::endl;
-        //for(auto id: list)
-        //    if(id->level_ != level)
-        //        printf("! [%d, %d]\n", id->morton_, id->level_);
+                [](const std::vector<PNode*>& list, int){
     },
-    [](const std::vector<PNode*>& list, int level){
-        //for(int i = 0; i < level; ++i)
-        //    printf("\t");
-        //std::cout << " Leaving level " << level << std::endl;
-    },
+    m_fAdvection,
     level_order_list_, 0);
 }
 
@@ -29,7 +105,6 @@ void AMRMesh::MultiLevelIntegrator()
 // write additional condition if you need root
 PNode* AMRMesh::QueryNode( const glm::vec2& pos) const
 {
-    //bool isTraversible = AMRNode->subdivided;
     // find the AMRNode
     auto shared_node = GetHandle();
     int result = -1;
@@ -49,6 +124,25 @@ PNode* AMRMesh::QueryNode( const glm::vec2& pos) const
     return shared_node;
 }
 
+PNode* AMRMesh::QueryNode( uint v ) const
+{
+    if(v == 0xFFFFFFFFu) return nullptr;
+    int lod = Umath::GetLodLevel(v); // 0 : finest, 15: top
+
+    // find the AMRNode
+    auto shared_node = GetHandle();
+
+    for(int i = 15-lod; i > 0; --i)
+    {
+        // start from root
+        if(!shared_node->IsSubdivided())
+            return nullptr;
+
+        shared_node = shared_node->child_[((v >> (2*i-2)) & 0x3)];
+    }
+
+    return shared_node;
+}
 
 void AMRMesh::Subdivision(uint code, uint lod)
 {
@@ -102,7 +196,7 @@ void AMRMesh::Draw(Shader& shader) const
 
         {
             // Bind to_render field
-            ((AMRNode*)leaf)->BindRenderTarget(&shader, "f0");
+            ((AMRNode*)leaf)->BindRenderTarget("f0");
 
             // Transfer local grid model
             shader.setMat4("m4CubeProjMatrix", leaf->model_);

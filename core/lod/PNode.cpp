@@ -32,31 +32,31 @@ PNode::~PNode()
     //ReleaseTextureHandle();
     PNode::NODE_COUNT--;
 }
-void PNode::Split(const glm::mat4& arg)
-{
-    if(!this->subdivided_)
-    {
-        child_[0] = new PNode;
-        child_[0]->SetConnectivity<0>(this);
-        child_[0]->SetModelMatrix(arg);
-
-
-        child_[1] = new PNode;
-        child_[1]->SetConnectivity<1>(this);
-        child_[1]->SetModelMatrix(arg);
-
-
-        child_[2] = new PNode;
-        child_[2]->SetConnectivity<2>(this);
-        child_[2]->SetModelMatrix(arg);
-
-        child_[3] = new PNode;
-        child_[3]->SetConnectivity<3>(this);
-        child_[3]->SetModelMatrix(arg);
-
-        this->subdivided_ = true;
-    }
-}
+//void PNode::Split(const glm::mat4& arg)
+//{
+//    if(!this->subdivided_)
+//    {
+//        child_[0] = new PNode;
+//        child_[0]->SetConnectivity<0>(this);
+//        child_[0]->SetModelMatrix(arg);
+//
+//
+//        child_[1] = new PNode;
+//        child_[1]->SetConnectivity<1>(this);
+//        child_[1]->SetModelMatrix(arg);
+//
+//
+//        child_[2] = new PNode;
+//        child_[2]->SetConnectivity<2>(this);
+//        child_[2]->SetModelMatrix(arg);
+//
+//        child_[3] = new PNode;
+//        child_[3]->SetConnectivity<3>(this);
+//        child_[3]->SetModelMatrix(arg);
+//
+//        this->subdivided_ = true;
+//    }
+//}
 int PNode::Search(glm::vec2 p) const
 {
     glm::vec2 center = GetCenter();
@@ -119,7 +119,7 @@ void PNode::SetConnectivity(PNode* leaf)
 void PNode::Draw()
 {
     // Render grid
-    RenderGrid();
+    RenderGridXY();
 }
 std::vector<std::vector<PNode*>> PNode::GetLevelOrder(PNode* root)
 {
@@ -152,12 +152,13 @@ std::vector<std::vector<PNode*>> PNode::GetLevelOrder(PNode* root)
     return ans;
 }
 
+
 // renderGrid() renders a 16x16 2d grid in NDC.
 // -------------------------------------------------
 uint PNode::gridVAO = 0;
 uint PNode::gridVBO = 0;
 
-void PNode::RenderGrid()
+void PNode::RenderGridXY()
 {
 
     // initialize (if necessary)
@@ -177,13 +178,13 @@ void PNode::RenderGrid()
                 glm::vec2 lo((i)/float(GRIDX), (j)/float(GRIDY));
                 glm::vec2 hi((i+1)/float(GRIDX), (j+1)/float(GRIDY));
 
-                vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, lo.x, lo.y)); // bottom-left
-                vertices.push_back(float8( lo.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, lo.x, hi.y)); // top-left
-                vertices.push_back(float8( hi.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, hi.x, hi.y)); // top-right
+                vertices.push_back(float8( lo.x, lo.y, 0.0f,  0.0f, 0.0f,  1.0f, lo.x, lo.y)); // bottom-left
+                vertices.push_back(float8( hi.x, hi.y, 0.0f,  0.0f, 0.0f,  1.0f, hi.x, hi.y)); // top-right
+                vertices.push_back(float8( lo.x, hi.y, 0.0f,  0.0f, 0.0f,  1.0f, lo.x, hi.y)); // top-left
 
-                vertices.push_back(float8( hi.x, 0.0f,  hi.y,  0.0f, -1.0f,  0.0f, hi.x, hi.y)); // top-right
-                vertices.push_back(float8( hi.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, hi.x, lo.y)); // bottom-right
-                vertices.push_back(float8( lo.x, 0.0f,  lo.y,  0.0f, -1.0f,  0.0f, lo.x, lo.y)); // bottom-left
+                vertices.push_back(float8( hi.x, hi.y, 0.0f,  0.0f, 0.0f,  1.0f, hi.x, hi.y)); // top-right
+                vertices.push_back(float8( lo.x, lo.y, 0.0f,  0.0f, 0.0f,  1.0f, lo.x, lo.y)); // bottom-left
+                vertices.push_back(float8( hi.x, lo.y, 0.0f,  0.0f, 0.0f,  1.0f, hi.x, lo.y)); // bottom-right
 
             }
 
@@ -211,23 +212,23 @@ void PNode::RenderGrid()
     glBindVertexArray(0);
 }
 
-void FieldData2D::BindTexture(Shader* shader, int i)
+void FieldData2D::BindTexture(int i)
 {
-    shader->setInt(glsl_name_, glsl_entry_);
+    //shader->setInt(glsl_name_, glsl_entry_);
     glActiveTexture(GL_TEXTURE0+glsl_entry_);
     glBindTexture(texture_type_, ptr_[i]);
     //std::cout << "Bind Texture " << glsl_name_ << " to " << glsl_entry_ << std::endl;
 }
 void FieldData2D::BindImage(int i)
 {
-    glBindImageTexture(glsl_entry_, ptr_[i], 0, GL_FALSE, 0, GL_WRITE_ONLY, internal_format_);
+    glBindImageTexture(glsl_entry_, ptr_[i], 0, GL_FALSE, 0, GL_READ_WRITE, internal_format_);
 }
-void FieldData2D::BindDefault(Shader* shader)
+void FieldData2D::BindDefault()
 {
-    shader->setInt(glsl_name_, glsl_entry_);
+    //shader->setInt(glsl_name_, glsl_entry_);
     glActiveTexture(GL_TEXTURE0+glsl_entry_);
     glBindTexture(texture_type_, ptr_[0]);
-    glBindImageTexture(glsl_entry_, ptr_[1], 0, GL_FALSE, 0, GL_WRITE_ONLY, internal_format_);
+    glBindImageTexture(glsl_entry_, ptr_[1], 0, GL_FALSE, 0, GL_READ_WRITE, internal_format_);
     //std::cout << "Bind Texture " << glsl_name_ << " to " << glsl_entry_ << std::endl;
 }
 void FieldData2D::AllocBuffers(int w, int h, float* data)
@@ -292,15 +293,22 @@ void AMRNode::RegisterComputeShader(const char* name, const char* path)
     kShaderList.insert(std::pair<const char*, Shader>(name, Shader(path)));
 }
 
-const AMRNode::dataStorage& AMRNode::GetFields()
+const AMRNode::dataStorage& AMRNode::GetFields() const
 {
-    return kFieldList;
+    return fields_;
+}
+
+AMRNode::dataStorage* AMRNode::GetFieldPtr()
+{
+    return &fields_;
 }
 
 void AMRNode::Init()
 {
     // read shaders
-    RegisterComputeShader("initializer",FP("compute/draw_something.glsl"));
+    RegisterComputeShader("initializer",FP("compute/draw_a_sphere.glsl"));
+    RegisterComputeShader("advector",FP("compute/advection.glsl"));
+    RegisterComputeShader("patch_advector",FP("compute/advection_patch_comm.glsl"));
     //RegisterComputeShader("streaming",FP("renderer/streaming.glsl"));
     //RegisterComputeShader("collision",FP("renderer/collision.glsl"));
 
@@ -316,17 +324,6 @@ void AMRNode::Init()
     RegisterField("vel",4);
     RegisterField("patch",5);
 
-    // Initialize field ( call in instance )
-    //Shader& initializer= kShaderList.at("initialize");
-    //initializer.use();
-    //for(auto id: kFieldList)
-    //{
-    //    id.second.AllocBuffers(FIELD_MAP_X, FIELD_MAP_Y);
-    //    id.second.BindDefault(&initializer);
-    //}
-    // set constants ...
-    // Dispatch kernel
-    //glDispatchCompute((FIELD_MAP_X/16)+1,(FIELD_MAP_Y/16)+1,1);
 }
 
 void AMRNode::Split(const glm::mat4& arg)
@@ -374,7 +371,7 @@ void AMRNode::AssignField()
     for(auto& id_: fields_)
     {
         id_.second.AllocBuffers(AMRNode::FIELD_MAP_X, AMRNode::FIELD_MAP_Y);
-        id_.second.BindDefault(initializer);
+        id_.second.BindDefault();
 
         //std::cout << "Binding field buffer " << id_.second.glsl_name_ << std::endl;
     }
@@ -395,7 +392,7 @@ void AMRNode::AssignField()
     }
 }
 
-void AMRNode::BindRenderTarget(Shader* shader, const char* fieldname)
+void AMRNode::BindRenderTarget(const char* fieldname)
 {
-    fields_.at(fieldname).BindTexture(shader);
+    fields_.at(fieldname).BindTexture();
 }

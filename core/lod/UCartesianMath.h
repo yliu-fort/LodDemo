@@ -45,4 +45,7 @@ glm::uint32 GetLodLevel(glm::uint32);
 
 glm::uint32 CountLeadingZeros(glm::uint32);
 
+glm::uint32 GetNeighbourWithLod2(glm::uint32, int, int, glm::uint32);
+
+
 }
