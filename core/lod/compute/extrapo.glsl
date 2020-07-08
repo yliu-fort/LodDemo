@@ -39,7 +39,7 @@ void main()
             + ivec2(vec2(xoffset, yoffset) * PIVOTN + RANGEN);
 
     // Extrapolation
-    vec4 data = texelFetch(f0, src, 0);
+    vec4 data = texelFetch(f0, src, 0); // +1 ?
     imageStore(f0w, dest           , data);
     imageStore(f0w, dest+ivec2(1,0), data);
     imageStore(f0w, dest+ivec2(0,1), data);
