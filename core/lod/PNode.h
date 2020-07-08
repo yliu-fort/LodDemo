@@ -225,12 +225,12 @@ public:
         if(level >= list.size())
             return;
 
-        f(list[level],level);
+        f(list,level);
 
         MultiLevelIntegrator(f, g, list, level+1);
         MultiLevelIntegrator(f, g, list, level+1);
 
-        g(list[level],level);
+        g(list,level);
     }
 
     // Static member

@@ -371,9 +371,13 @@ void AMRNode::Init()
     // and copy the data from source image to dest image.
     RegisterComputeShader("communicator",FP("compute/patch_comm.glsl"));
 
-    // Interpolater: interpolates data from fine meshs to coarse meshes
-    // by summing data on 4 relavent pixels.
+    // Interpolater: interpolates data from fine meshes to coarse meshes
+    // by summing data from 4 relavent pixels.
     RegisterComputeShader("interpolater",FP("compute/interp.glsl"));
+
+    // Extrapolator: extrapolates data from coarse meshes to fine meshes
+    // by distributing data into 4 relavent pixels.
+    RegisterComputeShader("extrapolator",FP("compute/extrapo.glsl"));
 
 
     // set constants
@@ -457,5 +461,6 @@ void AMRNode::AssignField()
 
 void AMRNode::BindRenderTarget(const char* fieldname)
 {
-    fields_.at(fieldname).BindTextureFront();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, fields_.at(fieldname).GetReadBuffer());
 }

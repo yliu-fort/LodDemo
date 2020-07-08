@@ -7,8 +7,8 @@
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 // registered fields
-layout(binding = 0) uniform sampler2D f0;
 layout(rgba32f, binding = 0) uniform image2D f0w;
+layout(rgba32f, binding = 1) uniform image2D f1w;
 
 uniform int level;
 uniform int hash;
@@ -53,7 +53,7 @@ void main()
     vec2 pixel = getCurrentUV();
 
     // Procedure
-    float height = clamp( float(pow(length(pixel), 2.0f) < 0.25f*0.25f), 0.0f, 1.0f );
+    float height = clamp( float(pow(length(pixel), 2.0f) > 0.25f*0.25f), 0.0f, 1.0f );
 
     vec3 color = vec3(height);
 
@@ -65,4 +65,5 @@ void main()
         color = vec3(0,0,0);
 
     imageStore(f0w, p, vec4(color,1.0));
+    imageStore(f1w, p, vec4(color,1.0));
 }

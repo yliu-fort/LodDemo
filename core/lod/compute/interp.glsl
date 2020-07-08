@@ -10,6 +10,8 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 // registered fields
 layout(binding = 0) uniform sampler2D f0;
 layout(rgba32f, binding = 0) uniform image2D f0w;
+layout(binding = 1) uniform sampler2D f1;
+layout(rgba32f, binding = 1) uniform image2D f1w;
 
 // uniforms
 uniform int xoffset;
@@ -37,6 +39,10 @@ void main()
                 )/vec2(FIELD_MAP_X/2,FIELD_MAP_Y/2)
             + vec2(vec2(xoffset,yoffset) * PIVOTN + RANGEN)/vec2(FIELD_MAP_X,FIELD_MAP_Y);
 
-
+    // Interpolation
     imageStore(f0w, dest, texture(f0, src));
+    imageStore(f1w, dest, texture(f1, src));
+
+    // Or sum up 4 pixels
+    //imageStore(f0w, dest, 4.0f*texture(f0, src)); // <- because the query position is at the center of 4 pixels
 }
