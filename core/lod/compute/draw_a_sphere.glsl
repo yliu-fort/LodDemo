@@ -53,11 +53,12 @@ void main()
     vec2 pixel = getCurrentUV();
 
     // Procedure
-    float height = clamp( float(pow(length(pixel), 2.0f) < 0.25f*0.25f), 0.0f, 1.0f );
+    float height = clamp( float(pow(length(pixel), 2.0f) > 0.25f*0.25f), 0.0f, 1.0f );
 
     vec3 color = vec3(height);
 
     // Ghost layer visualization
+    //color = vec3(0,0,0);
     if(p.x == 1 || p.y == 1 || p.x == FIELD_MAP_X-2 || p.y == FIELD_MAP_Y-2)
         color = vec3(0,0,0);
     if(p.x == 0 || p.y == 0 || p.x == FIELD_MAP_X-1 || p.y == FIELD_MAP_Y-1)

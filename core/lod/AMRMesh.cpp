@@ -2,7 +2,15 @@
 #include <glad/glad.h>
 #include "UCartesianMath.h"
 
-
+static std::vector<glm::vec2> wi({glm::vec2(-1, 0),
+                                  glm::vec2( 1, 0),
+                                  glm::vec2( 0,-1),
+                                  glm::vec2( 0, 1),
+                                  glm::vec2(-1,-1),
+                                  glm::vec2(-1, 1),
+                                  glm::vec2( 1,-1),
+                                  glm::vec2( 1, 1)
+                                 });
 void AMRMesh::MultiLevelIntegrator()
 {
     UpdateLevelOrderList();
@@ -36,48 +44,51 @@ void AMRMesh::MultiLevelIntegrator()
         for(auto block: list)
         {
             auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
-            for(int i = -1; i < 2; ++i)
-                for(int j = -1; j < 2; ++j)
+            //for(int i = -1; i <= 1; ++i)
+            //    for(int j = -1; j <= 1; ++j)
+            for(auto idx: wi)
+            {
+                int i = idx.x;
+                int j = idx.y;
+                if(i == 0 && j == 0) continue;
+
+                // Get neighbour node handle
+                auto shared_node = QueryNode(
+                            Umath::DecodeMortonWithLod2(
+                                Umath::GetNeighbourWithLod2(block->morton_, -i,  -j, block->level_)
+                                ,block->level_)
+                            );
+
+                if(shared_node == nullptr) continue;
+                // now deal with block communication between "same lod level".
+                // ...
+                // bind buffers
+                for(auto& id_: *buffer_)
                 {
-                    if(i == 0 && j == 0) continue;
-
-                    // Get neighbour node handle
-                    auto shared_node = QueryNode(
-                                Umath::DecodeMortonWithLod2(
-                                    Umath::GetNeighbourWithLod2(block->morton_, -i,  -j, block->level_)
-                                    ,block->level_)
-                                );
-
-                    if(shared_node == nullptr) continue;
-                    // now deal with block communication between "same lod level".
-                    // ...
-                    // bind buffers
-                    for(auto& id_: *buffer_)
-                    {
-                        id_.second.BindImage();
-                    }
-
-                    for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr()))
-                    {
-                        id_.second.BindTexture();
-                    }
-
-                    // set constants ...
-                    advector_comm->setInt("xoffset",i);
-                    advector_comm->setInt("yoffset",j);
-
-                    glm::uvec2 grid(AMRNode::FIELD_MAP_X,AMRNode::FIELD_MAP_Y);
-                    if(i == 0)
-                        grid.y = 1;
-                    if(j == 0)
-                        grid.x = 1;
-                    if(i != 0 && j != 0)
-                        grid = glm::uvec2(1);
-
-                    // Dispatch kernel
-                    glDispatchCompute(grid.x, grid.y, 1);
-
+                    id_.second.BindImage();
                 }
+
+                for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr()))
+                {
+                    id_.second.BindTexture();
+                }
+
+                // set constants ...
+                advector_comm->setInt("xoffset",i);
+                advector_comm->setInt("yoffset",j);
+
+                glm::uvec2 grid(AMRNode::FIELD_MAP_X,AMRNode::FIELD_MAP_Y);
+                if(i == 0)
+                    grid.y = 1;
+                if(j == 0)
+                    grid.x = 1;
+                if(i != 0 && j != 0)
+                    grid = glm::uvec2(1);
+
+                // Dispatch kernel
+                glDispatchCompute(grid.x, grid.y, 1);
+
+            }
 
 
         }

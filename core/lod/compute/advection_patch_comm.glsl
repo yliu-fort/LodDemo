@@ -20,8 +20,9 @@ void main()
     // get index in global work group i.e x,y position
     //ivec2 p = ivec2(gl_GlobalInvocationID.xy);
     vec2 PIVOT = ( vec2(FIELD_MAP_X,FIELD_MAP_Y) - 2*NUM_GHOST_LAYER - 1 )/2.0;
-    ivec2 p = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2( xoffset, yoffset) * PIVOT + PIVOT + NUM_GHOST_LAYER);
-    ivec2 n = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2(-xoffset,-yoffset) * PIVOT + PIVOT + NUM_GHOST_LAYER);
+    vec2 RANGE = abs(ivec2(xoffset, yoffset))*(PIVOT + NUM_GHOST_LAYER);
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2( xoffset, yoffset) * PIVOT + RANGE);
+    ivec2 n = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2(-xoffset,-yoffset) * PIVOT + RANGE);
 
 
     vec3 data = imageLoad(f0w, p).xyz;
@@ -29,15 +30,15 @@ void main()
     if(xoffset == -1 && yoffset ==  0)
     {
         data.x = texelFetch(f0, n, 0).x; // advect towards +x
-        //data.y = texelFetch(f0, n + ivec2(0, -1), 0).y; // advect towards +x+y
+        data.y = texelFetch(f0, n + ivec2(0, -1), 0).y; // advect towards +x+y
     }
 
     if(xoffset == -1 && yoffset == -1)
-        //data.y = texelFetch(f0, n, 0).y; // advect towards +xy
+        data.y = texelFetch(f0, n, 0).y; // advect towards +xy
 
     if(xoffset ==  0 && yoffset == -1)
     {
-        //data.y = texelFetch(f0, n + ivec2(-1, 0), 0).y; // advect towards +x+y
+        data.y = texelFetch(f0, n + ivec2(-1, 0), 0).y; // advect towards +x+y
         data.z = texelFetch(f0, n, 0).z; // advect towards +y
     }
 
