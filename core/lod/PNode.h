@@ -154,9 +154,11 @@ public:
     uint GetReadBuffer() const { return ptr_[0]; }
     uint GetWriteBuffer() const { return ptr_[1]; }
     void SwapBuffer() { std::swap(ptr_[0],ptr_[1]); }
-    void BindTexture(int i = 0);
-    void BindImage(int i = 1);
-    void BindDefault();
+    void BindTextureFront() const;
+    void BindImageFront() const;
+    void BindTextureSecondary() const;
+    void BindImageSecondary() const;
+    void BindDefault() const;
     void AllocBuffers(int w, int h, float* data = nullptr);
     void ReleaseBuffers();
 

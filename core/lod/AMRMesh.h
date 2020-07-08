@@ -58,6 +58,7 @@ public:
     PNode* QueryNode( const glm::vec2& ) const;
     PNode* QueryNode( uint ) const;
     void Subdivision(uint, uint);
+    void CircularSubdivision(uint, uint);
     void Draw( Shader& shader ) const;
     void MultiLevelIntegrator();
     void UpdateLevelOrderList()

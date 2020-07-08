@@ -212,18 +212,29 @@ void PNode::RenderGridXY()
     glBindVertexArray(0);
 }
 
-void FieldData2D::BindTexture(int i)
+void FieldData2D::BindTextureFront() const
 {
     //shader->setInt(glsl_name_, glsl_entry_);
     glActiveTexture(GL_TEXTURE0+glsl_entry_);
-    glBindTexture(texture_type_, ptr_[i]);
+    glBindTexture(texture_type_, ptr_[0]);
     //std::cout << "Bind Texture " << glsl_name_ << " to " << glsl_entry_ << std::endl;
 }
-void FieldData2D::BindImage(int i)
+void FieldData2D::BindImageFront() const
 {
-    glBindImageTexture(glsl_entry_, ptr_[i], 0, GL_FALSE, 0, GL_WRITE_ONLY, internal_format_);
+    glBindImageTexture(glsl_entry_, ptr_[0], 0, GL_FALSE, 0, GL_WRITE_ONLY, internal_format_);
 }
-void FieldData2D::BindDefault()
+void FieldData2D::BindTextureSecondary() const
+{
+    //shader->setInt(glsl_name_, glsl_entry_);
+    glActiveTexture(GL_TEXTURE0+glsl_entry_);
+    glBindTexture(texture_type_, ptr_[1]);
+    //std::cout << "Bind Texture " << glsl_name_ << " to " << glsl_entry_ << std::endl;
+}
+void FieldData2D::BindImageSecondary() const
+{
+    glBindImageTexture(glsl_entry_, ptr_[1], 0, GL_FALSE, 0, GL_WRITE_ONLY, internal_format_);
+}
+void FieldData2D::BindDefault() const
 {
     //shader->setInt(glsl_name_, glsl_entry_);
     glActiveTexture(GL_TEXTURE0+glsl_entry_);
@@ -394,5 +405,5 @@ void AMRNode::AssignField()
 
 void AMRNode::BindRenderTarget(const char* fieldname)
 {
-    fields_.at(fieldname).BindTexture();
+    fields_.at(fieldname).BindTextureFront();
 }

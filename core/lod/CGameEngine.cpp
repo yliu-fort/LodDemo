@@ -30,8 +30,8 @@ Shader simpleShader, utilityShader;
 Shader fieldShader;
 
 std::unique_ptr<AMRMesh> grid;
-int lodLevel = 5;
-vec2 uv = vec2(0.5,0.5);
+int lodLevel = 4;
+vec2 uv = vec2(0.5,1.0);
 
 void renderAxis();
 void gui_interface()
@@ -64,7 +64,7 @@ CGameEngine::CGameEngine() :
 
     grid.reset(new AMRMesh(mat4(1)));
     //AMRMesh::MIN_DEPTH = 3;
-    //grid->Subdivision(Umath::EncodeMorton2( vec2(0.5,0.5)), (uint)0);
+    grid->CircularSubdivision(Umath::EncodeMorton2( uv ), (uint)lodLevel);
 
     GetCurrentCamera()->setClipping(0.001,100.0);
 
@@ -79,7 +79,7 @@ CGameEngine::~CGameEngine()
 
 void CGameEngine::Update()
 {
-    //grid->Subdivision(Umath::EncodeMorton2( uv ), (uint)lodLevel);
+    grid->CircularSubdivision(Umath::EncodeMorton2( uv ), (uint)lodLevel);
     grid->MultiLevelIntegrator();
 }
 

@@ -12,14 +12,14 @@ void AMRMesh::MultiLevelIntegrator()
     Shader* patch_communicator = &(AMRNode::kShaderList.at("communicator"));
 
     constexpr std::array<glm::vec2, 8> wi({glm::vec2(-1, 0),
-                                      glm::vec2( 1, 0),
-                                      glm::vec2( 0,-1),
-                                      glm::vec2( 0, 1),
-                                      glm::vec2(-1,-1),
-                                      glm::vec2(-1, 1),
-                                      glm::vec2( 1,-1),
-                                      glm::vec2( 1, 1)
-                                     });
+                                           glm::vec2( 1, 0),
+                                           glm::vec2( 0,-1),
+                                           glm::vec2( 0, 1),
+                                           glm::vec2(-1,-1),
+                                           glm::vec2(-1, 1),
+                                           glm::vec2( 1,-1),
+                                           glm::vec2( 1, 1)
+                                          });
 
     auto m_fAdvection = [&](const std::vector<PNode*>& list, int)
     {
@@ -30,50 +30,39 @@ void AMRMesh::MultiLevelIntegrator()
         for(auto block: list)
         {
             auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
-            //for(int i = -1; i <= 1; ++i)
-            //    for(int j = -1; j <= 1; ++j)
+
             for(auto idx: wi)
             {
-                int i = idx.x;
-                int j = idx.y;
+                int i = idx.x, j = idx.y;
                 if(i == 0 && j == 0) continue;
 
                 // Get neighbour node handle
-                auto shared_node = QueryNode(
-                                Umath::GetNeighbourWithLod2(block->morton_, i,  j, 15-block->level_)
-                            );
+                auto shared_node = QueryNode( Umath::GetNeighbourWithLod2(block->morton_, i,  j, 15-block->level_) );
 
+                // Block boundary patches and To coarse interface
                 if(shared_node == nullptr) continue;
+
+                // Block To fine interface
+                if(shared_node->IsSubdivided()) continue;
+
                 // now deal with block communication between "same lod level".
                 // ...
                 // bind buffers
-                for(auto& id_: *buffer_)
-                {
-                    id_.second.SwapBuffer();
-                    id_.second.BindImage();
-                    id_.second.SwapBuffer();
-                }
-
-                for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr()))
-                {
-                    id_.second.BindTexture();
-                }
+                for(auto& id_: *buffer_) { id_.second.BindImageFront(); }
+                for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr())) { id_.second.BindTextureFront(); }
 
                 // set constants ...
                 patch_communicator->setInt("xoffset",i);
                 patch_communicator->setInt("yoffset",j);
 
                 glm::uvec2 grid(AMRNode::FIELD_MAP_X,AMRNode::FIELD_MAP_Y);
-                if(i != 0)
-                    grid.x = 1;
-                if(j != 0)
-                    grid.y = 1;
+                if(i != 0) { grid.x = 1;}
+                if(j != 0) { grid.y = 1;}
 
                 // Dispatch kernel
                 glDispatchCompute(grid.x, grid.y, 1);
             }
         }
-        //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
         // advect local field
         advector->use();
@@ -98,8 +87,8 @@ void AMRMesh::MultiLevelIntegrator()
     };
 
     AMRNode::MultiLevelIntegrator(
-                [](const std::vector<PNode*>& list, int){},
-    //[](const std::vector<PNode*>& list, int){},
+                [](const std::vector<PNode*>&, int){},
+    //[](const std::vector<PNode*>&, int){},
     m_fAdvection,
     level_order_list_, 0);
 }
@@ -151,14 +140,14 @@ PNode* AMRMesh::QueryNode( uint v ) const
 void AMRMesh::Subdivision(uint code, uint lod)
 {
     auto uv = 2.0f*Umath::DecodeMorton2(code)-1.0f;
-    auto viewPos = glm::vec3(uv.x, 4.0/(1<<lod), uv.y);
-    auto viewY = 0;
+    auto viewPos = uv;
+    auto viewY = 4.0f/(1<<lod);
 
     auto func = [&, this](PNode* leaf){
         // distance between nodepos and viewpos
         float dx = fminf(fabsf(viewPos.x - leaf->lo_.x),fabsf(viewPos.x - leaf->hi_.x));
-        float dy = fminf(fabsf(viewPos.z - leaf->lo_.y),fabsf(viewPos.z - leaf->hi_.y));
-        float d = fmaxf(fmaxf(dx, dy), fabsf(viewPos.y - viewY));
+        float dy = fminf(fabsf(viewPos.y - leaf->lo_.y),fabsf(viewPos.y - leaf->hi_.y));
+        float d = fmaxf(fmaxf(dx, dy), fabsf(viewY));
 
         // compute refinement factor
         float K = CUTIN_FACTOR*leaf->Size();
@@ -185,6 +174,68 @@ void AMRMesh::Subdivision(uint code, uint lod)
         return false;
 
     };
+
+    GetHandle()->Exec(func);
+}
+
+void AMRMesh::CircularSubdivision(uint code, uint lod)
+{
+
+    auto uv = 2.0f*Umath::DecodeMorton2(code)-1.0f;
+    auto viewPos_ = uv;
+    auto viewY_ = 4.0f/(1<<lod);
+
+    constexpr std::array<glm::vec3, 8> wi({
+                                              glm::vec3(-2, 0, 0),
+                                              glm::vec3( 2, 0, 0),
+                                              glm::vec3( 0,-2, 0),
+                                              glm::vec3( 0, 2, 0),
+                                              glm::vec3(-2,-2, 0),
+                                              glm::vec3(-2, 2, 0),
+                                              glm::vec3( 2,-2, 0),
+                                              glm::vec3( 2, 2, 0)
+                                          });
+
+    auto func = [&, this](PNode* leaf){
+        // distance between nodepos and viewpos
+        float dx = fminf(fabsf(viewPos_.x - leaf->lo_.x),fabsf(viewPos_.x - leaf->hi_.x));
+        float dy = fminf(fabsf(viewPos_.y - leaf->lo_.y),fabsf(viewPos_.y - leaf->hi_.y));
+        float d = fmaxf(fmaxf(dx, dy), fabsf(viewY_));
+
+        for(auto dir: wi)
+        {
+            float dx = fminf(fabsf(viewPos_.x+dir.x - leaf->lo_.x),fabsf(viewPos_.x+dir.x - leaf->hi_.x));
+            float dy = fminf(fabsf(viewPos_.y+dir.y - leaf->lo_.y),fabsf(viewPos_.y+dir.y - leaf->hi_.y));
+            float di = fmaxf(fmaxf(dx, dy), fabsf(viewY_+dir.z));
+            d = fminf(d, di);
+        }
+
+        // compute refinement factor
+        float K = CUTIN_FACTOR*leaf->Size();
+
+        // Subdivision
+        if( leaf->level_ < MIN_DEPTH || (leaf->level_ < MAX_DEPTH && d < K) )
+        {
+            if(!leaf->IsSubdivided())
+            {
+                // split and bake heightmap
+                this->modified_ = true;
+                leaf->Split(global_model_matrix_);
+            }
+            return true;
+        }
+        else
+        {
+            if( leaf->IsSubdivided() && d >= CUTOUT_FACTOR * K )
+            {
+                this->modified_ = true;
+                leaf->ReleaseConnectedNodes();
+            }
+        }
+        return false;
+
+    };
+
 
     GetHandle()->Exec(func);
 }

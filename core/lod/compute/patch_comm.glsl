@@ -29,8 +29,5 @@ void main()
     ivec2 n = ivec2(gl_GlobalInvocationID.xy) + ivec2(vec2(-xoffset,-yoffset) * PIVOTN + RANGEN);
 
 
-    vec3 data = texelFetch(f0, n, 0).xyz;
-
-    //if(p.x < 2 || p.x > 29 || p.y < 2 || p.y > 29)
-        imageStore(f0w, p, vec4(data,1.0));
+    imageStore(f0w, p, texelFetch(f0, n, 0));
 }
