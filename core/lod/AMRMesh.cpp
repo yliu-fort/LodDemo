@@ -103,6 +103,7 @@ void AMRMesh::MultiLevelIntegrator()
 
             for(auto block: list[lod])
             {
+                if(block->IsSubdivided()) { continue; }
                 // Get neighbour node handle
                 auto shared_code = Umath::GetNeighbourWithLod2(block->morton_, i,  j, 15-block->level_);
 
@@ -241,6 +242,24 @@ void AMRMesh::MultiLevelIntegrator()
             }
         }
 
+        //// Advect local field
+        advector->use();
+        for(auto block: list[lod])
+        {
+            // bind buffers
+            auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
+            for(auto& id_: *buffer_)
+            {
+                id_.second.BindDefault();
+                id_.second.SwapBuffer();
+            }
+
+            // set constants ...
+
+            // Dispatch kernel
+            glDispatchCompute((AMRNode::FIELD_MAP_X/16)+1,(AMRNode::FIELD_MAP_Y/16)+1,1);
+        }
+
 
         //// Interpolates field from fine meshes to coarse meshes
         patch_interpolater->use();
@@ -289,25 +308,6 @@ void AMRMesh::MultiLevelIntegrator()
                 glDispatchCompute(grid.x, grid.y, 1);
             }
         }
-
-        //// Advect local field
-        advector->use();
-        for(auto block: list[lod])
-        {
-            // bind buffers
-            auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
-            for(auto& id_: *buffer_)
-            {
-                id_.second.BindDefault();
-                id_.second.SwapBuffer();
-            }
-
-            // set constants ...
-
-            // Dispatch kernel
-            glDispatchCompute((AMRNode::FIELD_MAP_X/16)+1,(AMRNode::FIELD_MAP_Y/16)+1,1);
-        }
-
 
     };
 
