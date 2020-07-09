@@ -114,46 +114,66 @@ vec2 DecodeMorton2(uint v)
     return n;
 }
 
+// Helper functions
+uint ReshapeMortonAddLod3(const uint& v, const uint& l)
+{
+    return (v | 0x80000000u) >> (3*l);
+}
+
+uint ReshapeMortonAddLod2(const uint& v, const uint& l)
+{
+    return ((v >> 2) | 0x80000000u) >> (2*l);
+}
+
+uint ReshapeMortonDiscardLod3(uint v, const uint& l)
+{
+    v <<= (3*l);
+    v &= 0x3FFFFFFFu;
+
+    return v;
+}
+
+uint ReshapeMortonDiscardLod2(uint v, const uint& l)
+{
+    v <<= (2*l);
+    v &= 0x3FFFFFFFu;
+    v <<= 2;
+
+    return v;
+}
+
 // Highest level is 10, lowest level (root) is 0
 uint EncodeMortonWithLod3(vec3 n, uint l)
 {
     //assert(l < 10, "Umath::EncodeMortonWithLod3: Fatal Error: Out of available lod range.");
-    return (Umath::EncodeMorton3(n) | 0x80000000u) >> (3*l);
+    return ReshapeMortonAddLod3(Umath::EncodeMorton3(n), l);
 }
-
 
 uint EncodeMortonWithLod3(float x, float y, float z, uint l)
 {
-    return (Umath::EncodeMorton3(x, y, z) | 0x80000000u) >> (3*l);
+    return ReshapeMortonAddLod3(Umath::EncodeMorton3(x, y, z),l);
 }
 
 // Highest level is 15, lowest level (root) is 0
 uint EncodeMortonWithLod2(vec2 n, uint l)
 {
-    return ((Umath::EncodeMorton2(n) >> 2) | 0x80000000u) >> (2*l);
+    return ReshapeMortonAddLod2(Umath::EncodeMorton2(n),l);
 }
 
 
 uint EncodeMortonWithLod2(float x, float y, uint l)
 {
-    return ((Umath::EncodeMorton2(x, y) >> 2) | 0x80000000u) >> (2*l);
+    return ReshapeMortonAddLod2(Umath::EncodeMorton2(x,y),l);
 }
-
 
 vec3 DecodeMortonWithLod3(uint v, uint l)
 {
-    v <<= (3*l);
-    v &= 0x3FFFFFFFu;
-    return DecodeMorton3(v);
+    return DecodeMorton3(ReshapeMortonDiscardLod3(v,l));
 }
-
 
 vec2 DecodeMortonWithLod2(uint v, uint l)
 {
-    v <<= (2*l);
-    v &= 0x3FFFFFFFu;
-    v <<= 2;
-    return DecodeMorton2(v);
+    return DecodeMorton2(ReshapeMortonDiscardLod2(v,l));
 }
 
 // for validation purpose
@@ -185,10 +205,9 @@ uint GetLodLevel(uint x)
 // ox, oy must have form like 1 << n for integer lattice move
 uint GetNeighbourWithLod2(uint v, int ox, int oy, uint l)
 {
-    v <<= (2*l);
-    v &= 0x3FFFFFFFu;
-    v <<= 2;
+    v = ReshapeMortonDiscardLod2(v,l);
 
+    // sign preserve Lsh
     ox <<= (l+1);
     oy <<= (l+1);
 
@@ -196,12 +215,44 @@ uint GetNeighbourWithLod2(uint v, int ox, int oy, uint l)
                 (int)MergeBits1(v >> 0 ) + ox,
                 (int)MergeBits1(v >> 1 ) + oy
                 );
-//std::cout << n.x << ", " << n.y << std::endl;
+    //std::cout << n.x << ", " << n.y << std::endl;
     if(n.x < 0 || n.x > 65535 || n.y < 0 || n.y > 65535)
         return 0xFFFFFFFFu;
 
     return EncodeMortonWithLod2(vec2(n)/65536.0f, l);
 }
 
+// diagonal mirror v *= 3FFF FFFF or FFFF FFFF
+uint FlipDiagWithLod2(uint v, uint l)
+{
+    v = ReshapeMortonDiscardLod2(v,l);
+    v ^= 0xFFFFFFFFu;
+    return ReshapeMortonAddLod2(v,l);
+}
+
+// horizontal mirror v*= 1555 5555 or 5555 5555
+uint FlipLRWithLod2(uint v, uint l)
+{
+    v = ReshapeMortonDiscardLod2(v,l);
+    v ^= 0x55555555u;
+    return ReshapeMortonAddLod2(v,l);
+}
+
+// vertical mirror v*= 2AAA AAAA or AAAA AAAA
+uint FlipUDWithLod2(uint v, uint l)
+{
+    v = ReshapeMortonDiscardLod2(v,l);
+    v ^= 0xAAAAAAAAu;
+    return ReshapeMortonAddLod2(v,l);
+}
+
+uint FlipWithLod2(uint v, int ox, int oy, uint l)
+{
+    if(ox == 0 && oy == 0) return v;
+    if(ox == 0) return FlipUDWithLod2(v,l);
+    if(oy == 0) return FlipLRWithLod2(v,l);
+    return FlipDiagWithLod2(v,l);
+
+}
 
 }

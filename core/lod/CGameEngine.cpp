@@ -30,8 +30,8 @@ Shader simpleShader, utilityShader;
 Shader fieldShader;
 
 std::unique_ptr<AMRMesh> grid;
-int lodLevel = 4;
-vec2 uv = vec2(0.6,0.6);
+int lodLevel = 5;
+vec2 uv = vec2(0.5,0.5);
 
 void renderAxis();
 void gui_interface()

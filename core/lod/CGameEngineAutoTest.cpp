@@ -57,5 +57,14 @@ void CGameEngine::AutoTest()
     printf("Original (%f, %f) Decoded 2D left  bottom (%f, %f) dist=%e\n",pos.x, pos.y, LBpos.x, LBpos.y, length(pos-LBpos));
     printf("Original (%f, %f) Decoded 2D right bottom (%f, %f) dist=%e\n",pos.x, pos.y, RBpos.x, RBpos.y, length(pos-RBpos));
 
+    auto flip_diag = Umath::DecodeMortonWithLod2(Umath::FlipDiagWithLod2(v, 5),5);
+    auto flip_lr = Umath::DecodeMortonWithLod2(Umath::FlipLRWithLod2(v, 5),5);
+    auto flip_ud = Umath::DecodeMortonWithLod2(Umath::FlipUDWithLod2(v, 5),5);
+
+    printf("Original (%f, %f) diagonal flipped (%f, %f)\n",pos.x, pos.y, flip_diag.x, flip_diag.y);
+    printf("Original (%f, %f) left-right flipped (%f, %f)\n",pos.x, pos.y, flip_lr.x, flip_lr.y);
+    printf("Original (%f, %f) up-down flipped (%f, %f)\n",pos.x, pos.y, flip_ud.x, flip_ud.y);
+
+
     //exit(EXIT_SUCCESS);
 }

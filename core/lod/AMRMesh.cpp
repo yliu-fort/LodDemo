@@ -23,13 +23,6 @@ void AMRMesh::MultiLevelIntegrator()
                                            glm::vec2( 1, 1)
                                           });
 
-    constexpr std::array<glm::vec2, 8> ei({
-                                              glm::vec2(-1,-1),
-                                              glm::vec2(-1, 1),
-                                              glm::vec2( 1,-1),
-                                              glm::vec2( 1, 1),
-                                          });
-
     auto L_vFrontPropagation = [&](const std::vector<std::vector<PNode*>>& list, int lod)
     {
 
@@ -97,6 +90,115 @@ void AMRMesh::MultiLevelIntegrator()
     auto L_vAdvection = [&](const std::vector<std::vector<PNode*>>& list, int lod)
     {
 
+        //// Fill External Boundary
+        // Periodic
+        // 1. find out all the "at most" cells i.e. leftmost, rightmost, within specific lod level
+        // 2. find its "mirror", i.e. horizontal mirror, vertical mirror and diagonal mirror
+        // 3. copy the relevent ghost layer content
+        patch_communicator->use();
+        for(auto idx: wi)
+        {
+            int i = idx.x, j = idx.y;
+            if(i == 0 && j == 0) continue;
+
+            for(auto block: list[lod])
+            {
+                // Get neighbour node handle
+                auto shared_code = Umath::GetNeighbourWithLod2(block->morton_, i,  j, 15-block->level_);
+
+                // Deal with the boundary (temporary solution, force periodicity)
+                if(shared_code == 0xFFFFFFFFu) // touch the bounding box
+                {
+                    auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
+                    if(i != 0)
+                    {
+                        auto shared_node = QueryNode( Umath::FlipLRWithLod2(block->morton_, 15-block->level_) );
+
+                        // Block boundary patches and To coarse interface
+                        if(shared_node != nullptr && !shared_node->IsSubdivided())
+                        {
+                            // Block To fine interface
+
+                            // now deal with block communication between "same lod level".
+                            // ...
+                            // bind buffers
+                            for(auto& id_: *buffer_) { id_.second.BindImageFront(); }
+                            for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr())) { id_.second.BindTextureFront(); }
+
+                            // set constants ...
+                            patch_communicator->setInt("xoffset",i);
+                            patch_communicator->setInt("yoffset",j);
+
+                            glm::uvec2 grid(AMRNode::FIELD_MAP_X,AMRNode::FIELD_MAP_Y);
+                            if(i != 0) { grid.x = 1;}
+                            if(j != 0) { grid.y = 1;}
+
+                            // Dispatch kernel
+                            glDispatchCompute(grid.x, grid.y, 1);
+                        }
+                    }
+                    if(j != 0)
+                    {
+                        auto shared_node = QueryNode( Umath::FlipUDWithLod2(block->morton_, 15-block->level_) );
+
+                        // Block boundary patches and To coarse interface
+                        if(shared_node != nullptr && !shared_node->IsSubdivided())
+                        {
+                            // Block To fine interface
+
+                            // now deal with block communication between "same lod level".
+                            // ...
+                            // bind buffers
+                            for(auto& id_: *buffer_) { id_.second.BindImageFront(); }
+                            for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr())) { id_.second.BindTextureFront(); }
+
+                            // set constants ...
+                            patch_communicator->setInt("xoffset",i);
+                            patch_communicator->setInt("yoffset",j);
+
+                            glm::uvec2 grid(AMRNode::FIELD_MAP_X,AMRNode::FIELD_MAP_Y);
+                            if(i != 0) { grid.x = 1;}
+                            if(j != 0) { grid.y = 1;}
+
+                            // Dispatch kernel
+                            glDispatchCompute(grid.x, grid.y, 1);
+                        }
+                    }
+                    if(i != 0 && j != 0)
+                    {
+                        if(Umath::GetNeighbourWithLod2(block->morton_, i,  0, 15-block->level_) == 0xFFFFFFFF
+                        && Umath::GetNeighbourWithLod2(block->morton_, 0,  j, 15-block->level_) == 0xFFFFFFFF)
+                        {
+                            auto shared_node = QueryNode( Umath::FlipDiagWithLod2(block->morton_, 15-block->level_) );
+
+                            // Block boundary patches and To coarse interface
+                            if(shared_node != nullptr && !shared_node->IsSubdivided())
+                            {
+                                // Block To fine interface
+
+                                // now deal with block communication between "same lod level".
+                                // ...
+                                // bind buffers
+                                for(auto& id_: *buffer_) { id_.second.BindImageFront(); }
+                                for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr())) { id_.second.BindTextureFront(); }
+
+                                // set constants ...
+                                patch_communicator->setInt("xoffset",i);
+                                patch_communicator->setInt("yoffset",j);
+
+                                glm::uvec2 grid(AMRNode::FIELD_MAP_X,AMRNode::FIELD_MAP_Y);
+                                if(i != 0) { grid.x = 1;}
+                                if(j != 0) { grid.y = 1;}
+
+                                // Dispatch kernel
+                                glDispatchCompute(grid.x, grid.y, 1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         //// Communicate with other neighbours...
         // fill the boundary patches
         // edge first, corner second
@@ -111,7 +213,8 @@ void AMRMesh::MultiLevelIntegrator()
                 auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
 
                 // Get neighbour node handle
-                auto shared_node = QueryNode( Umath::GetNeighbourWithLod2(block->morton_, i,  j, 15-block->level_) );
+                auto shared_code = Umath::GetNeighbourWithLod2(block->morton_, i,  j, 15-block->level_);
+                auto shared_node = QueryNode( shared_code );
 
                 // Block boundary patches and To coarse interface
                 if(shared_node == nullptr) continue;
@@ -138,11 +241,6 @@ void AMRMesh::MultiLevelIntegrator()
             }
         }
 
-        //// Fill External Boundary
-        // Periodic
-        // 1. find out all the "at most" cells i.e. leftmost, rightmost, within specific lod level
-        // 2. find its "mirror", i.e. horizontal mirror, vertical mirror and diagonal/anti-diagonal mirror
-        // 3. copy the relevent ghost layer content
 
         //// Interpolates field from fine meshes to coarse meshes
         patch_interpolater->use();

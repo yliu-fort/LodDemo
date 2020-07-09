@@ -29,7 +29,6 @@ glm::uint32 EncodeMorton2(float, float);
 glm::vec3 DecodeMorton3(glm::uint32);
 glm::vec2 DecodeMorton2(glm::uint32);
 
-
 // Encodes morton code for multi-scale objects
 // 0-10 lod level is available for 3d morton
 // 0-15 lod level is available for 2d morton
@@ -42,10 +41,14 @@ glm::vec3 DecodeMortonWithLod3(glm::uint32, glm::uint32);
 glm::vec2 DecodeMortonWithLod2(glm::uint32, glm::uint32);
 
 glm::uint32 GetLodLevel(glm::uint32);
-
 glm::uint32 CountLeadingZeros(glm::uint32);
 
 glm::uint32 GetNeighbourWithLod2(glm::uint32, int, int, glm::uint32);
+glm::uint32 FlipWithLod2(glm::uint32, int, int, glm::uint32);
 
+
+glm::uint32 FlipDiagWithLod2(glm::uint32, glm::uint32 );
+glm::uint32 FlipLRWithLod2(glm::uint32 , glm::uint32 );
+glm::uint32 FlipUDWithLod2(glm::uint32 , glm::uint32 );
 
 }
