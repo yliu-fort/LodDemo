@@ -36,7 +36,7 @@ void main()
     // notice that 1 - offset is applied to coarse index
     // 1 ~ 16 / 16 - 31
     ivec2 src = ivec2(gl_GlobalInvocationID.xy)
-            + ivec2(xoffset==0, yoffset==0)*(1 + ivec2(roffset&1, (roffset>>1)&1)*(ivec2(FIELD_MAP_X/2,FIELD_MAP_Y/2)-1))
+            + ivec2(xoffset==0, yoffset==0)*(1 + ivec2(roffset&1, (roffset>>1)&1)*(ivec2(FIELD_MAP_X/2,FIELD_MAP_Y/2)-2))
             + ivec2(vec2(xoffset, yoffset) * PIVOTN + RANGEN);
 
 

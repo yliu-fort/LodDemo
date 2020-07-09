@@ -24,10 +24,10 @@ void AMRMesh::MultiLevelIntegrator()
                                           });
 
     constexpr std::array<glm::vec2, 8> ei({
-                                           glm::vec2(-1,-1),
-                                           glm::vec2(-1, 1),
-                                           glm::vec2( 1,-1),
-                                           glm::vec2( 1, 1),
+                                              glm::vec2(-1,-1),
+                                              glm::vec2(-1, 1),
+                                              glm::vec2( 1,-1),
+                                              glm::vec2( 1, 1),
                                           });
 
     auto L_vFrontPropagation = [&](const std::vector<std::vector<PNode*>>& list, int lod)
@@ -38,17 +38,17 @@ void AMRMesh::MultiLevelIntegrator()
         if(list[lod] == list.back()) { return; }
         //// Extrapolates field from fine meshes to coarse meshes
         patch_extrapolator->use();
-        for(auto block: list[lod])
+        for(auto idx: wi) // ! Must be outer loop or cannot guarantee the edge - corner order
         {
-            // Nothing to do with block covered by finer meshes
-            if(block->IsSubdivided()) continue;
+            int i = idx.x, j = idx.y;
+            if(i == 0 && j == 0) continue;
 
-            auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
-
-            for(auto idx: wi)
+            for(auto block: list[lod])
             {
-                int i = idx.x, j = idx.y;
-                if(i == 0 && j == 0) continue;
+                // Nothing to do with block covered by finer meshes
+                if(block->IsSubdivided()) continue;
+
+                auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
 
                 // Interface only appears in certain directions
                 //if(!block->ContainToCoarseInterface(i,j)) continue;
@@ -101,14 +101,14 @@ void AMRMesh::MultiLevelIntegrator()
         // fill the boundary patches
         // edge first, corner second
         patch_communicator->use();
-        for(auto block: list[lod])
+        for(auto idx: wi)
         {
-            auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
+            int i = idx.x, j = idx.y;
+            if(i == 0 && j == 0) continue;
 
-            for(auto idx: wi)
+            for(auto block: list[lod])
             {
-                int i = idx.x, j = idx.y;
-                if(i == 0 && j == 0) continue;
+                auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
 
                 // Get neighbour node handle
                 auto shared_node = QueryNode( Umath::GetNeighbourWithLod2(block->morton_, i,  j, 15-block->level_) );
@@ -146,17 +146,17 @@ void AMRMesh::MultiLevelIntegrator()
 
         //// Interpolates field from fine meshes to coarse meshes
         patch_interpolater->use();
-        for(auto block: list[lod])
+        for(auto idx: wi)
         {
-            // Nothing to do with root level
-            if(block->level_ == 0) continue;
+            int i = idx.x, j = idx.y;
+            if(i == 0 && j == 0) continue;
 
-            auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
-
-            for(auto idx: wi)
+            for(auto block: list[lod])
             {
-                int i = idx.x, j = idx.y;
-                if(i == 0 && j == 0) continue;
+                // Nothing to do with root level
+                if(block->level_ == 0) continue;
+
+                auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
 
                 // Interface only appears in certain directions
                 if(!block->ContainToCoarseInterface(i,j)) continue;
@@ -196,9 +196,7 @@ void AMRMesh::MultiLevelIntegrator()
         advector->use();
         for(auto block: list[lod])
         {
-
             // bind buffers
-
             auto buffer_ = ((AMRNode*)block)->GetFieldPtr();
             for(auto& id_: *buffer_)
             {
@@ -216,11 +214,11 @@ void AMRMesh::MultiLevelIntegrator()
     };
 
     AMRNode::MultiLevelIntegrator(
-    //[](const std::vector<std::vector<PNode*>>&, int){},
-    L_vFrontPropagation,
-    //[](const std::vector<std::vector<PNode*>>&, int){},
-    L_vAdvection,
-    level_order_list_, 0);
+                //[](const std::vector<std::vector<PNode*>>&, int){},
+                L_vFrontPropagation,
+                //[](const std::vector<std::vector<PNode*>>&, int){},
+                L_vAdvection,
+                level_order_list_, 0);
 }
 
 

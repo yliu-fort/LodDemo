@@ -35,8 +35,8 @@ void main()
     imageStore(f1w, dest, texelFetch(f1, src, 0));
 
 
-    //// Sync ghost layer 2
-    //// layer 1: (1, 30) -> layer 2: (0, 31)
+    // Sync ghost layer 2
+    // layer 1: (1, 30) -> layer 2: (0, 31)
     //PIVOT = ( vec2(FIELD_MAP_X,FIELD_MAP_Y) - NUM_GHOST_LAYER + 1 )/2.0; // 15.5
     //RANGE = abs(ivec2(xoffset, yoffset))*(PIVOT); // 15.5
     //// layer 1: (2, 29) -> layer 2: (3, 28)
@@ -49,4 +49,6 @@ void main()
     //
     //
     //imageStore(f0w, dest, texelFetch(f0, src, 0));
+    //imageStore(f1w, dest, texelFetch(f1, src, 0));
+
 }

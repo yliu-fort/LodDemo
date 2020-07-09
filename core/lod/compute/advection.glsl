@@ -23,7 +23,7 @@ void main()
     vec3 data;
     data.x = texelFetch(f0, p + ivec2(-1,  0), 0).x; // advect towards +x
     data.y = texelFetch(f0, p + ivec2(-1, -1), 0).y; // advect towards +xy
-    data.z = texelFetch(f0, p + ivec2( 0, -1), 0).z; // advect towards +y
+    data.z = texelFetch(f0, p + ivec2( 1, -1), 0).z; // advect towards +y
 
     imageStore(f0w, p, vec4(data,1.0));
 
