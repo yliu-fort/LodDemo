@@ -286,46 +286,37 @@ void FieldData2D::AllocBuffers(int w, int h, float* data)
 {
     //if(texture_type_ != GL_TEXTURE_2D) return;
 
-    if(ptr_[0])
+    for(auto& ptr: ptr_)
     {
-        glGenTextures(1, &ptr_[0]);
+        if(!ptr)
+        {
+            //ptr = new GLuint;
+            glGenTextures(1, &ptr);
 
-        glActiveTexture(GL_TEXTURE10);
-        glEnable(texture_type_);
-        glBindTexture(texture_type_, ptr_[0]);
-        glTexParameteri(texture_type_, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(texture_type_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(texture_type_, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(texture_type_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glActiveTexture(GL_TEXTURE10);
+            glEnable(texture_type_);
+            glBindTexture(texture_type_, ptr);
+            glTexParameteri(texture_type_, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(texture_type_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(texture_type_, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(texture_type_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        //Generate a distance field to the center of the cube
-        glTexImage2D( texture_type_, 0, internal_format_, w, h, 0, format_, GL_FLOAT, data);
-    }
-
-    if(ptr_[1])
-    {
-        glGenTextures(1, &ptr_[1]);
-
-        glActiveTexture(GL_TEXTURE11);
-        glEnable(texture_type_);
-        glBindTexture(texture_type_, ptr_[1]);
-        glTexParameteri(texture_type_, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(texture_type_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(texture_type_, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(texture_type_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-        //Generate a distance field to the center of the cube
-        glTexImage2D( texture_type_, 0, internal_format_, w, h, 0, format_, GL_FLOAT, data);
+            //Generate a distance field to the center of the cube
+            glTexImage2D( texture_type_, 0, internal_format_, w, h, 0, format_, GL_FLOAT, data);
+        }
     }
 
 }
 void FieldData2D::ReleaseBuffers()
 {
     // Always allocate & deallocate as a pair
-    if(ptr_[0])
-        glDeleteTextures(1, &ptr_[0]);
-    if(ptr_[1])
-        glDeleteTextures(1, &ptr_[1]);
+    for(auto& ptr: ptr_)
+    {
+        if(ptr)
+        {
+            glDeleteTextures(1, &ptr);
+        }
+    }
 }
 
 
@@ -439,24 +430,20 @@ void AMRNode::AssignField()
     {
         id_.second.AllocBuffers(AMRNode::FIELD_MAP_X, AMRNode::FIELD_MAP_Y);
         id_.second.BindDefault();
+        id_.second.SwapBuffer();
 
         //std::cout << "Binding field buffer " << id_.second.glsl_name_ << std::endl;
     }
-
 
     // set constants ...
     initializer->setInt("level", this->level_);
     initializer->setInt("hash", this->morton_);
 
-
     // Dispatch kernel
     glDispatchCompute((AMRNode::FIELD_MAP_X/16)+1,(AMRNode::FIELD_MAP_Y/16)+1,1);
     //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     // swap buffer when finished
-    for(auto& id_: fields_)
-    {
-        id_.second.SwapBuffer();
-    }
+
 }
 
 void AMRNode::BindRenderTarget(const char* fieldname)

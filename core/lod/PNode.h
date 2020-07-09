@@ -144,7 +144,7 @@ public:
     const char* glsl_name_;
     GLuint glsl_entry_;
 
-    FieldData2D(){}
+    FieldData2D() {}
     FieldData2D(const char* glsl_name, GLuint glsl_entry)
         : glsl_name_(glsl_name)
         , glsl_entry_(glsl_entry)
@@ -168,7 +168,7 @@ protected:
     GLuint internal_format_ = GL_RGBA32F;
     GLuint format_ = GL_RGBA;
 
-    GLuint ptr_[2];
+    GLuint ptr_[2]{0,0};
 };
 
 class AMRNode : public PNode

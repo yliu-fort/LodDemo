@@ -23,9 +23,9 @@ void main()
     // get index in global work group i.e x,y position
     //ivec2 p = ivec2(gl_GlobalInvocationID.xy);
     vec2 PIVOT = ( vec2(FIELD_MAP_X,FIELD_MAP_Y) - NUM_GHOST_LAYER )/2.0f; // 15
-    vec2 RANGE = abs(ivec2(xoffset, yoffset))*(PIVOT); // 15
+    vec2 RANGE = abs(vec2(xoffset, yoffset))*(PIVOT); // 15
     vec2 PIVOTN = ( vec2(FIELD_MAP_X,FIELD_MAP_Y) - 2*NUM_GHOST_LAYER - 1 )/2.0f; // 13.5
-    vec2 RANGEN = abs(ivec2(xoffset, yoffset))*(PIVOTN + NUM_GHOST_LAYER ); // 15.5
+    vec2 RANGEN = abs(vec2(xoffset, yoffset))*(PIVOTN + NUM_GHOST_LAYER ); // 15.5
 
 
     // {0 ,0} ~ {0, 15}
@@ -34,13 +34,15 @@ void main()
     dest = dest * (1+ivec2(xoffset==0, yoffset==0)); // expand to 0 - 30
 
     // notice that 1 - offset is applied to coarse index
+    // 1 ~ 16 / 16 - 31
     ivec2 src = ivec2(gl_GlobalInvocationID.xy)
             + ivec2(xoffset==0, yoffset==0)*(1 + ivec2(roffset&1, (roffset>>1)&1)*(ivec2(FIELD_MAP_X/2,FIELD_MAP_Y/2)-1))
             + ivec2(vec2(xoffset, yoffset) * PIVOTN + RANGEN);
 
+
     // Extrapolation
     vec4 data = texelFetch(f0, src, 0); // +1 ?
-    imageStore(f0w, dest           , data);
+    imageStore(f0w, dest+ivec2(0,0), data);
     imageStore(f0w, dest+ivec2(1,0), data);
     imageStore(f0w, dest+ivec2(0,1), data);
     imageStore(f0w, dest+ivec2(1,1), data);

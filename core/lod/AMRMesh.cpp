@@ -23,14 +23,21 @@ void AMRMesh::MultiLevelIntegrator()
                                            glm::vec2( 1, 1)
                                           });
 
-    auto m_fFrontPropagation = [&](const std::vector<std::vector<PNode*>>& list, int lod)
+    constexpr std::array<glm::vec2, 8> ei({
+                                           glm::vec2(-1,-1),
+                                           glm::vec2(-1, 1),
+                                           glm::vec2( 1,-1),
+                                           glm::vec2( 1, 1),
+                                          });
+
+    auto L_vFrontPropagation = [&](const std::vector<std::vector<PNode*>>& list, int lod)
     {
-        //// Extrapolates field from fine meshes to coarse meshes
-        patch_extrapolator->use();
+
 
         // Nothing to do with the finest level
         if(list[lod] == list.back()) { return; }
-
+        //// Extrapolates field from fine meshes to coarse meshes
+        patch_extrapolator->use();
         for(auto block: list[lod])
         {
             // Nothing to do with block covered by finer meshes
@@ -44,7 +51,7 @@ void AMRMesh::MultiLevelIntegrator()
                 if(i == 0 && j == 0) continue;
 
                 // Interface only appears in certain directions
-                if(!block->ContainToCoarseInterface(i,j)) continue;
+                //if(!block->ContainToCoarseInterface(i,j)) continue;
 
                 // Get neighbour node handle
                 auto shared_node = QueryNode(
@@ -75,19 +82,22 @@ void AMRMesh::MultiLevelIntegrator()
                     patch_extrapolator->setInt("roffset",child->GetOffsetType());
 
                     glm::uvec2 grid(AMRNode::FIELD_MAP_X/2,AMRNode::FIELD_MAP_Y/2);
-                    if(i != 0) { grid.x = 1;}
-                    if(j != 0) { grid.y = 1;}
+                    if(i != 0) { grid.x = 1; }
+                    if(j != 0) { grid.y = 1; }
 
                     // Dispatch kernel
                     glDispatchCompute(grid.x, grid.y, 1);
+                    //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
                 }
             }
         }
     };
 
-    auto m_fAdvection = [&](const std::vector<std::vector<PNode*>>& list, int lod)
+    auto L_vAdvection = [&](const std::vector<std::vector<PNode*>>& list, int lod)
     {
-        //// communicate with other neighbours...
+
+        //// Communicate with other neighbours...
         // fill the boundary patches
         // edge first, corner second
         patch_communicator->use();
@@ -128,6 +138,12 @@ void AMRMesh::MultiLevelIntegrator()
             }
         }
 
+        //// Fill External Boundary
+        // Periodic
+        // 1. find out all the "at most" cells i.e. leftmost, rightmost, within specific lod level
+        // 2. find its "mirror", i.e. horizontal mirror, vertical mirror and diagonal/anti-diagonal mirror
+        // 3. copy the relevent ghost layer content
+
         //// Interpolates field from fine meshes to coarse meshes
         patch_interpolater->use();
         for(auto block: list[lod])
@@ -159,8 +175,8 @@ void AMRMesh::MultiLevelIntegrator()
                 // now deal with block communication on fine-coarse boundaries.
                 // ...
                 // bind buffers
-                for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr())) { id_.second.BindImageFront(); }
-                for(auto& id_: *buffer_) { id_.second.BindTextureFront(); }
+                for(auto& id_: *(((AMRNode*)shared_node)->GetFieldPtr())) { id_.second.BindImageFront(); } //dest
+                for(auto& id_: *buffer_) { id_.second.BindTextureFront(); } // src
 
                 // set constants ...
                 patch_interpolater->setInt("xoffset",i);
@@ -176,7 +192,7 @@ void AMRMesh::MultiLevelIntegrator()
             }
         }
 
-        //// advect local field
+        //// Advect local field
         advector->use();
         for(auto block: list[lod])
         {
@@ -196,13 +212,14 @@ void AMRMesh::MultiLevelIntegrator()
             glDispatchCompute((AMRNode::FIELD_MAP_X/16)+1,(AMRNode::FIELD_MAP_Y/16)+1,1);
         }
 
+
     };
 
     AMRNode::MultiLevelIntegrator(
-                //[](const std::vector<PNode*>&, int){},
-    m_fFrontPropagation,
-    //[](const std::vector<PNode*>&, int){},
-    m_fAdvection,
+    //[](const std::vector<std::vector<PNode*>>&, int){},
+    L_vFrontPropagation,
+    //[](const std::vector<std::vector<PNode*>>&, int){},
+    L_vAdvection,
     level_order_list_, 0);
 }
 

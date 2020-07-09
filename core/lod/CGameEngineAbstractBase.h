@@ -44,6 +44,7 @@ protected:
 private:
     int m_nWidth;
     int m_nHeight;
+    int m_nSingleStep;
 
     float m_fCurrentTime;
     float m_fLastTime;
@@ -53,6 +54,8 @@ private:
 
     bool m_bFirstMouse;
     bool m_bMouseButtonRight;
+    bool m_bPause;
+
 
     Camera* m_pControllerCamera;
 };
